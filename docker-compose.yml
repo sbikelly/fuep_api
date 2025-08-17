@@ -1,0 +1,49 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    container_name: fuep_pg
+    environment:
+      POSTGRES_USER: fuep
+      POSTGRES_PASSWORD: fuep
+      POSTGRES_DB: fuep_portal
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/db:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fuep -d fuep_portal"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7
+    container_name: fuep_redis
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    container_name: fuep_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: fuep
+      MINIO_ROOT_PASSWORD: fuepstrongpassword
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: fuep_mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  pgdata:
+  miniodata:

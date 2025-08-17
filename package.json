@@ -1,0 +1,30 @@
+{
+  "name": "fuep-postutme",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "install:all": "pnpm install --recursive",
+    "dev:api": "pnpm --filter @fuep/api start:dev",
+    "dev:web": "pnpm --filter @fuep/web dev",
+    "dev": "concurrently -n API,WEB -c auto \"pnpm dev:api\" \"pnpm dev:web\"",
+    "build:types": "pnpm --filter @fuep/types build || true",
+    "build:api": "pnpm --filter @fuep/api build || true",
+    "build:web": "pnpm --filter @fuep/web build || true",
+    "build": "pnpm build:types && pnpm build:api && pnpm build:web",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "format": "prettier -w .",
+    "test": "echo \"No tests yet\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.1.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.8.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,575 @@
+openapi: 3.0.3
+info:
+  title: FUEP Post-UTME Portal API
+  version: "1.0.0"
+  description: REST API for candidate and admin workflows, payments, admissions, matriculation, and migration.
+
+servers:
+  - url: https://api.example.edu/v1
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/check-jamb:
+    post:
+      summary: Check if JAMB Reg No exists in preloaded list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jambRegNo]
+              properties:
+                jambRegNo: { type: string, maxLength: 20 }
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists: { type: boolean }
+                  biodata:
+                    $ref: '#/components/schemas/JambPrelistMinimal'
+        "400": { description: Invalid input }
+
+  /payments/init:
+    post:
+      summary: Initialize a payment
+      security:
+        - bearerAuth: []   # optional; can be public for first payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose, jambRegNo, amount, session]
+              properties:
+                purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+                jambRegNo: { type: string }
+                amount: { type: number, format: float }
+                session: { type: string }
+                email: { type: string }
+                phone: { type: string }
+      responses:
+        "201":
+          description: Payment created / provider init response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitResponse'
+
+  /payments/webhook/remita:
+    post:
+      summary: Remita webhook callback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200": { description: Acknowledged }
+
+  /auth/login:
+    post:
+      summary: Candidate login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, description: "JAMB Reg No" }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: JWT tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        "401": { description: Invalid credentials }
+
+  /auth/change-password:
+    post:
+      summary: Change password (forced on first login)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        "204": { description: Changed }
+
+  /me:
+    get:
+      summary: Get current candidate composite profile
+      responses:
+        "200":
+          description: Composite profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+
+  /profile:
+    put:
+      summary: Update biodata profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+
+  /education-records:
+    post:
+      summary: Create education record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EducationRecordCreate' }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EducationRecord' }
+
+  /education-records/{id}:
+    put:
+      summary: Update education record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EducationRecordUpdate' }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EducationRecord' }
+
+  /uploads:
+    post:
+      summary: Upload a document (multipart)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [type, file]
+              properties:
+                type: { $ref: '#/components/schemas/UploadType' }
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Upload' }
+
+  /registration-form:
+    get:
+      summary: Registration form JSON (for preview)
+      responses:
+        "200":
+          description: JSON data
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrationPreview' }
+
+  /registration-form.pdf:
+    get:
+      summary: Registration form PDF
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /dashboard:
+    get:
+      summary: Candidate dashboard summary
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardSummary' }
+
+  /admission-letter.pdf:
+    get:
+      summary: Admission letter (PDF) if eligible
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "403": { description: Not eligible }
+
+  # -------- Admin --------
+
+  /admin/prelist/upload:
+    post:
+      summary: Upload JAMB prelist CSV/Excel
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, session]
+              properties:
+                session: { type: string }
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201": { description: Imported }
+
+  /admin/candidates:
+    get:
+      summary: List candidates (filters)
+      parameters:
+        - in: query
+          name: session
+          schema: { type: string }
+        - in: query
+          name: programme
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/DecisionStatus' }
+      responses:
+        "200":
+          description: Paged list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CandidateAdminView' }
+                  total: { type: integer }
+
+  /admin/admissions/{candidateId}:
+    patch:
+      summary: Update admission decision
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { $ref: '#/components/schemas/DecisionStatus' }
+                notes: { type: string }
+      responses:
+        "200": { description: Updated }
+
+  /admin/matric/{candidateId}:
+    post:
+      summary: Assign matric number (if eligible)
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Student record created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Student' }
+
+  /admin/reconcile/{paymentId}:
+    post:
+      summary: Manually re-verify payment with provider
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Current provider status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+
+  /admin/migrate/{studentId}:
+    post:
+      summary: Push student to main portal
+      parameters:
+        - in: path
+          name: studentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "202": { description: Migration queued }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    PaymentPurpose:
+      type: string
+      enum: [post_utme, acceptance, school_fee]
+
+    PaymentProvider:
+      type: string
+      enum: [remita, paystack, flutterwave]
+
+    PaymentStatus:
+      type: string
+      enum: [initiated, pending, success, failed, reconciled]
+
+    DecisionStatus:
+      type: string
+      enum: [pending, admitted, rejected]
+
+    UploadType:
+      type: string
+      enum: [passport, ssce, alevel, transcript, utme_result, other]
+
+    JambPrelistMinimal:
+      type: object
+      properties:
+        jambRegNo: { type: string }
+        surname: { type: string }
+        firstname: { type: string }
+        othernames: { type: string }
+        programmeCode: { type: string }
+        departmentCode: { type: string }
+        session: { type: string }
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tempPasswordFlag: { type: boolean }
+
+    Me:
+      type: object
+      properties:
+        candidate:
+          $ref: '#/components/schemas/Candidate'
+        profile:
+          $ref: '#/components/schemas/Profile'
+        application:
+          $ref: '#/components/schemas/Application'
+        completion:
+          type: object
+          properties:
+            biodata: { type: boolean }
+            education: { type: boolean }
+            nokSponsor: { type: boolean }
+            printedForm: { type: boolean }
+
+    Candidate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jambRegNo: { type: string }
+        username: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        tempPasswordFlag: { type: boolean }
+
+    Profile:
+      type: object
+      properties:
+        candidateId: { type: string, format: uuid }
+        surname: { type: string }
+        firstname: { type: string }
+        othernames: { type: string }
+        gender: { type: string }
+        dob: { type: string, format: date }
+        address: { type: string }
+        state: { type: string }
+        lga: { type: string }
+        city: { type: string }
+        nationality: { type: string }
+        maritalStatus: { type: string }
+
+    ProfileUpdate:
+      allOf:
+        - $ref: '#/components/schemas/Profile'
+
+    Application:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        session: { type: string }
+        programmeCode: { type: string }
+        departmentCode: { type: string }
+        status: { $ref: '#/components/schemas/DecisionStatus' }
+
+    EducationRecordCreate:
+      type: object
+      required: [levelType]
+      properties:
+        levelType: { type: string }
+        examType: { type: string }
+        year: { type: string }
+        schoolName: { type: string }
+        certificateNo: { type: string }
+        gradeSummary: { type: string }
+
+    EducationRecordUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EducationRecordCreate'
+
+    EducationRecord:
+      allOf:
+        - $ref: '#/components/schemas/EducationRecordCreate'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            candidateId: { type: string, format: uuid }
+
+    Upload:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/UploadType' }
+        s3Url: { type: string }
+        checksumSha256: { type: string }
+        sizeBytes: { type: integer }
+        mimeType: { type: string }
+        scanStatus:
+          type: string
+          enum: [pending, clean, infected, failed]
+        createdAt: { type: string, format: date-time }
+
+    RegistrationPreview:
+      type: object
+      properties:
+        biodata: { $ref: '#/components/schemas/Profile' }
+        education:
+          type: array
+          items: { $ref: '#/components/schemas/EducationRecord' }
+        nok:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              relation: { type: string }
+              phone: { type: string }
+              email: { type: string }
+              address: { type: string }
+        sponsor:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              phone: { type: string }
+              email: { type: string }
+              address: { type: string }
+
+    DashboardSummary:
+      type: object
+      properties:
+        passportUrl: { type: string }
+        name: { type: string }
+        programme: { type: string }
+        department: { type: string }
+        admissionStatus: { $ref: '#/components/schemas/DecisionStatus' }
+        matricNo: { type: string, nullable: true }
+        payments:
+          type: array
+          items: { $ref: '#/components/schemas/Payment' }
+
+    PaymentInitResponse:
+      type: object
+      properties:
+        paymentId: { type: string, format: uuid }
+        provider: { $ref: '#/components/schemas/PaymentProvider' }
+        providerRef: { type: string }
+        redirectUrl: { type: string }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+
+    Payment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+        provider: { $ref: '#/components/schemas/PaymentProvider' }
+        providerRef: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        createdAt: { type: string, format: date-time }
+
+    CandidateAdminView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jambRegNo: { type: string }
+        name: { type: string }
+        session: { type: string }
+        programmeCode: { type: string }
+        departmentCode: { type: string }
+        admissionStatus: { $ref: '#/components/schemas/DecisionStatus' }
+        payments:
+          type: array
+          items: { $ref: '#/components/schemas/Payment' }
+
+    Student:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        matricNo: { type: string }
+        deptCode: { type: string }
+        session: { type: string }
