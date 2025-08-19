@@ -23,6 +23,7 @@ import helmet from 'helmet';
 import { join } from 'path';
 
 import { db } from './db/knex.js';
+import { createCandidateModule } from './modules/candidates/index.js';
 // Import payments module initializer
 import { createPaymentsModule } from './payment/index.js';
 
@@ -376,6 +377,21 @@ try {
   console.log('Payment routes mounted successfully');
 } catch (error) {
   console.error('Error initializing payments module:', error);
+  throw error;
+}
+
+// Initialize and mount candidate module
+let candidateModule;
+try {
+  console.log('Initializing candidate module...');
+  candidateModule = createCandidateModule();
+  console.log('Candidate module initialized successfully');
+
+  console.log('Mounting candidate routes...');
+  app.use('/candidates', candidateModule.router);
+  console.log('Candidate routes mounted successfully');
+} catch (error) {
+  console.error('Error initializing candidate module:', error);
   throw error;
 }
 

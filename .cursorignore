@@ -1,0 +1,67 @@
+# Cursor ignore patterns - explicitly allow important project files
+# Force include environment and config files that are important for development
+
+# Allow all .env files
+!.env*
+!apps/**/.env*
+
+# Allow all Docker files
+!Dockerfile*
+!docker-compose*
+
+# Allow all TypeScript config files
+!tsconfig*
+!tsconfig.*.json
+
+# Allow all package files
+!package*.json
+!pnpm-*.yaml
+!pnpm-*.yml
+
+# Allow all config files
+!.eslintrc*
+!eslint.config.*
+!.prettierrc*
+!.editorconfig
+!.npmrc
+!.nvmrc
+!.tool-versions
+
+# Allow all documentation
+!*.md
+!docs/**/*
+
+# Allow all source files
+!src/**/*
+!apps/**/src/**/*
+
+# Allow all test files
+!**/__tests__/**/*
+!*.test.*
+!*.spec.*
+
+# Allow all type definition files
+!packages/types/**/*
+!*.d.ts
+
+# Allow all database and infrastructure files
+!infra/**/*
+!knexfile*
+!migrations/**/*
+
+# Allow all API and OpenAPI files
+!openapi.yaml
+!openapi.yml
+!swagger.*
+
+# Only ignore truly unnecessary files
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.git/

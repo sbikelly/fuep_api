@@ -14,7 +14,8 @@
     "format": "prettier -w .",
     "format:check": "prettier -c .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "gen:icons": "node ./scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@fuep/types": "workspace:*",
@@ -29,6 +30,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "dotenv": "^16.4.5",
     "jsdom": "^26.1.0",
+    "sharp": "^0.34.3",
     "typescript": "^5.5.4",
     "vite": "^5.4.5",
     "vitest": "^2.0.5"
