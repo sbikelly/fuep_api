@@ -40,27 +40,26 @@ export class FlutterwavePaymentProvider implements IPaymentProvider {
       // Generate transaction reference
       const txRef = this.generateTxRef(request);
 
-      // Create payment data
-      const paymentData = {
-        tx_ref: txRef,
+      // Create payment request
+      const paymentRequest = {
+        tx_ref: `${request.candidateId}_${request.purpose}_${Date.now()}`, // Use candidate and purpose for transaction reference
         amount: request.amount,
         currency: request.currency,
-        redirect_url: `${process.env.FRONTEND_BASE_URL}/payment/callback?provider=flutterwave&tx_ref=${txRef}`,
+        redirect_url: `${process.env.PAYMENT_CALLBACK_URL || 'http://localhost:5173'}/payment/callback`,
         customer: {
           email: request.email || 'candidate@fuep.edu.ng',
-          name: `Candidate ${request.candidateId}`,
           phone_number: request.phone || '08000000000',
+          name: request.candidateId, // Will be replaced with actual candidate name
         },
         customizations: {
           title: 'FUEP Post-UTME Payment',
-          description: `${request.purpose} payment for ${request.session} session`,
-          logo: `${process.env.FRONTEND_BASE_URL}/assets/fuep-logo.png`,
+          description: `${request.purpose} Payment - ${request.session} Session`,
+          logo: 'https://fuep.edu.ng/logo.png',
         },
         meta: {
           candidate_id: request.candidateId,
           purpose: request.purpose,
           session: request.session,
-          idempotency_key: request.idempotencyKey,
         },
       };
 
@@ -77,7 +76,7 @@ export class FlutterwavePaymentProvider implements IPaymentProvider {
         redirectUrl: paymentUrl,
         expiresAt,
         metadata: {
-          paymentData,
+          paymentData: paymentRequest,
           txRef,
           publicKey: this.publicKey,
         },

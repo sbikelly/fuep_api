@@ -10,7 +10,6 @@ import { PaymentProviderRegistry } from './providers/provider-registry.js';
 
 export class PaymentService {
   private providerRegistry: PaymentProviderRegistry;
-  private paymentStore = new Map<string, PaymentTransaction>(); // In-memory store for testing
 
   constructor(providerRegistry: PaymentProviderRegistry) {
     console.log('[PaymentService] Constructor called');
@@ -27,57 +26,11 @@ export class PaymentService {
     email?: string;
     phone?: string;
     preferredProvider?: string;
-    idempotencyKey?: string;
-    requestHash?: string;
   }): Promise<ProviderPaymentGatewayResponse> {
     try {
-      // Use provided idempotency key or generate one
-      const idempotencyKey = request.idempotencyKey || this.generateIdempotencyKey(request);
-
-      console.log(`[PaymentService] Request idempotencyKey: ${request.idempotencyKey}`);
       console.log(
-        `[PaymentService] Generated idempotencyKey: ${this.generateIdempotencyKey(request)}`
+        `[PaymentService] Processing payment initiation for candidate: ${request.candidateId}`
       );
-      console.log(`[PaymentService] Final idempotency key: ${idempotencyKey}`);
-      console.log(
-        `[PaymentService] Using idempotency key: ${idempotencyKey} (provided: ${!!request.idempotencyKey})`
-      );
-
-      // Generate request hash for idempotency validation
-      const requestHash = request.requestHash || this.generateRequestHash(request);
-
-      console.log(
-        `[PaymentService] Processing payment initiation with idempotency key: ${idempotencyKey}`
-      );
-      console.log(`[PaymentService] Request hash: ${requestHash}`);
-
-      // Check if payment already exists with this idempotency key
-      const existingPayment = await this.getPaymentByIdempotencyKey(idempotencyKey);
-      console.log(
-        `[PaymentService] Checking for existing payment with key: ${idempotencyKey}, found: ${!!existingPayment}`
-      );
-
-      if (existingPayment) {
-        // Verify request hash matches for true idempotency
-        if ((existingPayment as any).requestHash === requestHash) {
-          console.log(
-            `[PaymentService] Idempotent request - returning existing payment for key: ${idempotencyKey}`
-          );
-          console.log(`[PaymentService] Replay count: ${(existingPayment as any).replayCount + 1}`);
-
-          // Update replay statistics
-          await this.updatePaymentReplayStats(existingPayment.id, requestHash);
-
-          // Return existing payment details
-          return this.createResponseFromExistingPayment(existingPayment);
-        } else {
-          // Same key, different request - conflict
-          console.error(
-            `[PaymentService] Idempotency conflict: key ${idempotencyKey} exists with different request hash`
-          );
-          throw new Error('Idempotency key conflict: request body differs from original');
-        }
-      }
 
       // Select payment provider
       const provider = this.selectPaymentProvider(request.preferredProvider);
@@ -94,7 +47,7 @@ export class PaymentService {
         session: request.session,
         email: request.email,
         phone: request.phone,
-        idempotencyKey,
+        idempotencyKey: '', // Will be removed in future durable implementation
         metadata: {
           session: request.session,
           purpose: request.purpose,
@@ -113,8 +66,8 @@ export class PaymentService {
         amount: request.amount,
         currency: request.currency,
         status: 'initiated' as PaymentStatus,
-        idempotencyKey,
-        requestHash,
+        idempotencyKey: '', // Will be removed in future durable implementation
+        requestHash: '', // Will be removed in future durable implementation
         responseSnapshot: providerResponse,
         statusCode: 201,
         externalReference: providerResponse.providerReference,
@@ -284,30 +237,6 @@ export class PaymentService {
     }
   }
 
-  private generateIdempotencyKey(request: any): string {
-    const base = `${request.candidateId}_${request.purpose}_${request.session}`;
-    return createHash('sha256').update(base).digest('hex');
-  }
-
-  private generateRequestHash(request: any): string {
-    // Create a canonicalized version of the request for consistent hashing
-    const canonicalRequest: Record<string, any> = {
-      candidateId: request.candidateId,
-      purpose: request.purpose,
-      amount: request.amount,
-      currency: request.currency || 'NGN',
-      session: request.session,
-      email: request.email || '',
-      phone: request.phone || '',
-    };
-
-    // Sort keys and create consistent JSON string
-    const sortedKeys = Object.keys(canonicalRequest).sort();
-    const canonicalString = sortedKeys.map((key) => `${key}:${canonicalRequest[key]}`).join('|');
-
-    return createHash('sha256').update(canonicalString).digest('hex');
-  }
-
   private selectPaymentProvider(preferredProvider?: string): IPaymentProvider | null {
     if (preferredProvider) {
       const provider = this.providerRegistry.getProvider(preferredProvider as any);
@@ -320,28 +249,7 @@ export class PaymentService {
     return this.providerRegistry.getPrimaryProvider();
   }
 
-  private createResponseFromExistingPayment(
-    payment: PaymentTransaction
-  ): ProviderPaymentGatewayResponse {
-    return {
-      success: true,
-      provider: payment.provider!,
-      providerReference: payment.providerRef!,
-      paymentUrl: payment.receiptUrl,
-      redirectUrl: payment.receiptUrl,
-      expiresAt: payment.expiresAt || new Date(),
-      metadata: payment.metadata || {},
-    };
-  }
-
   // Database operations (these would be implemented with actual database calls)
-  private async getPaymentByIdempotencyKey(
-    idempotencyKey: string
-  ): Promise<PaymentTransaction | null> {
-    // TODO: Implement database query
-    return this.paymentStore.get(idempotencyKey) || null;
-  }
-
   private async getPaymentByProviderRef(providerRef: string): Promise<PaymentTransaction | null> {
     // TODO: Implement database query
     return null;
@@ -378,10 +286,6 @@ export class PaymentService {
       updatedAt: new Date(),
     } as PaymentTransaction;
 
-    // Store in memory for testing idempotency
-    this.paymentStore.set(data.idempotencyKey, payment);
-    console.log(`[PaymentService] Payment stored with idempotency key: ${data.idempotencyKey}`);
-
     return payment;
   }
 
@@ -397,11 +301,6 @@ export class PaymentService {
   private async updatePaymentReceipt(paymentId: string, receiptUrl: string): Promise<void> {
     // TODO: Implement database update
     console.log(`Updating payment ${paymentId} receipt URL to ${receiptUrl}`);
-  }
-
-  private async updatePaymentReplayStats(paymentId: string, requestHash: string): Promise<void> {
-    // TODO: Implement database update for replay statistics
-    console.log(`Updating payment ${paymentId} replay statistics for request hash: ${requestHash}`);
   }
 
   private generateProviderEventId(provider: string, payload: any): string {

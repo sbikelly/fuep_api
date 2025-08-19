@@ -43,20 +43,34 @@ export class RemitaPaymentProvider implements IPaymentProvider {
       // Generate RRR (Remita Retrieval Reference)
       const rrr = this.generateRRR(request);
 
-      // Create payment order
-      const orderData = {
+      // Create payment request
+      const paymentRequest = {
         merchantId: this.merchantId,
         serviceTypeId: this.getServiceTypeId(request.purpose),
         amount: request.amount,
-        orderId: request.idempotencyKey,
-        payerName: `${request.candidateId}`, // Will be updated with actual name
+        orderId: `${request.candidateId}_${request.purpose}_${Date.now()}`, // Use candidate and purpose for order ID
+        payerName: request.candidateId, // Will be replaced with actual candidate name
         payerEmail: request.email || 'candidate@fuep.edu.ng',
         payerPhone: request.phone || '08000000000',
-        description: `FUEP ${request.purpose} payment for ${request.session} session`,
+        description: `FUEP ${request.purpose} Payment - ${request.session}`,
+        returnUrl: `${process.env.PAYMENT_CALLBACK_URL || 'http://localhost:5173'}/payment/callback`,
+        onCloseUrl: `${process.env.PAYMENT_CALLBACK_URL || 'http://localhost:5173'}/payment/callback`,
         customFields: [
-          { name: 'candidate_id', value: request.candidateId },
-          { name: 'purpose', value: request.purpose },
-          { name: 'session', value: request.session },
+          {
+            name: 'candidate_id',
+            value: request.candidateId,
+            type: 'String',
+          },
+          {
+            name: 'purpose',
+            value: request.purpose,
+            type: 'String',
+          },
+          {
+            name: 'session',
+            value: request.session,
+            type: 'String',
+          },
         ],
       };
 
@@ -73,7 +87,7 @@ export class RemitaPaymentProvider implements IPaymentProvider {
         redirectUrl: paymentUrl,
         expiresAt,
         metadata: {
-          orderData,
+          orderData: paymentRequest,
           rrr,
           merchantId: this.merchantId,
         },

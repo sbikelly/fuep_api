@@ -23,20 +23,7 @@ export class PaymentController {
 
   async initiatePayment(req: Request, res: Response): Promise<void> {
     try {
-      // Extract idempotency key from header
-      const idempotencyKey = req.headers['idempotency-key'] as string;
-      if (!idempotencyKey) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing Idempotency-Key header',
-          timestamp: new Date(),
-        });
-        return;
-      }
-
-      console.log(
-        `[PaymentController] Processing payment initiation with idempotency key: ${idempotencyKey}`
-      );
+      console.log('[PaymentController] Processing payment initiation');
 
       // Validate request
       const validationResult = PaymentInitiationRequestSchema.safeParse(req.body);
@@ -56,7 +43,7 @@ export class PaymentController {
       // For now, we'll use a mock candidate ID
       const candidateId = 'mock-candidate-id';
 
-      // Initialize payment with idempotency key
+      // Initialize payment
       const paymentResponse = await this.paymentService.initializePayment({
         candidateId,
         purpose: requestData.purpose,
@@ -65,7 +52,6 @@ export class PaymentController {
         session: requestData.session,
         email: requestData.email,
         phone: requestData.phone,
-        idempotencyKey,
       });
 
       // Create response
@@ -80,7 +66,6 @@ export class PaymentController {
           amount: requestData.amount,
           currency: 'NGN',
           status: 'initiated',
-          idempotencyKey: idempotencyKey, // Use the header value
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -93,17 +78,6 @@ export class PaymentController {
       res.status(201).json(response);
     } catch (error) {
       console.error('Payment initiation failed:', error);
-
-      // Handle idempotency conflicts specifically
-      if (error instanceof Error && error.message.includes('Idempotency key conflict')) {
-        res.status(422).json({
-          success: false,
-          error: 'Idempotency key conflict',
-          message: 'The provided Idempotency-Key exists with a different request body',
-          timestamp: new Date(),
-        });
-        return;
-      }
 
       res.status(500).json({
         success: false,

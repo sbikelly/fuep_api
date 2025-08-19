@@ -43,49 +43,49 @@ export const PaymentPurposeSchema = z.enum(['post_utme', 'acceptance', 'school_f
 export interface PaymentTransaction extends BaseEntity {
   candidateId: string;
   purpose: PaymentPurpose;
-  provider?: PaymentProvider;
+  provider?: string;
   providerRef?: string;
   amount: number;
   currency: string;
   status: PaymentStatus;
-  idempotencyKey: string;
-  requestHash: string;
+  idempotencyKey?: string; // Will be removed in future durable implementation
+  requestHash?: string; // Will be removed in future durable implementation
   responseSnapshot?: any;
-  statusCode: number;
-  firstRequestAt: Date;
-  lastRequestAt: Date;
-  replayCount: number;
+  statusCode?: number;
+  firstRequestAt?: Date;
+  lastRequestAt?: Date;
+  replayCount?: number;
   externalReference?: string;
   metadata?: Record<string, any>;
-  webhookReceivedAt?: Date;
-  verifiedAt?: Date;
-  receiptUrl?: string;
   expiresAt?: Date;
   rawPayload?: any;
+  receiptUrl?: string;
+  webhookReceivedAt?: Date;
+  verifiedAt?: Date;
 }
 
 export const PaymentTransactionSchema = BaseEntitySchema.extend({
   candidateId: z.string().uuid(),
   purpose: PaymentPurposeSchema,
-  provider: PaymentProviderSchema.optional(),
-  providerRef: z.string().max(128).optional(),
+  provider: z.string().optional(),
+  providerRef: z.string().optional(),
   amount: z.number().positive(),
-  currency: z.string().max(8).default('NGN'),
+  currency: z.string().min(3).max(3),
   status: PaymentStatusSchema,
-  idempotencyKey: z.string().max(128),
-  requestHash: z.string().length(64),
+  idempotencyKey: z.string().max(128).optional(), // Will be removed in future durable implementation
+  requestHash: z.string().max(128).optional(), // Will be removed in future durable implementation
   responseSnapshot: z.any().optional(),
-  statusCode: z.number().int().min(100).max(599),
-  firstRequestAt: z.date(),
-  lastRequestAt: z.date(),
-  replayCount: z.number().int().min(1),
-  externalReference: z.string().max(128).optional(),
+  statusCode: z.number().optional(),
+  firstRequestAt: z.date().optional(),
+  lastRequestAt: z.date().optional(),
+  replayCount: z.number().optional(),
+  externalReference: z.string().optional(),
   metadata: z.record(z.any()).optional(),
-  webhookReceivedAt: z.date().optional(),
-  verifiedAt: z.date().optional(),
-  receiptUrl: z.string().url().optional(),
   expiresAt: z.date().optional(),
   rawPayload: z.any().optional(),
+  receiptUrl: z.string().optional(),
+  webhookReceivedAt: z.date().optional(),
+  verifiedAt: z.date().optional(),
 });
 
 // Payment Event for audit trail
@@ -96,40 +96,43 @@ export interface PaymentEvent extends BaseEntity {
   toStatus?: PaymentStatus;
   providerEventId?: string;
   signatureHash?: string;
-  providerData?: Record<string, any>;
+  providerData?: any;
   metadata?: Record<string, any>;
 }
 
 export const PaymentEventSchema = BaseEntitySchema.extend({
   paymentId: z.string().uuid(),
-  eventType: z.string().max(64),
+  eventType: z.string().max(100),
   fromStatus: PaymentStatusSchema.optional(),
   toStatus: PaymentStatusSchema.optional(),
   providerEventId: z.string().max(128).optional(),
-  signatureHash: z.string().length(64).optional(),
-  providerData: z.record(z.any()).optional(),
+  signatureHash: z.string().max(128).optional(),
+  providerData: z.any().optional(),
   metadata: z.record(z.any()).optional(),
 });
 
 // Payment initiation request (for API compatibility)
 export interface PaymentInitiationRequest {
   purpose: PaymentPurpose;
-  jambRegNo: string;
   amount: number;
+  currency?: string;
   session: string;
   email?: string;
   phone?: string;
-  idempotencyKey?: string; // Auto-generated if not provided
+  preferredProvider?: string;
 }
 
 export const PaymentInitiationRequestSchema = z.object({
   purpose: PaymentPurposeSchema,
-  jambRegNo: z.string().min(1).max(20),
-  amount: z.number().positive().describe('Amount in NGN'),
+  amount: z.number().positive(),
+  currency: z.string().optional(),
   session: z.string().regex(/^\d{4}\/\d{4}$/),
   email: z.string().email().optional(),
-  phone: z.string().optional(),
-  idempotencyKey: z.string().optional(),
+  phone: z
+    .string()
+    .regex(/^\+?[1-9]\d{1,14}$/)
+    .optional(),
+  preferredProvider: z.string().optional(),
 });
 
 // Simplified PaymentTransaction interface for backward compatibility
@@ -324,19 +327,6 @@ export const PaymentReconciliationSchema = BaseEntitySchema.extend({
   reconciledAt: z.date().optional(),
   reconciledBy: z.string().uuid().optional(),
   notes: z.string().max(1000).optional(),
-});
-
-// Idempotency Key Generation
-export interface IdempotencyKeyData {
-  candidateId: string;
-  purpose: PaymentPurpose;
-  session: string;
-}
-
-export const IdempotencyKeyDataSchema = z.object({
-  candidateId: z.string().uuid(),
-  purpose: PaymentPurposeSchema,
-  session: z.string().regex(/^\d{4}\/\d{4}$/),
 });
 
 // Payment Status Check
