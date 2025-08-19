@@ -24,7 +24,7 @@ export default function Home() {
             Begin your journey to FUEP by creating a new application. You'll need your JAMB
             registration number and supporting documents.
           </p>
-          <Link to="/login" className="btn btn-primary btn-full">
+          <Link to="/apply" className="btn btn-primary btn-full">
             Start Application
           </Link>
         </div>
@@ -176,8 +176,8 @@ export default function Home() {
           >
             University Website
           </a>
-          <a
-            href="/faq"
+          <Link
+            to="/faq"
             className="btn btn-outline"
             style={{
               border: '1px solid var(--border-medium)',
@@ -186,9 +186,9 @@ export default function Home() {
             }}
           >
             FAQ
-          </a>
-          <a
-            href="/downloads"
+          </Link>
+          <Link
+            to="/downloads"
             className="btn btn-outline"
             style={{
               border: '1px solid var(--border-medium)',
@@ -197,7 +197,7 @@ export default function Home() {
             }}
           >
             Downloads
-          </a>
+          </Link>
         </div>
       </div>
     </div>
