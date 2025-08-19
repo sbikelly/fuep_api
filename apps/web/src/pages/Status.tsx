@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import ICTBadge from '../components/ICTBadge';
+import { getApiBaseUrl, waitForConfig } from '../utils/config';
 
 // Define the health status interface based on what the API actually returns
 interface HealthStatus {
@@ -17,7 +18,13 @@ const Status: React.FC = () => {
   useEffect(() => {
     const checkApiStatus = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/health`);
+        // Wait for configuration to be loaded
+        await waitForConfig();
+
+        const apiUrl = getApiBaseUrl();
+        console.log('Checking API status at:', apiUrl);
+
+        const response = await fetch(`${apiUrl}/health`);
         if (response.ok) {
           const data = await response.json();
           setApiStatus(data);
@@ -25,6 +32,7 @@ const Status: React.FC = () => {
           setError(`API returned ${response.status}: ${response.statusText}`);
         }
       } catch (err) {
+        console.error('API check failed:', err);
         setError('Failed to connect to API server');
       } finally {
         setIsLoading(false);
@@ -34,7 +42,9 @@ const Status: React.FC = () => {
     checkApiStatus();
   }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
+    if (!status) return 'text-secondary';
+
     switch (status.toLowerCase()) {
       case 'healthy':
       case 'ok':
@@ -49,7 +59,9 @@ const Status: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string | undefined) => {
+    if (!status) return '❓';
+
     switch (status.toLowerCase()) {
       case 'healthy':
       case 'ok':

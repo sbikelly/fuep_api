@@ -6,6 +6,7 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import App from './App';
+import CandidateDashboard from './pages/CandidateDashboard';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
       { path: 'profile', element: _jsx(Profile, {}) },
       { path: 'payment', element: _jsx(Payment, {}) },
       { path: 'status', element: _jsx(Status, {}) },
+      { path: 'candidate/:candidateId', element: _jsx(CandidateDashboard, {}) },
       { path: '*', element: _jsx(NotFound, {}) },
     ],
   },
