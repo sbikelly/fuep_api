@@ -2,10 +2,10 @@
 
 A comprehensive digital solution for Federal University of Education, Pankshin (FUEP) to streamline the post-UTME examination process. The system modernizes traditional paper-based applications, providing secure, efficient, and user-friendly platforms for candidates and administrators.
 
-## 🚀 **Current Status: Phase 7 Complete**
+## 🚀 **Current Status: Phase 8 Complete**
 
-**Latest Achievement**: Payment Gateway Integration ✅  
-**Next Phase**: Testing & Production Deployment
+**Latest Achievement**: Documents & Uploads System ✅  
+**Next Phase**: Candidate Portal Features (Phase 9)
 
 ### ✅ **Completed Features**
 
@@ -13,14 +13,17 @@ A comprehensive digital solution for Federal University of Education, Pankshin (
 - **Phase 4-5**: Frontend bootstrap, shared types package
 - **Phase 6**: Core authentication and profile management flows
 - **Phase 7**: **Payment Gateway Integration** - Remita + Flutterwave with webhook processing
+- **Phase 8**: **Documents & Uploads System** - MinIO S3 integration with comprehensive file management
 
 ### 🔄 **Current Capabilities**
 
 - **Authentication**: JAMB verification, login, profile management
 - **Applications**: Complete application lifecycle management
 - **Payments**: Real payment gateway integration with Remita (primary) and Flutterwave (fallback)
-- **Security**: Webhook signature verification, idempotency, audit trails
+- **Security**: Webhook signature verification, audit trails, file validation
 - **Receipts**: PDF generation with tamper detection
+- **Documents**: Comprehensive file upload, storage, and management with MinIO S3
+- **File Security**: MIME type validation, size limits, checksum verification
 
 ## 🏗️ **Architecture**
 
@@ -37,8 +40,8 @@ The payments system uses an explicit initialization pattern to ensure proper dep
 
 1. **Module Initializer**: `createPaymentsModule()` creates all dependencies in the correct order
 2. **Provider Registry**: Manages Remita (primary) and Flutterwave (fallback) providers
-3. **Service Layer**: Handles business logic with injected dependencies and idempotency enforcement
-4. **Controller Layer**: Manages HTTP requests with injected service and Idempotency-Key header validation
+3. **Service Layer**: Handles business logic with injected dependencies
+4. **Controller Layer**: Manages HTTP requests with injected service
 5. **Router**: Express router with bound controller methods
 
 This architecture ensures:
@@ -48,7 +51,25 @@ This architecture ensures:
 - Clear separation of concerns
 - Easy testing and mocking
 - No circular dependencies
-- Robust idempotency for payment operations
+- Robust payment operations
+
+### **Documents Module Architecture**
+
+The documents system provides comprehensive file management capabilities:
+
+1. **MinIO Integration**: S3-compatible object storage with automatic bucket management
+2. **File Validation**: MIME type whitelist, size limits, and security checks
+3. **Document Service**: Business logic for file operations and metadata management
+4. **Controller Layer**: HTTP request handling with proper error responses
+5. **Security Features**: File checksums, access control, and audit logging
+
+This architecture ensures:
+
+- Secure file uploads and storage
+- Scalable object storage solution
+- Comprehensive file validation
+- Easy integration with candidate workflows
+- Foundation for advanced features (scanning, conversion)
 
 ## 🚀 **Quick Start**
 
@@ -186,6 +207,17 @@ curl http://localhost:4000/payments/providers/status
 - `POST /payments/webhook/flutterwave` - Flutterwave webhook
 - `GET /payments/providers/status` - Provider health check
 
+#### Documents
+
+- `POST /documents/upload` - Upload document with validation
+- `GET /documents/:id` - Get document details
+- `GET /documents/candidate/:id` - List candidate documents
+- `GET /documents/:id/download` - Download document
+- `GET /documents/:id/secure-url` - Generate secure download URL
+- `DELETE /documents/:id` - Delete document
+- `GET /documents/health/status` - Documents service health check
+- `POST /documents/:id/scan-status` - Update document scan status
+
 #### System
 
 - `GET /health` - API health check
@@ -211,6 +243,12 @@ curl http://localhost:4000/payments/{payment-id}
 
 # Get provider status
 curl http://localhost:4000/payments/providers/status
+
+# Check documents service health
+curl http://localhost:4000/documents/health/status
+
+# List candidate documents
+curl http://localhost:4000/documents/candidate/{candidate-id}
 ```
 
 ## 🛠️ **Development Commands**
@@ -288,6 +326,11 @@ docker compose up -d
 fuep-postutme/
 ├── apps/
 │   ├── api/                 # Express.js backend
+│   │   └── src/
+│   │       ├── modules/
+│   │       │   ├── documents/    # Document management system
+│   │       │   └── payment/      # Payment gateway integration
+│   │       └── main.ts           # API entry point
 │   └── web/                 # React frontend
 ├── packages/
 │   └── types/               # Shared TypeScript types
@@ -374,4 +417,4 @@ For technical support or questions:
 
 **Last Updated**: 2025-01-18  
 **Version**: 1.0.0  
-**Status**: Phase 7 Complete - Ready for Testing
+**Status**: Phase 8 Complete - Ready for Phase 9 (Candidate Portal Features)
