@@ -15,6 +15,21 @@ import Status from './pages/Status';
 // Initialize brand color from Vite env with safe fallback (#134F47)
 const brand = (import.meta.env.VITE_BRAND_PRIMARY_COLOR || '#134F47').trim();
 document.documentElement.style.setProperty('--brand-primary', brand);
+// Update theme-color meta tag to match brand color
+const updateThemeColor = () => {
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute('content', brand);
+  } else {
+    // Create theme-color meta tag if it doesn't exist
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = brand;
+    document.head.appendChild(meta);
+  }
+};
+// Update theme color on mount
+updateThemeColor();
 const router = createBrowserRouter([
   {
     path: '/',

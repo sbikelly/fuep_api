@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
+import ICTBadge from '../components/ICTBadge';
+
 // Define the health status interface based on what the API actually returns
 interface HealthStatus {
   status: string;
@@ -259,6 +261,15 @@ const Status: React.FC = () => {
               Email ICT Team
             </a>
           </div>
+        </div>
+      </div>
+
+      {/* ICT Badge Attribution */}
+      <div className="text-center mt-8 p-4 border-t border-gray-200">
+        <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+          <span>Powered by</span>
+          <ICTBadge size={20} />
+          <span>ICT Division</span>
         </div>
       </div>
     </div>

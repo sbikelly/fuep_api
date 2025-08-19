@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime';
+
+import ICTBadge from '../components/ICTBadge';
 const Status = () => {
   const [apiStatus, setApiStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -388,6 +390,17 @@ const Status = () => {
             ],
           }),
         ],
+      }),
+      _jsx('div', {
+        className: 'text-center mt-8 p-4 border-t border-gray-200',
+        children: _jsxs('div', {
+          className: 'flex items-center justify-center gap-2 text-sm text-gray-600',
+          children: [
+            _jsx('span', { children: 'Powered by' }),
+            _jsx(ICTBadge, { size: 20 }),
+            _jsx('span', { children: 'ICT Division' }),
+          ],
+        }),
       }),
     ],
   });

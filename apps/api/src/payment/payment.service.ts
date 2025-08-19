@@ -3,7 +3,13 @@ import {
   ProviderPaymentGatewayResponse,
   ProviderPaymentInitiationRequest,
 } from '@fuep/types';
-import { PaymentEvent, PaymentPurpose, PaymentStatus, PaymentTransaction } from '@fuep/types';
+import {
+  PaymentEvent,
+  PaymentProvider,
+  PaymentPurpose,
+  PaymentStatus,
+  PaymentTransaction,
+} from '@fuep/types';
 import { createHash, randomUUID } from 'crypto';
 
 import { PaymentProviderRegistry } from './providers/provider-registry.js';
@@ -47,7 +53,6 @@ export class PaymentService {
         session: request.session,
         email: request.email,
         phone: request.phone,
-        idempotencyKey: '', // Will be removed in future durable implementation
         metadata: {
           session: request.session,
           purpose: request.purpose,
@@ -66,7 +71,6 @@ export class PaymentService {
         amount: request.amount,
         currency: request.currency,
         status: 'initiated' as PaymentStatus,
-        idempotencyKey: '', // Will be removed in future durable implementation
         requestHash: '', // Will be removed in future durable implementation
         responseSnapshot: providerResponse,
         statusCode: 201,
@@ -176,7 +180,7 @@ export class PaymentService {
       }
 
       // Get provider
-      const provider = this.providerRegistry.getProvider(payment.provider!);
+      const provider = this.providerRegistry.getProvider(payment.provider as PaymentProvider);
       if (!provider) {
         throw new Error(`Payment provider not found: ${payment.provider}`);
       }

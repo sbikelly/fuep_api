@@ -3,6 +3,9 @@ import './index.css';
 import { Status, StatusSchema } from '@fuep/types';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
+import ICTBadge from './components/ICTBadge';
+import Logo from './components/Logo';
+
 export default function App() {
   const location = useLocation();
 
@@ -15,15 +18,9 @@ export default function App() {
       <header className="app-header">
         <div className="container">
           <div className="brand">
-            {/* Placeholder for University Logo - Replace with actual logo */}
             <div className="brand-logo">
-              <span>FUEP</span>
+              <Logo size={40} aria-label="FUEP Logo" />
             </div>
-            {/*
-            <div className="brand-logo">
-              <img src="/assets/university-logo.png" alt="FUEP Logo" />
-            </div>
-            */}
             <div>
               <h1>FUEP Post-UTME Portal</h1>
               <small style={{ opacity: 0.8, fontWeight: 'normal' }}>
@@ -32,8 +29,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Placeholder for ICT Badge - Replace with actual badge 
-          <img src="/assets/ict-badge.png" alt="ICT Division Badge" />*/}
           <div
             style={{
               background: 'rgba(255,255,255,0.1)',
@@ -41,9 +36,13 @@ export default function App() {
               borderRadius: '20px',
               fontSize: '12px',
               fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            ICT Division
+            <ICTBadge size={20} />
+            <span>ICT Division</span>
           </div>
         </div>
 
@@ -82,8 +81,17 @@ export default function App() {
       <footer className="app-footer">
         <div className="container">
           <div>
-            <p style={{ margin: 0, fontSize: '14px' }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
               © 2024 Federal University of Education, Pankshin. All rights reserved.
+              <ICTBadge size={16} />
             </p>
           </div>
           <div className="footer-links">

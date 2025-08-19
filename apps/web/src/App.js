@@ -2,6 +2,9 @@ import './index.css';
 
 import { jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+
+import ICTBadge from './components/ICTBadge';
+import Logo from './components/Logo';
 export default function App() {
   const location = useLocation();
   const isActive = (path) => {
@@ -21,7 +24,7 @@ export default function App() {
                 children: [
                   _jsx('div', {
                     className: 'brand-logo',
-                    children: _jsx('span', { children: 'FUEP' }),
+                    children: _jsx(Logo, { size: 40, 'aria-label': 'FUEP Logo' }),
                   }),
                   _jsxs('div', {
                     children: [
@@ -34,15 +37,21 @@ export default function App() {
                   }),
                 ],
               }),
-              _jsx('div', {
+              _jsxs('div', {
                 style: {
                   background: 'rgba(255,255,255,0.1)',
                   padding: '8px 16px',
                   borderRadius: '20px',
                   fontSize: '12px',
                   fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
                 },
-                children: 'ICT Division',
+                children: [
+                  _jsx(ICTBadge, { size: 20 }),
+                  _jsx('span', { children: 'ICT Division' }),
+                ],
               }),
             ],
           }),
@@ -93,10 +102,18 @@ export default function App() {
           className: 'container',
           children: [
             _jsx('div', {
-              children: _jsx('p', {
-                style: { margin: 0, fontSize: '14px' },
-                children:
+              children: _jsxs('p', {
+                style: {
+                  margin: 0,
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                },
+                children: [
                   '\u00A9 2024 Federal University of Education, Pankshin. All rights reserved.',
+                  _jsx(ICTBadge, { size: 16 }),
+                ],
               }),
             }),
             _jsxs('div', {
