@@ -16,6 +16,7 @@ export default function App() {
   return (
     <div className="app-root">
       <header className="app-header">
+        {/*
         <div className="container">
           <div className="brand">
             <div className="brand-logo">
@@ -45,7 +46,7 @@ export default function App() {
             <span>ICT Division</span>
           </div>
         </div>
-
+          */}
         <nav
           className="nav"
           style={{
