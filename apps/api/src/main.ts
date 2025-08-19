@@ -379,6 +379,98 @@ try {
   throw error;
 }
 
+// Initialize and mount documents module
+let documentsModule;
+try {
+  console.log('Initializing documents module...');
+  const { DocumentsController } = await import('./modules/documents/documents.controller.js');
+  const { DocumentsService } = await import('./modules/documents/documents.service.js');
+  const { MinioService } = await import('./modules/documents/minio.service.js');
+  const multer = await import('multer');
+
+  // Create instances manually since we're not using NestJS DI container
+  const minioService = new MinioService({
+    get: (key: string, defaultValue?: any) => process.env[key] || defaultValue,
+  });
+  const documentsService = new DocumentsService(minioService, {
+    get: (key: string, defaultValue?: any) => process.env[key] || defaultValue,
+  });
+  const documentsController = new DocumentsController(documentsService, minioService);
+
+  console.log('Documents module initialized successfully');
+
+  console.log('Mounting document routes...');
+
+  // Create documents router
+  const documentsRouter = express.Router();
+
+  // Configure multer for file uploads
+  const upload = multer.default({
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+    fileFilter: (req, file, callback) => {
+      // Additional file type validation
+      const allowedMimeTypes = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
+
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        return callback(new Error(`File type ${file.mimetype} is not allowed`));
+      }
+
+      callback(null, true);
+    },
+  });
+
+  // Mount document routes
+  documentsRouter.post(
+    '/upload',
+    upload.single('file'),
+    documentsController.uploadDocument.bind(documentsController)
+  );
+  documentsRouter.get('/:documentId', documentsController.getDocument.bind(documentsController));
+  documentsRouter.get(
+    '/candidate/:candidateId',
+    documentsController.getDocumentsByCandidate.bind(documentsController)
+  );
+  documentsRouter.get(
+    '/:documentId/download',
+    documentsController.downloadDocument.bind(documentsController)
+  );
+  documentsRouter.get(
+    '/:documentId/secure-url',
+    documentsController.getSecureDownloadUrl.bind(documentsController)
+  );
+  documentsRouter.delete(
+    '/:documentId',
+    documentsController.deleteDocument.bind(documentsController)
+  );
+  documentsRouter.get(
+    '/health/status',
+    documentsController.getHealthStatus.bind(documentsController)
+  );
+  documentsRouter.post(
+    '/:documentId/scan-status',
+    documentsController.updateScanStatus.bind(documentsController)
+  );
+
+  // Mount the router
+  app.use('/documents', documentsRouter);
+
+  console.log('Document routes mounted successfully');
+} catch (error) {
+  console.error('Error initializing documents module:', error);
+  // Don't throw error, continue without documents module
+  console.log('Continuing without documents module...');
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Express API listening on http://localhost:${PORT}`);

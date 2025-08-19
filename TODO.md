@@ -120,7 +120,7 @@ Deliverables:
   - [x] applications table lifecycle foundations
 - [x] Payments — init shape only (no provider yet)
   - [x] POST /payments/init → creates initiated payment row
-  - [x] Idempotency key basis
+  - [x] ~~Idempotency key basis~~ **REMOVED: In-memory idempotency replaced with TODO for durable implementation**
 - [x] FE: Apply → Check JAMB → Start payment (mock URL alert)
 
 ---
@@ -147,7 +147,7 @@ Deliverables:
   - [x] Payment status mapping and verification
   - [x] Sandbox mode support
 - [x] **Payment Service Layer**
-  - [x] Idempotency key generation and enforcement
+  - [x] ~~Idempotency key generation and enforcement~~ **REMOVED: In-memory idempotency replaced with TODO for durable implementation**
   - [x] Provider selection and fallback logic
   - [x] Webhook processing and payment state updates
   - [x] Receipt generation and storage
@@ -162,7 +162,7 @@ Deliverables:
 - [x] **Security & Reliability**
   - [x] Webhook signature verification (HMAC-SHA256)
   - [x] Timestamp validation and replay protection
-  - [x] Idempotency enforcement
+  - [x] ~~Idempotency enforcement~~ **REMOVED: In-memory idempotency replaced with TODO for durable implementation**
   - [x] Structured logging for payment events
 - [x] **Documentation & Types**
   - [x] Enhanced shared types for payment operations
@@ -174,7 +174,7 @@ Deliverables:
 
 - Real payment gateway integration (Remita + Flutterwave)
 - Secure webhook processing with signature verification
-- Idempotent payment operations
+- ~~Idempotent payment operations~~ **REMOVED: In-memory idempotency replaced with TODO for durable implementation**
 - Comprehensive payment audit trail
 - Receipt generation and storage
 - Provider health monitoring
@@ -185,6 +185,7 @@ Deliverables:
 - Implements provider-agnostic payment interface
 - Supports sandbox and production modes
 - Maintains backward compatibility with existing API contract
+- **TODO: Implement durable idempotency strategy before production deployment**
 
 ---
 
@@ -226,6 +227,14 @@ Deliverables:
 - [ ] Structured logging
 - [ ] Basic metrics & tracing hooks
 - [ ] Caching strategy for hot endpoints
+- [ ] **TODO: Implement durable idempotency strategy**
+  - [ ] Create idempotency table with unique constraint on (idempotency_key, request_fingerprint)
+  - [ ] Implement Redis-based idempotency with TTL (alternative to Postgres)
+  - [ ] Add Idempotency-Key header validation in payment endpoints
+  - [ ] Store original response for safe replays within retention window
+  - [ ] Ensure concurrency safety with database transactions
+  - [ ] Align with OpenAPI definitions and sequence diagrams
+  - [ ] **Implementation timing: Near end of project, just before production deployment**
 
 ---
 
@@ -294,25 +303,25 @@ Deliverables:
 - Phase 7 (Payment Gateway Integration): ✅ completed
   - Real payment gateway integration (Remita + Flutterwave)
   - Secure webhook processing with signature verification
-  - Idempotent payment operations
+  - ~~Idempotent payment operations~~ **REMOVED: In-memory idempotency replaced with TODO for durable implementation**
   - Comprehensive payment audit trail
   - Receipt generation and storage
   - Provider health monitoring
 
 ### Immediate Next 10 Tasks
 
-1. **Phase 7 - Payment Gateway Integration**: Implement Remita integration (init, webhook, verify)
-2. **Phase 7 - Payment Gateway Integration**: Add Flutterwave fallback integration
-3. **Phase 7 - Payment Gateway Integration**: Implement webhook signature verification
-4. **Phase 7 - Payment Gateway Integration**: Add retriable reconciliation worker
-5. **Phase 7 - Payment Gateway Integration**: Implement receipt generation (PDF templates)
-6. **Phase 7 - Payment Gateway Integration**: Add payment status tracking and notifications
-7. **Phase 7 - Payment Gateway Integration**: Implement payment dispute handling
-8. **Phase 7 - Payment Gateway Integration**: Add payment analytics and reporting
-9. **Phase 7 - Payment Gateway Integration**: Implement payment retry mechanisms
-10. **Phase 7 - Payment Gateway Integration**: Add payment gateway health monitoring
+1. **Phase 8 - Documents & Uploads**: Implement MinIO S3 client integration
+2. **Phase 8 - Documents & Uploads**: Add upload endpoints with MIME/size validation
+3. **Phase 8 - Documents & Uploads**: Implement document scan pipeline with ClamAV
+4. **Phase 8 - Documents & Uploads**: Add PDF conversion for images
+5. **Phase 8 - Documents & Uploads**: Implement secure download URLs
+6. **Phase 9 - Candidate Portal Features**: Create biodata form with JAMB prefill
+7. **Phase 9 - Candidate Portal Features**: Implement education records CRUD + uploads
+8. **Phase 9 - Candidate Portal Features**: Add NOK and Sponsor CRUD operations
+9. **Phase 9 - Candidate Portal Features**: Create registration form preview + PDF generation
+10. **Phase 9 - Candidate Portal Features**: Implement dashboard aggregate endpoint + UI
 
 ---
 
-Last Updated: 2025-08-18
-Next Review: 2025-08-25
+Last Updated: 2025-01-18
+Next Review: 2025-01-25

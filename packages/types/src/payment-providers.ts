@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { PaymentProvider, PaymentStatus, PaymentTransaction } from './payment';
+import {
+  PaymentProvider,
+  PaymentPurpose,
+  PaymentPurposeSchema,
+  PaymentStatus,
+  PaymentTransaction,
+} from './payment';
 
 // Base Payment Provider Interface
 export interface IPaymentProvider {
@@ -28,25 +34,26 @@ export interface IPaymentProvider {
 // Payment Initiation Request for Providers
 export interface ProviderPaymentInitiationRequest {
   candidateId: string;
-  purpose: string;
+  purpose: PaymentPurpose;
   amount: number;
   currency: string;
   session: string;
   email?: string;
   phone?: string;
-  idempotencyKey: string;
   metadata?: Record<string, any>;
 }
 
 export const ProviderPaymentInitiationRequestSchema = z.object({
   candidateId: z.string().uuid(),
-  purpose: z.string(),
+  purpose: PaymentPurposeSchema,
   amount: z.number().positive(),
-  currency: z.string().length(3),
-  session: z.string(),
+  currency: z.string().min(3).max(3),
+  session: z.string().regex(/^\d{4}\/\d{4}$/),
   email: z.string().email().optional(),
-  phone: z.string().optional(),
-  idempotencyKey: z.string(),
+  phone: z
+    .string()
+    .regex(/^\+?[1-9]\d{1,14}$/)
+    .optional(),
   metadata: z.record(z.any()).optional(),
 });
 
