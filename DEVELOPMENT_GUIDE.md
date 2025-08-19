@@ -8,9 +8,25 @@ This project has migrated the backend from NestJS to Express (TypeScript). The O
 - Tech: Express, TypeScript, Knex, pg, helmet, cors, cookie-parser, dotenv
 - Dev server: pnpm --filter @fuep/api start:dev
 - Health: GET http://localhost:4000/health
-- JAMB check: POST http://localhost:4000/auth/check-jamb with JSON { "jambRegNo": "TEST123" }
+- JAMB check: POST http://localhost:4000/auth/check-jamb with JSON { "jambRegNo": "TEST123456789" }
+
+## Shared Types Package Quickstart
+
+- Location: packages/types
+- Tech: TypeScript, Zod validation schemas
+- Build: pnpm build:types
+- Dev mode: pnpm --filter @fuep/types dev
+- Type checking: pnpm --filter @fuep/types typecheck
+
+### Key Features
+
+- **Comprehensive Type Definitions**: Authentication, candidate, payment, and validation types
+- **Zod Validation Schemas**: Runtime validation with Nigerian context patterns
+- **Monorepo Integration**: Both API and Web packages import from @fuep/types
+- **Custom Validators**: Nigerian phone numbers, JAMB format, states, and academic patterns
 
 ### Files
+
 - apps/api/package.json — scripts now target Express
 - apps/api/tsconfig.json — TS config for Express
 - apps/api/src/main.ts — Express app bootstrap (helmet, cors, cookie-parser), routes
@@ -18,10 +34,12 @@ This project has migrated the backend from NestJS to Express (TypeScript). The O
 - infra/db/001_schema.sql — unchanged (authoritative schema)
 
 ### Environment
+
 - .env.development (root): DB_HOST=localhost, DB_PORT=5432, DB_USER=fuep, DB_PASSWORD=fuep, DB_NAME=fuep_portal, PORT=4000, CORS_ORIGIN=http://localhost:5173
 - DB_URL is supported as a single Postgres connection URL override (optional)
 
 ### Start
+
 ```bash
 # Ensure Docker services are up (Postgres, Redis, MinIO, MailHog)
 docker compose up -d
@@ -32,19 +50,52 @@ pnpm --filter @fuep/api start:dev
 ```
 
 ### Test
+
 ```bash
 # Health
 curl http://localhost:4000/health
 
-# Check JAMB (seed row: TEST123)
+# Check JAMB (seed row: TEST123 - note: requires 10-15 characters)
+curl -H "Content-Type: application/json" \
+     -d '{"jambRegNo":"TEST123456789"}' \
+     http://localhost:4000/auth/check-jamb
+
+# Test validation (will fail with "Invalid request data")
 curl -H "Content-Type: application/json" \
      -d '{"jambRegNo":"TEST123"}' \
      http://localhost:4000/auth/check-jamb
 ```
 
+### Using Shared Types
+
+```bash
+# Build types package
+pnpm build:types
+
+# Import types in your code
+import {
+  JambVerificationRequestSchema,
+  ApiResponse,
+  ValidationError
+} from '@fuep/types';
+
+# Validate request data
+const validationResult = JambVerificationRequestSchema.safeParse(req.body);
+if (!validationResult.success) {
+  // Handle validation errors
+  return res.status(400).json({
+    success: false,
+    error: 'Invalid request data',
+    timestamp: new Date()
+  });
+}
+```
+
 Notes:
+
 - The previous NestJS-specific sections are preserved for reference but superseded by this Express Quickstart for development.
 - The OpenAPI 3.0 contract in docs/openapi.yaml and the Mermaid sequence diagrams in docs/sequence-diagrams.md remain the source of truth for endpoints and flows.
+
 # FUEP Post-UTME Portal - Development Guide
 
 ## Table of Contents
@@ -77,15 +128,13 @@ pnpm init -y
 ### 1.2 Root Configuration Files
 
 #### `package.json` (Root)
+
 ```json
 {
   "name": "fuep-postutme",
   "private": true,
   "version": "1.0.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev:api": "pnpm --filter @fuep/api start:dev",
     "dev:web": "pnpm --filter @fuep/web dev",
@@ -105,13 +154,15 @@ pnpm init -y
 ```
 
 #### `pnpm-workspace.yaml`
+
 ```yaml
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 ```
 
 #### `tsconfig.base.json`
+
 ```json
 {
   "compilerOptions": {
@@ -133,6 +184,7 @@ packages:
 ```
 
 #### `.gitignore`
+
 ```gitignore
 node_modules
 dist
@@ -152,6 +204,7 @@ mkdir -p apps/api apps/web packages/types infra/db infra/nginx
 ```
 
 **Resulting Structure:**
+
 ```
 fuep-postutme/
 ├── apps/
@@ -174,8 +227,9 @@ fuep-postutme/
 ### 2.1 Docker Compose Configuration
 
 #### `docker-compose.yml`
+
 ```yaml
-version: "3.9"
+version: '3.9'
 services:
   postgres:
     image: postgres:16
@@ -184,12 +238,12 @@ services:
       POSTGRES_USER: fuep
       POSTGRES_PASSWORD: fuep
       POSTGRES_DB: fuep_portal
-    ports: ["5432:5432"]
+    ports: ['5432:5432']
     volumes:
       - ./infra/db:/docker-entrypoint-initdb-d:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fuep -d fuep_portal"]
+      test: ['CMD-SHELL', 'pg_isready -U fuep -d fuep_portal']
       interval: 5s
       timeout: 3s
       retries: 30
@@ -197,7 +251,7 @@ services:
   redis:
     image: redis:7
     container_name: fuep_redis
-    ports: ["6379:6379"]
+    ports: ['6379:6379']
 
   minio:
     image: minio/minio:latest
@@ -206,14 +260,14 @@ services:
     environment:
       MINIO_ROOT_USER: fuep
       MINIO_ROOT_PASSWORD: fuepstrongpassword
-    ports: ["9000:9000", "9001:9001"]
+    ports: ['9000:9000', '9001:9001']
     volumes:
       - miniodata:/data
 
   mailhog:
     image: mailhog/mailhog
     container_name: fuep_mailhog
-    ports: ["1025:1025", "8025:8025"]
+    ports: ['1025:1025', '8025:8025']
 
 volumes:
   pgdata:
@@ -223,6 +277,7 @@ volumes:
 ### 2.2 Database Schema
 
 #### `infra/db/001_schema.sql`
+
 ```sql
 
 -- ============================================
@@ -560,6 +615,7 @@ pnpm i
 ### 3.2 Package Configuration
 
 #### Update `apps/api/package.json`
+
 ```json
 {
   "name": "@fuep/api",
@@ -599,6 +655,7 @@ pnpm add -D @types/bcrypt @types/uuid @types/cookie-parser
 ### 3.4 Environment Configuration
 
 #### `apps/api/.env`
+
 ```env
 NODE_ENV=development
 PORT=4000
@@ -642,6 +699,7 @@ REMITA_BASE_URL=https://remita.net/api
 ### 3.5 Main Application Files
 
 #### `apps/api/src/main.ts`
+
 ```typescript
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -661,6 +719,7 @@ bootstrap();
 ```
 
 #### `apps/api/src/app.module.ts`
+
 ```typescript
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -669,12 +728,7 @@ import { CandidateModule } from './modules/candidate/candidate.module';
 import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    AuthModule,
-    CandidateModule,
-    PaymentModule
-  ],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, CandidateModule, PaymentModule],
 })
 export class AppModule {}
 ```
@@ -682,6 +736,7 @@ export class AppModule {}
 ### 3.6 Database Configuration
 
 #### `apps/api/src/db/knex.ts`
+
 ```typescript
 import knex, { Knex } from 'knex';
 
@@ -692,15 +747,16 @@ export const db: Knex = knex({
     port: +(process.env.DB_PORT || 5432),
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
   },
-  pool: { min: 2, max: 10 }
+  pool: { min: 2, max: 10 },
 });
 ```
 
 ### 3.7 Authentication Module
 
 #### `apps/api/src/modules/auth/auth.module.ts`
+
 ```typescript
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
@@ -711,16 +767,17 @@ import { AuthController } from './auth.controller';
   imports: [
     JwtModule.register({
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: process.env.JWT_EXPIRES || '15m' }
-    })
+      signOptions: { expiresIn: process.env.JWT_EXPIRES || '15m' },
+    }),
   ],
   controllers: [AuthController],
-  providers: [AuthService]
+  providers: [AuthService],
 })
 export class AuthModule {}
 ```
 
 #### `apps/api/src/modules/auth/auth.service.ts`
+
 ```typescript
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { db } from '../../db/knex';
@@ -734,7 +791,7 @@ export class AuthService {
   async checkJamb(jambRegNo: string) {
     const row = await db('jamb_prelist').where({ jamb_reg_no: jambRegNo }).first();
     if (!row) return { exists: false };
-    
+
     const biodata = {
       jambRegNo: row.jamb_reg_no,
       surname: row.surname,
@@ -742,7 +799,7 @@ export class AuthService {
       othernames: row.othernames,
       programmeCode: row.programme_code,
       departmentCode: row.department_code,
-      session: row.session
+      session: row.session,
     };
     return { exists: true, biodata };
   }
@@ -750,30 +807,33 @@ export class AuthService {
   async login(username: string, password: string) {
     const c = await db('candidates').where({ username }).first();
     if (!c || !c.password_hash) throw new UnauthorizedException('Invalid credentials');
-    
+
     const ok = await bcrypt.compare(password, c.password_hash);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
 
     const accessToken = await this.jwt.signAsync({ sub: c.id, role: 'candidate' });
     const refreshToken = await this.jwt.signAsync(
       { sub: c.id, role: 'candidate', type: 'refresh' },
-      { secret: process.env.JWT_REFRESH_SECRET, expiresIn: process.env.JWT_REFRESH_EXPIRES || '30d' }
+      {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: process.env.JWT_REFRESH_EXPIRES || '30d',
+      }
     );
-    
+
     return { accessToken, refreshToken, tempPasswordFlag: c.temp_password_flag };
   }
 
   async changePassword(candidateId: string, oldPassword: string, newPassword: string) {
     const c = await db('candidates').where({ id: candidateId }).first();
     if (!c || !c.password_hash) throw new UnauthorizedException();
-    
+
     const ok = await bcrypt.compare(oldPassword, c.password_hash);
     if (!ok) throw new UnauthorizedException('Old password mismatch');
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await db('candidates').where({ id: candidateId }).update({ 
-      password_hash: hash, 
-      temp_password_flag: false 
+    await db('candidates').where({ id: candidateId }).update({
+      password_hash: hash,
+      temp_password_flag: false,
     });
     return;
   }
@@ -781,6 +841,7 @@ export class AuthService {
 ```
 
 #### `apps/api/src/modules/auth/auth.controller.ts`
+
 ```typescript
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -812,6 +873,7 @@ export class AuthController {
 ### 3.8 Payment Module
 
 #### `apps/api/src/modules/payment/payment.module.ts`
+
 ```typescript
 import { Module } from '@nestjs/common';
 import { PaymentService } from './payment.service';
@@ -819,12 +881,13 @@ import { PaymentController } from './payment.controller';
 
 @Module({
   controllers: [PaymentController],
-  providers: [PaymentService]
+  providers: [PaymentService],
 })
 export class PaymentModule {}
 ```
 
 #### `apps/api/src/modules/payment/payment.service.ts`
+
 ```typescript
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { db } from '../../db/knex';
@@ -833,11 +896,11 @@ import { v4 as uuid } from 'uuid';
 @Injectable()
 export class PaymentService {
   async initPayment(
-    purpose: 'post_utme'|'acceptance'|'school_fee', 
-    jambRegNo: string, 
-    amount: number, 
-    session: string, 
-    email?: string, 
+    purpose: 'post_utme' | 'acceptance' | 'school_fee',
+    jambRegNo: string,
+    amount: number,
+    session: string,
+    email?: string,
     phone?: string
   ) {
     if (!jambRegNo) throw new BadRequestException('jambRegNo required');
@@ -860,16 +923,16 @@ export class PaymentService {
         amount,
         currency: 'NGN',
         status: 'initiated',
-        idempotency_key: idempotency
+        idempotency_key: idempotency,
       })
       .returning('*');
 
     // Call Remita init here (stub)
     const providerRef = uuid(); // replace with Remita RRR response
-    await db('payments').where({ id: payment.id }).update({ 
-      provider: 'remita', 
-      provider_ref: providerRef, 
-      status: 'pending' 
+    await db('payments').where({ id: payment.id }).update({
+      provider: 'remita',
+      provider_ref: providerRef,
+      status: 'pending',
     });
 
     return {
@@ -877,13 +940,14 @@ export class PaymentService {
       provider: 'remita',
       providerRef,
       redirectUrl: `https://payments.example/redirect/${providerRef}`,
-      status: 'pending'
+      status: 'pending',
     };
   }
 }
 ```
 
 #### `apps/api/src/modules/payment/payment.controller.ts`
+
 ```typescript
 import { Body, Controller, Post } from '@nestjs/common';
 import { PaymentService } from './payment.service';
@@ -893,20 +957,23 @@ export class PaymentController {
   constructor(private svc: PaymentService) {}
 
   @Post('init')
-  init(@Body() body: { 
-    purpose: 'post_utme'|'acceptance'|'school_fee'; 
-    jambRegNo: string; 
-    amount: number; 
-    session: string; 
-    email?: string; 
-    phone?: string; 
-  }) {
+  init(
+    @Body()
+    body: {
+      purpose: 'post_utme' | 'acceptance' | 'school_fee';
+      jambRegNo: string;
+      amount: number;
+      session: string;
+      email?: string;
+      phone?: string;
+    }
+  ) {
     return this.svc.initPayment(
-      body.purpose, 
-      body.jambRegNo, 
-      body.amount, 
-      body.session, 
-      body.email, 
+      body.purpose,
+      body.jambRegNo,
+      body.amount,
+      body.session,
+      body.email,
       body.phone
     );
   }
@@ -940,6 +1007,7 @@ pnpm i axios react-router-dom zod
 ### 4.2 Package Configuration
 
 #### Update `apps/web/package.json`
+
 ```json
 {
   "name": "@fuep/web",
@@ -951,6 +1019,7 @@ pnpm i axios react-router-dom zod
 ### 4.3 Environment Configuration
 
 #### `apps/web/.env`
+
 ```env
 VITE_API_URL=http://localhost:4000
 ```
@@ -958,6 +1027,7 @@ VITE_API_URL=http://localhost:4000
 ### 4.4 API Client Setup
 
 #### `apps/web/src/lib/api.ts`
+
 ```typescript
 import axios from 'axios';
 
@@ -974,6 +1044,7 @@ export function setAuth(token?: string) {
 ### 4.5 Routing Configuration
 
 #### `apps/web/src/main.tsx`
+
 ```typescript
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -997,6 +1068,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 ### 4.6 Page Components
 
 #### `apps/web/src/pages/Apply.tsx`
+
 ```typescript
 import { useState } from 'react';
 import { api } from '../lib/api';
@@ -1044,6 +1116,7 @@ export default function Apply() {
 ```
 
 #### `apps/web/src/pages/Login.tsx`
+
 ```typescript
 import { useState } from 'react';
 import { api, setAuth } from '../lib/api';
@@ -1072,6 +1145,7 @@ export default function Login() {
 ```
 
 #### `apps/web/src/pages/Dashboard.tsx`
+
 ```typescript
 export default function Dashboard() {
   return (
@@ -1097,17 +1171,20 @@ pnpm dev
 ### 5.1 Sanity Test Steps
 
 1. **Start Infrastructure**
+
    ```bash
    docker compose up -d
    ```
 
 2. **Start Backend API**
+
    ```bash
    pnpm --filter @fuep/api start:dev
    # API at :4000
    ```
 
 3. **Start Frontend**
+
    ```bash
    pnpm --filter @fuep/web dev
    # Web at :5173
@@ -1117,6 +1194,7 @@ pnpm dev
    - Load Apply page at `http://localhost:5173`
    - Enter a JAMB Reg No that exists in `jamb_prelist` table
    - Insert test data if needed:
+
    ```sql
    INSERT INTO jamb_prelist (jamb_reg_no, surname, firstname, session)
    VALUES ('TEST123', 'DOE', 'JOHN', '2025');
@@ -1128,10 +1206,12 @@ pnpm dev
 
 6. **Test Login**
    - Set password manually for testing:
+
    ```sql
    UPDATE candidates SET password_hash = crypt('pass1234', gen_salt('bf')) WHERE jamb_reg_no='TEST123';
    UPDATE candidates SET temp_password_flag=false WHERE jamb_reg_no='TEST123';
    ```
+
    - Use `/auth/login` → reach dashboard placeholder
 
 ## 6. Next Steps & Features
@@ -1185,9 +1265,9 @@ pnpm dev
 
 ```typescript
 // In main.ts
-app.enableCors({ 
-  origin: 'http://localhost:5173', 
-  credentials: true 
+app.enableCors({
+  origin: 'http://localhost:5173',
+  credentials: true,
 });
 ```
 
@@ -1236,6 +1316,7 @@ pnpm format               # Format all code
 ## Quick Reference
 
 ### Ports
+
 - **Frontend**: `http://localhost:5173`
 - **Backend API**: `http://localhost:4000`
 - **PostgreSQL**: `localhost:5432`
@@ -1244,10 +1325,12 @@ pnpm format               # Format all code
 - **MailHog**: `localhost:1025` (SMTP), `localhost:8025` (Web UI)
 
 ### Default Credentials
+
 - **PostgreSQL**: `fuep` / `fuep`
 - **MinIO**: `fuep` / `fuepstrongpassword`
 
 ### Key Commands
+
 ```bash
 # Start everything
 docker compose up -d && pnpm dev
@@ -1269,7 +1352,7 @@ curl http://localhost:4000/auth/check-jamb -X POST -H "Content-Type: application
   ```
   Then open http://localhost:8080
 
-*This development guide provides a complete setup for the FUEP Post-UTME Portal development environment. Follow the steps sequentially to get a working development setup.*
+_This development guide provides a complete setup for the FUEP Post-UTME Portal development environment. Follow the steps sequentially to get a working development setup._
 
 ## Sequence Diagrams (Mermaid)
 
@@ -1280,6 +1363,7 @@ curl http://localhost:4000/auth/check-jamb -X POST -H "Content-Type: application
   - Online previewer: https://mermaid.live
 
 Coverage:
+
 - Step 1 — Apply & Verify JAMB Number
 - Step 2 — Initiate Post-UTME Payment
 - Step 3 — Payment Confirmation & Account Creation
@@ -1292,4 +1376,5 @@ Coverage:
 - Step 10 — Admission → Acceptance/School Fees → Matric → Letter → Migration
 
 Conformance:
+
 - Payment orchestration, candidate lifecycle, document processing, admissions/matric/migration must match these sequences.

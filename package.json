@@ -2,29 +2,70 @@
   "name": "fuep-postutme",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "pnpm@10.14.0",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "engines": {
+    "node": ">=20.13.1 <21",
+    "pnpm": ">=10.14.0"
+  },
   "scripts": {
     "install:all": "pnpm install --recursive",
+    "prepare": "simple-git-hooks",
     "dev:api": "pnpm --filter @fuep/api start:dev",
     "dev:web": "pnpm --filter @fuep/web dev",
     "dev": "concurrently -n API,WEB -c auto \"pnpm dev:api\" \"pnpm dev:web\"",
-    "build:types": "pnpm --filter @fuep/types build || true",
+    "build:types": "pnpm --filter @fuep/types build",
     "build:api": "pnpm --filter @fuep/api build || true",
     "build:web": "pnpm --filter @fuep/web build || true",
     "build": "pnpm build:types && pnpm build:api && pnpm build:web",
-    "typecheck": "tsc -b",
+    "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier -w .",
-    "test": "echo \"No tests yet\""
+    "format:check": "prettier -c .",
+    "test": "pnpm --filter @fuep/web test",
+    "changeset": "changeset",
+    "release": "changeset version && pnpm install && pnpm build",
+    "commitlint": "commitlint",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v && docker compose up -d",
+    "db:migrate": "pnpm --filter @fuep/api run db:migrate",
+    "db:rollback": "pnpm --filter @fuep/api run db:rollback",
+    "db:seed": "pnpm --filter @fuep/api run db:seed"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged",
+    "commit-msg": "pnpm commitlint --edit"
+  },
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}": [
+      "prettier -w"
+    ],
+    "*.{js,cjs,mjs,ts,tsx}": [
+      "eslint --fix"
+    ]
   },
   "devDependencies": {
+    "@changesets/cli": "^2.27.7",
+    "@commitlint/cli": "^19.4.0",
+    "@commitlint/config-conventional": "^19.4.0",
     "@types/node": "^22.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.2.0",
+    "@typescript-eslint/parser": "^8.2.0",
     "concurrently": "^9.0.0",
     "eslint": "^9.8.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-simple-import-sort": "^12.1.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.9",
     "prettier": "^3.3.3",
+    "simple-git-hooks": "^2.9.0",
     "typescript": "^5.5.4"
   }
 }

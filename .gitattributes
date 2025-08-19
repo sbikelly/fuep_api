@@ -1,0 +1,5 @@
+# Normalize line endings across platforms
+* text=auto eol=lf
+
+# Treat shell scripts as text with LF
+*.sh text eol=lf

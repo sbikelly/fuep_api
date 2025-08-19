@@ -2,16 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "Bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node"]
+    "types": ["node"],
+    "strict": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": [
-    "src/app.module.ts",
-    "src/health.controller.ts",
-    "src/modules/**"
-  ]
+  "exclude": ["src/app.module.ts", "src/health.controller.ts", "src/modules/**"]
 }
