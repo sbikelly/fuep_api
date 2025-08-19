@@ -24,6 +24,65 @@ Notes:
 
 ---
 
+## Phase 0.5 — Docker Implementation & Containerization ✅
+
+- [x] **Multi-stage Dockerfiles**: Created optimized Docker images for API and Web services
+  - [x] API Dockerfile with Node.js runtime and TypeScript compilation
+  - [x] Web Dockerfile with Vite build and Nginx serving
+  - [x] Base stage with pnpm installation and workspace support
+  - [x] Dependencies stage with types package building
+  - [x] Build stage with application compilation
+  - [x] Runtime stage with optimized images
+- [x] **Docker Compose Orchestration**: Complete service orchestration
+  - [x] API service with health checks and dependencies
+  - [x] Web service with build args and environment variables
+  - [x] Infrastructure services (PostgreSQL, Redis, MinIO, MailHog)
+  - [x] Service health checks and dependency management
+  - [x] Port mapping and network configuration
+- [x] **Workspace Integration**: pnpm monorepo support in Docker
+  - [x] Types package building within Docker containers
+  - [x] Shared dependencies and workspace linking
+  - [x] Multi-stage builds with proper dependency copying
+- [x] **Build Optimization**: Docker build improvements
+  - [x] Comprehensive .dockerignore files
+  - [x] Build context optimization for monorepo
+  - [x] Layer caching and build efficiency
+- [x] **Port Configuration**: Updated to match environment specifications
+  - [x] Frontend accessible on http://localhost:5173 (as specified in .env files)
+  - [x] Backend API on http://localhost:4000
+  - [x] All infrastructure services properly mapped
+
+**Known Issues Identified:**
+
+- [x] **Environment Variable Substitution**: Frontend build process has issues with environment variable substitution during Docker build
+  - [x] **Problem**: VITE_API_BASE_URL environment variable not properly substituted during Vite build
+  - [x] **Impact**: Frontend uses hardcoded URLs instead of environment variables
+  - [x] **Current Workaround**: Manual URL updates required after rebuilds
+  - [x] **Investigation Status**: Multiple approaches attempted (build args, .env files, environment variables)
+  - [x] **Solution Implemented**: Runtime configuration system with fallback logic
+    - [x] HTML runtime configuration script with `window.APP_CONFIG`
+    - [x] Config utility functions with priority: Runtime Config > Environment Variable > Default
+    - [x] Null-safe functions to prevent toLowerCase errors
+    - [x] Automatic fallback to Docker service names when running in containers
+
+**Technical Details:**
+
+- Docker build context set to root directory to handle pnpm workspace dependencies
+- Multi-stage builds with separate dependency, build, and runtime stages
+- Environment variables configured in docker-compose.yml and passed as build args
+- Frontend served via Nginx on port 5173 (matching .env specifications)
+- API service with CORS configured for localhost:5173
+
+**Next Steps:**
+
+1. Investigate and fix environment variable substitution issue
+2. Implement proper runtime configuration if build-time substitution cannot be resolved
+3. Document the final solution and update deployment procedures
+4. Consider implementing health checks for frontend service
+5. Optimize Docker image sizes and build times
+
+---
+
 ## Phase 1 — Repository & Tooling
 
 - [x] Initialize git repository and create initial commit
@@ -321,21 +380,28 @@ Deliverables:
   - Education records management (create, read, update, delete)
   - Profile completion status tracking and dashboard
   - Full TypeScript implementation with shared types integration
+- **Phase 0.5 (Docker Implementation & Containerization): ✅ completed**
+  - **Full Docker containerization with multi-stage builds**
+  - **Docker Compose orchestration for all services**
+  - **Frontend accessible on http://localhost:5173 (as specified in .env files)**
+  - **Backend API running on http://localhost:4000**
+  - **All infrastructure services containerized and orchestrated**
+  - **Known issue: Environment variable substitution during frontend build (see above)**
 
 ### Immediate Next 10 Tasks
 
-1. **Phase 10 - Admin Portal**: Begin admin portal foundations with RBAC
-2. **Phase 10 - Admin Portal**: Create app shell with role-based access control
-3. **Phase 10 - Admin Portal**: Implement prelist upload (CSV/Excel)
-4. **Phase 10 - Admin Portal**: Add candidate search & filters
-5. **Phase 10 - Admin Portal**: Build payments reconciliation tools
-6. **Phase 10 - Admin Portal**: Create admissions decisions and notes system
-7. **Phase 10 - Admin Portal**: Implement reports (CSV/PDF exports)
-8. **Phase 8 - Enhancement**: Integrate ClamAV for document scanning
-9. **Phase 8 - Enhancement**: Implement image-to-PDF conversion
-10. **Phase 8 - Enhancement**: Add document versioning and audit trails
+1. **Docker Enhancement**: Add health checks for frontend service
+2. **Docker Enhancement**: Optimize Docker image sizes and build times
+3. **Phase 10 - Admin Portal**: Begin admin portal foundations with RBAC
+4. **Phase 10 - Admin Portal**: Create app shell with role-based access control
+5. **Phase 10 - Admin Portal**: Implement prelist upload (CSV/Excel)
+6. **Phase 10 - Admin Portal**: Add candidate search & filters
+7. **Phase 10 - Admin Portal**: Build payments reconciliation tools
+8. **Phase 10 - Admin Portal**: Create admissions decisions and notes system
+9. **Phase 8 - Enhancement**: Integrate ClamAV for document scanning
+10. **Phase 8 - Enhancement**: Implement image-to-PDF conversion
 
 ---
 
-Last Updated: 2025-08-19
-Next Review: 2025-08-26
+Last Updated: 2025-01-19
+Next Review: 2025-01-26

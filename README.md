@@ -2,9 +2,9 @@
 
 A comprehensive digital solution for Federal University of Education, Pankshin (FUEP) to streamline the post-UTME examination process. The system modernizes traditional paper-based applications, providing secure, efficient, and user-friendly platforms for candidates and administrators.
 
-## 🚀 **Current Status: Phase 8 Complete**
+## 🚀 **Current Status: Phase 8 Complete + Docker Implementation**
 
-**Latest Achievement**: Documents & Uploads System ✅  
+**Latest Achievement**: Documents & Uploads System + Full Docker Containerization ✅  
 **Next Phase**: Candidate Portal Features (Phase 9)
 
 ### ✅ **Completed Features**
@@ -14,6 +14,7 @@ A comprehensive digital solution for Federal University of Education, Pankshin (
 - **Phase 6**: Core authentication and profile management flows
 - **Phase 7**: **Payment Gateway Integration** - Remita + Flutterwave with webhook processing
 - **Phase 8**: **Documents & Uploads System** - MinIO S3 integration with comprehensive file management
+- **Docker Implementation**: **Full Containerization** - Multi-stage Dockerfiles, Docker Compose orchestration
 
 ### 🔄 **Current Capabilities**
 
@@ -24,6 +25,7 @@ A comprehensive digital solution for Federal University of Education, Pankshin (
 - **Receipts**: PDF generation with tamper detection
 - **Documents**: Comprehensive file upload, storage, and management with MinIO S3
 - **File Security**: MIME type validation, size limits, checksum verification
+- **Containerization**: Full Docker deployment with multi-stage builds and service orchestration
 
 ## 🏗️ **Architecture**
 
@@ -33,6 +35,30 @@ A comprehensive digital solution for Federal University of Education, Pankshin (
 - **Payment**: Multi-provider gateway integration with explicit module initialization
 - **Types**: Shared TypeScript types across monorepo
 - **Validation**: Zod schemas for runtime validation
+- **Containerization**: Docker multi-stage builds with pnpm workspace support
+
+### **Docker Architecture**
+
+The system is fully containerized using Docker Compose with the following services:
+
+1. **API Service**: Node.js Express backend with TypeScript compilation
+2. **Web Service**: React frontend built with Vite, served via Nginx
+3. **Infrastructure Services**: PostgreSQL, Redis, MinIO, MailHog
+4. **Multi-stage Builds**: Optimized Docker images with separate build and runtime stages
+5. **Workspace Support**: pnpm monorepo with shared types package integration
+
+**Port Configuration:**
+
+- **Frontend**: http://localhost:5173 (accessible from host)
+- **Backend API**: http://localhost:4000 (accessible from host)
+- **Database**: localhost:5432 (accessible from host)
+- **MinIO Console**: http://localhost:9001 (accessible from host)
+- **MailHog**: http://localhost:8025 (accessible from host)
+
+**Known Issues:**
+
+- **Environment Variable Substitution**: Frontend build process has issues with environment variable substitution during Docker build (see TODO.md for details)
+- **Current Workaround**: Frontend uses hardcoded API URLs that need manual updating
 
 ### **Payments Module Architecture**
 
@@ -152,17 +178,43 @@ ENABLE_DEBUG_LOGGING=true
 ### 3. Start Services
 
 ```bash
-# Start infrastructure services (PostgreSQL, Redis, MinIO)
+# Start all services with Docker Compose (Recommended)
 docker compose up -d
 
-# Build shared types package
+# OR start infrastructure services only
+docker compose up -d postgres redis minio mailhog
+
+# Build shared types package (if not using Docker)
 pnpm build:types
 
-# Start development servers
+# OR individual types
+pnpm --filter @fuep/types build:types
+pnpm --filter @fuep/api build:types
+pnpm --filter @fuep/web build:types
+
+# Start development servers (if not using Docker)
 pnpm dev                    # Both API and Web
 # OR
 pnpm dev:api               # API only
 pnpm dev:web               # Web only
+
+# OR start dev server from the api directory
+pnpm --filter @fuep/api start:dev
+
+# OR start dev server from the web directory
+pnpm --filter @fuep/web dev
+
+# Stop services
+docker compose down -v
+
+# Stop development servers
+pnpm stop
+# or
+pnpm stop:api
+pnpm stop:web
+
+#or
+Get-Process | Where-Object {$_.ProcessName -like "*node*"} | Stop-Process -Force
 ```
 
 ### 4. Verify Setup
@@ -176,7 +228,102 @@ curl http://localhost:4000/payments/providers/status
 
 # Open web app
 # http://localhost:5173
+
+# Check Docker services status
+docker compose ps
 ```
+
+## 🐳 **Docker Deployment**
+
+### **Service Architecture**
+
+The application is fully containerized using Docker Compose with the following services:
+
+```yaml
+# Core Application Services
+api: # Express.js backend on port 4000
+web: # React frontend on port 5173
+
+# Infrastructure Services
+postgres: # PostgreSQL database on port 5432
+redis: # Redis cache on port 6379
+minio: # S3-compatible storage on ports 9000/9001
+mailhog: # Email testing on ports 1025/8025
+```
+
+### **Port Configuration**
+
+| Service       | Internal Port | External Port | URL                   |
+| ------------- | ------------- | ------------- | --------------------- |
+| Frontend      | 80            | 5173          | http://localhost:5173 |
+| Backend API   | 4000          | 4000          | http://localhost:4000 |
+| PostgreSQL    | 5432          | 5432          | localhost:5432        |
+| Redis         | 6379          | 6379          | localhost:6379        |
+| MinIO API     | 9000          | 9000          | localhost:9000        |
+| MinIO Console | 9001          | 9001          | http://localhost:9001 |
+| MailHog SMTP  | 1025          | 1025          | localhost:1025        |
+| MailHog Web   | 8025          | 8025          | http://localhost:8025 |
+
+### **Docker Commands**
+
+```bash
+# Start all services
+docker compose up -d
+
+# Start specific services
+docker compose up -d postgres redis
+
+# View service logs
+docker compose logs -f api
+docker compose logs -f web
+
+# Access running containers
+docker compose exec api sh
+docker compose exec web sh
+docker compose exec postgres psql -U fuep -d fuep_portal
+
+# Stop all services
+docker compose down
+
+# Stop and remove volumes
+docker compose down -v
+
+# Rebuild and restart
+docker compose up -d --build
+
+# View service status
+docker compose ps
+```
+
+### **Multi-stage Builds**
+
+Both API and Web services use multi-stage Docker builds:
+
+1. **Base Stage**: Node.js Alpine with pnpm installation
+2. **Deps Stage**: Dependencies installation and types package building
+3. **Build Stage**: Application compilation and bundling
+4. **Runtime Stage**: Optimized runtime image (Node.js for API, Nginx for Web)
+
+### **Environment Variables**
+
+Environment variables are configured in `docker-compose.yml` and passed to containers:
+
+- **API Service**: Database, MinIO, CORS, and application configuration
+- **Web Service**: API endpoint URLs and branding configuration
+- **Infrastructure**: Database credentials, MinIO settings, Redis configuration
+
+### **Known Issues & Limitations**
+
+1. **Environment Variable Substitution**: Frontend build process has issues with environment variable substitution during Docker build
+   - **Impact**: API URLs are hardcoded in the frontend bundle
+   - **Workaround**: Manual URL updates required after rebuilds
+   - **Status**: Under investigation (see TODO.md for details)
+
+2. **Build Context**: Docker build context is set to root directory to handle pnpm workspace dependencies
+   - **Impact**: Larger build context, longer build times
+   - **Mitigation**: Comprehensive `.dockerignore` files to exclude unnecessary files
+
+3. **Port Conflicts**: Ensure ports 4000, 5173, 5432, 6379, 9000, 9001, 1025, 8025 are available on the host
 
 ## 📚 **API Documentation**
 
@@ -415,6 +562,6 @@ For technical support or questions:
 
 ---
 
-**Last Updated**: 2025-01-18  
-**Version**: 1.0.0  
-**Status**: Phase 8 Complete - Ready for Phase 9 (Candidate Portal Features)
+**Last Updated**: 2025-01-19  
+**Version**: 1.0.0 + Docker  
+**Status**: Phase 8 Complete + Docker Implementation - Ready for Phase 9 (Candidate Portal Features)

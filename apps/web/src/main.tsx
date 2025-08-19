@@ -12,10 +12,14 @@ import NotFound from './pages/NotFound';
 import Payment from './pages/Payment';
 import Profile from './pages/Profile';
 import Status from './pages/Status';
+import { getBrandPrimaryColor, logAppConfig } from './utils/config';
 
-// Initialize brand color from Vite env with safe fallback (#134F47)
-const brand = (import.meta.env.VITE_BRAND_PRIMARY_COLOR || '#134F47').trim();
+// Initialize brand color from config utility
+const brand = getBrandPrimaryColor().trim();
 document.documentElement.style.setProperty('--brand-primary', brand);
+
+// Log configuration for debugging
+logAppConfig();
 
 // Update theme-color meta tag to match brand color
 const updateThemeColor = () => {
