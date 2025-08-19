@@ -3,6 +3,7 @@
 These sequence diagrams are normative and must inform and constrain implementation throughout development. Any deviation must be explicitly reviewed and approved.
 
 ## Conformance Notes
+
 - All API contracts, database operations, background jobs, and side effects must follow these flows.
 - Payment orchestration (init, webhook, verify, reconcile) must match the steps and transitions depicted here.
 - Candidate lifecycle, document processing, admissions, matriculation, and migration are governed by these sequences.
@@ -239,4 +240,5 @@ sequenceDiagram
 ---
 
 Render notes:
+
 - GitHub and many Markdown engines render Mermaid automatically. If not, paste each block into a Mermaid-capable viewer (e.g., https://mermaid.live) or enable Mermaid in your docs site.

@@ -1,0 +1,8 @@
+# CODEOWNERS
+# Each line is a file pattern followed by one or more owners.
+# Example:
+# /apps/api/  @your-github-username
+
+*  @your-github-username
+/apps/api/  @your-github-username
+/docs/  @your-github-username

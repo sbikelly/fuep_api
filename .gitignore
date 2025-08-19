@@ -1,8 +1,32 @@
+# dependencies
 node_modules
+.pnpm-store
+**/node_modules
+
+# builds
 dist
 build
-.env
-.env.*
-apps/**/.env
+coverage
+
+# env
+#.env
+#.env.*
+#apps/**/.env
+
+# editor/OS
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# logs
+*.log
+logs
 infra/db/*.log
 infra/db/backups
+
+# misc
+.husky/_ # husky internal
+.changeset

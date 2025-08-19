@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: FUEP Post-UTME Portal API
-  version: "1.0.0"
+  version: '1.0.0'
   description: REST API for candidate and admin workflows, payments, admissions, matriculation, and migration.
 
 servers:
@@ -24,7 +24,7 @@ paths:
               properties:
                 jambRegNo: { type: string, maxLength: 20 }
       responses:
-        "200":
+        '200':
           description: Result
           content:
             application/json:
@@ -34,13 +34,13 @@ paths:
                   exists: { type: boolean }
                   biodata:
                     $ref: '#/components/schemas/JambPrelistMinimal'
-        "400": { description: Invalid input }
+        '400': { description: Invalid input }
 
   /payments/init:
     post:
       summary: Initialize a payment
       security:
-        - bearerAuth: []   # optional; can be public for first payment
+        - bearerAuth: [] # optional; can be public for first payment
       requestBody:
         required: true
         content:
@@ -56,12 +56,64 @@ paths:
                 email: { type: string }
                 phone: { type: string }
       responses:
-        "201":
+        '201':
           description: Payment created / provider init response
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaymentInitResponse'
+
+  /payments/{paymentId}:
+    get:
+      summary: Get payment status and details
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusCheckResponse'
+        '404': { description: Payment not found }
+
+  /payments/{paymentId}/verify:
+    post:
+      summary: Manually verify payment with provider
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentVerificationResponse'
+        '404': { description: Payment not found }
+
+  /payments/{paymentId}/receipt:
+    get:
+      summary: Get payment receipt
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentReceiptResponse'
+        '400': { description: Payment not successful' }
+        '404': { description: Payment not found }
 
   /payments/webhook/remita:
     post:
@@ -73,7 +125,34 @@ paths:
           application/json:
             schema: { type: object, additionalProperties: true }
       responses:
-        "200": { description: Acknowledged }
+        '200': { description: Acknowledged }
+
+  /payments/webhook/flutterwave:
+    post:
+      summary: Flutterwave webhook callback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200': { description: Acknowledged }
+
+  /payments/providers/status:
+    get:
+      summary: Get payment provider status
+      responses:
+        '200':
+          description: Provider status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: object }
+                  timestamp: { type: string, format: date-time }
 
   /auth/login:
     post:
@@ -87,16 +166,16 @@ paths:
               type: object
               required: [username, password]
               properties:
-                username: { type: string, description: "JAMB Reg No" }
+                username: { type: string, description: 'JAMB Reg No' }
                 password: { type: string, format: password }
       responses:
-        "200":
+        '200':
           description: JWT tokens
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokens'
-        "401": { description: Invalid credentials }
+        '401': { description: Invalid credentials }
 
   /auth/change-password:
     post:
@@ -112,13 +191,13 @@ paths:
                 oldPassword: { type: string }
                 newPassword: { type: string, minLength: 8 }
       responses:
-        "204": { description: Changed }
+        '204': { description: Changed }
 
   /me:
     get:
       summary: Get current candidate composite profile
       responses:
-        "200":
+        '200':
           description: Composite profile
           content:
             application/json:
@@ -134,7 +213,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ProfileUpdate' }
       responses:
-        "200":
+        '200':
           description: Saved
           content:
             application/json:
@@ -149,7 +228,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EducationRecordCreate' }
       responses:
-        "201":
+        '201':
           description: Created
           content:
             application/json:
@@ -169,7 +248,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EducationRecordUpdate' }
       responses:
-        "200":
+        '200':
           description: Updated
           content:
             application/json:
@@ -191,7 +270,7 @@ paths:
                   type: string
                   format: binary
       responses:
-        "201":
+        '201':
           description: Uploaded
           content:
             application/json:
@@ -201,7 +280,7 @@ paths:
     get:
       summary: Registration form JSON (for preview)
       responses:
-        "200":
+        '200':
           description: JSON data
           content:
             application/json:
@@ -211,7 +290,7 @@ paths:
     get:
       summary: Registration form PDF
       responses:
-        "200":
+        '200':
           description: PDF
           content:
             application/pdf:
@@ -223,7 +302,7 @@ paths:
     get:
       summary: Candidate dashboard summary
       responses:
-        "200":
+        '200':
           description: Summary
           content:
             application/json:
@@ -233,14 +312,14 @@ paths:
     get:
       summary: Admission letter (PDF) if eligible
       responses:
-        "200":
+        '200':
           description: PDF
           content:
             application/pdf:
               schema:
                 type: string
                 format: binary
-        "403": { description: Not eligible }
+        '403': { description: Not eligible }
 
   # -------- Admin --------
 
@@ -260,7 +339,7 @@ paths:
                   type: string
                   format: binary
       responses:
-        "201": { description: Imported }
+        '201': { description: Imported }
 
   /admin/candidates:
     get:
@@ -276,7 +355,7 @@ paths:
           name: status
           schema: { $ref: '#/components/schemas/DecisionStatus' }
       responses:
-        "200":
+        '200':
           description: Paged list
           content:
             application/json:
@@ -307,7 +386,7 @@ paths:
                 decision: { $ref: '#/components/schemas/DecisionStatus' }
                 notes: { type: string }
       responses:
-        "200": { description: Updated }
+        '200': { description: Updated }
 
   /admin/matric/{candidateId}:
     post:
@@ -318,7 +397,7 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "201":
+        '201':
           description: Student record created
           content:
             application/json:
@@ -333,7 +412,7 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "200":
+        '200':
           description: Current provider status
           content:
             application/json:
@@ -348,7 +427,7 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
-        "202": { description: Migration queued }
+        '202': { description: Migration queued }
 
 components:
   securitySchemes:
@@ -358,7 +437,6 @@ components:
       bearerFormat: JWT
 
   schemas:
-
     PaymentPurpose:
       type: string
       enum: [post_utme, acceptance, school_fee]

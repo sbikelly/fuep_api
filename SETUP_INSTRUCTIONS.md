@@ -38,12 +38,8 @@ pnpm install:all
 docker-compose up -d
 ```
 
-great! now, lets move to the next step while making sure to test the functionality and response or inetgration at every level in order to avoid future error. and just so you know, i have removed/deleted 
-app.module.ts health.controller.ts 
-auth module folder, auth.service.ts, auth.controller.ts since they are longer used
-
-
 **Services:**
+
 - **PostgreSQL**: `localhost:5432` (user: `fuep`, password: `fuep`, db: `fuep_portal`)
 - **Redis**: `localhost:6379`
 - **MinIO**: `localhost:9000` (Console: `localhost:9001`, user: `fuep`, password: `fuepstrongpassword`)
@@ -95,11 +91,13 @@ CORS_ORIGIN=http://localhost:5173
 ### 4. Start Applications
 
 #### Option A: Start Both Together
+
 ```bash
 pnpm dev
 ```
 
 #### Option B: Start Separately
+
 ```bash
 # Terminal 1 - Backend API
 pnpm dev:api
@@ -109,12 +107,14 @@ pnpm dev:web
 ```
 
 **Ports:**
+
 - **Frontend**: `http://localhost:5173`
 - **Backend API**: `http://localhost:4000`
 
 ## Development Commands
 
 ### Backend API (Express)
+
 ```bash
 cd apps/api
 
@@ -129,6 +129,7 @@ pnpm start
 ```
 
 ### Frontend
+
 ```bash
 cd apps/web
 
@@ -143,6 +144,7 @@ pnpm preview
 ```
 
 ### Root Level
+
 ```bash
 # Install all dependencies
 pnpm install:all
@@ -160,6 +162,7 @@ pnpm typecheck
 ## Database Management
 
 ### Access PostgreSQL
+
 ```bash
 # Connect to database (container created by docker-compose)
 docker exec -it fuep-postgres psql -U fuep -d fuep_portal
@@ -172,6 +175,7 @@ docker exec -it fuep-postgres psql -U fuep -d fuep_portal
 ```
 
 ### Reset Database
+
 ```bash
 # Stop and remove containers
 docker-compose down
@@ -188,12 +192,14 @@ docker-compose up -d
 ### Common Issues
 
 #### 1. Database Connection Failed
+
 - Ensure Docker Desktop is running
 - Check if containers are healthy: `docker ps`
 - Verify database credentials in `.env` file
 - Restart containers: `docker-compose restart`
 
 #### 2. Port Already in Use
+
 ```bash
 # Find process using ports
 netstat -ano | findstr :4000   # API
@@ -204,6 +210,7 @@ taskkill /PID <process-id> /F
 ```
 
 #### 3. Dependencies Issues
+
 ```bash
 # Clear cache and reinstall
 pnpm store prune
@@ -211,6 +218,7 @@ pnpm install:all
 ```
 
 #### 4. TypeScript Errors
+
 ```bash
 # Check for type errors
 pnpm typecheck
@@ -233,6 +241,7 @@ This will output your current environment configuration.
 ## Production Deployment
 
 ### Environment Variables
+
 - Set `NODE_ENV=production`
 - Use strong, unique `JWT_SECRET`
 - Configure production database credentials
@@ -240,6 +249,7 @@ This will output your current environment configuration.
 - Configure production MinIO/S3 credentials
 
 ### Security Checklist
+
 - [ ] Change default passwords
 - [ ] Set up proper CORS origins
 - [ ] Configure rate limiting
@@ -268,6 +278,7 @@ This will output your current environment configuration.
 ## Support
 
 For issues and questions:
+
 1. Check the troubleshooting section above
 2. Review Docker container logs: `docker-compose logs <service-name>`
 3. Check application logs in the terminal

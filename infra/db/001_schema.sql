@@ -13,11 +13,11 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-    CREATE TYPE payment_provider AS ENUM ('remita', 'paystack', 'flutterwave');
+    CREATE TYPE payment_provider AS ENUM ('remita', 'flutterwave', 'paystack');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-    CREATE TYPE payment_status AS ENUM ('initiated', 'pending', 'success', 'failed', 'reconciled');
+    CREATE TYPE payment_status AS ENUM ('initiated', 'pending', 'processing', 'success', 'failed', 'cancelled', 'disputed', 'refunded');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
@@ -198,18 +198,52 @@ CREATE TABLE IF NOT EXISTS payments (
   amount               numeric(14,2) NOT NULL,
   currency             varchar(8) NOT NULL DEFAULT 'NGN',
   status               payment_status NOT NULL DEFAULT 'initiated',
-  idempotency_key      varchar(128),    -- (candidate_id + purpose + session)
-  raw_payload          jsonb,
+  idempotency_key      varchar(128) NOT NULL,    -- (candidate_id + purpose + session)
+  request_hash         varchar(64) NOT NULL,     -- SHA-256 hash of canonicalized request
+  response_snapshot    jsonb,                    -- Stored response for idempotency
+  status_code          integer NOT NULL DEFAULT 201, -- HTTP status code for idempotency
+  first_request_at     timestamptz NOT NULL DEFAULT NOW(),
+  last_request_at      timestamptz NOT NULL DEFAULT NOW(),
+  replay_count         integer NOT NULL DEFAULT 1,
+  external_reference   varchar(128),    -- Provider's external reference
+  metadata             jsonb,           -- Provider-specific data
+  webhook_received_at  timestamptz,     -- When webhook was received
+  verified_at          timestamptz,     -- When payment was verified
+  receipt_url          text,            -- URL to generated receipt
+  expires_at           timestamptz,     -- When payment expires
+  raw_payload          jsonb,           -- Raw provider response
   created_at           timestamptz NOT NULL DEFAULT NOW(),
   updated_at           timestamptz NOT NULL DEFAULT NOW()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS ux_payments_provider_ref ON payments(provider_ref);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_payments_idempotency_key ON payments(idempotency_key);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_payments_provider_ref ON payments(provider_ref) WHERE provider_ref IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_payments_external_reference ON payments(external_reference) WHERE external_reference IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_payments_candidate ON payments(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_payments_purpose ON payments(purpose);
+CREATE INDEX IF NOT EXISTS idx_payments_provider ON payments(provider);
+CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at);
 CREATE TRIGGER payments_set_updated_at
 BEFORE UPDATE ON payments
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Payment events for audit trail
+CREATE TABLE IF NOT EXISTS payment_events (
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  payment_id           uuid NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  event_type           varchar(64) NOT NULL,     -- 'initiated', 'webhook_received', 'verified', 'status_changed'
+  from_status          payment_status,
+  to_status            payment_status,
+  provider_event_id    varchar(128),             -- Provider's event identifier for deduplication
+  signature_hash       varchar(64),              -- Hash of webhook signature for verification
+  provider_data        jsonb,                    -- Provider-specific event data
+  metadata             jsonb,                    -- Additional event metadata
+  created_at           timestamptz NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_payment_events_payment ON payment_events(payment_id);
+CREATE INDEX IF NOT EXISTS idx_payment_events_type ON payment_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_payment_events_created ON payment_events(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_payment_events_provider_event ON payment_events(provider_event_id) WHERE provider_event_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS receipts (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -217,6 +251,7 @@ CREATE TABLE IF NOT EXISTS receipts (
   serial               varchar(32) NOT NULL,
   qr_token             varchar(64) NOT NULL,
   pdf_url              text NOT NULL,
+  content_hash         varchar(64),              -- SHA-256 hash of receipt content for tamper detection
   created_at           timestamptz NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_receipts_serial ON receipts(serial);
@@ -287,6 +322,27 @@ FROM candidates c
 LEFT JOIN admissions a ON a.candidate_id = c.id
 LEFT JOIN students  s ON s.candidate_id = c.id
 LEFT JOIN applications ap ON ap.candidate_id = c.id;
+
+-- Payment summary view for candidates
+CREATE OR REPLACE VIEW v_payment_summary AS
+SELECT
+  p.id AS payment_id,
+  p.candidate_id,
+  c.jamb_reg_no,
+  p.purpose,
+  p.provider,
+  p.amount,
+  p.currency,
+  p.status,
+  p.provider_ref,
+  p.created_at,
+  p.verified_at,
+  p.receipt_url,
+  r.serial AS receipt_serial
+FROM payments p
+JOIN candidates c ON c.id = p.candidate_id
+LEFT JOIN receipts r ON r.payment_id = p.id
+ORDER BY p.created_at DESC;
 
 -- ---------- Minimal seed (optional) ----------
 -- INSERT INTO matric_counters(session, dept_code, last_seq) VALUES ('2025', 'CSC', 0) ON CONFLICT DO NOTHING;

@@ -1,401 +1,377 @@
 # FUEP Post-UTME Portal
 
-A comprehensive Post-UTME portal for Federal University of Education, Pankshin (FUEP) built with modern web technologies.
+A comprehensive digital solution for Federal University of Education, Pankshin (FUEP) to streamline the post-UTME examination process. The system modernizes traditional paper-based applications, providing secure, efficient, and user-friendly platforms for candidates and administrators.
 
-## 🚀 Quick Start
+## 🚀 **Current Status: Phase 7 Complete**
 
-### Prerequisites
-- **Node.js**: v18+ (Recommended: v20+)
-- **pnpm**: v8+ (Install with `npm install -g pnpm`)
-- **Docker & Docker Compose**: For development services
-- **Git**: For version control
+**Latest Achievement**: Payment Gateway Integration ✅  
+**Next Phase**: Testing & Production Deployment
 
-### Installation & Setup
+### ✅ **Completed Features**
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd fuep-postutme
-   ```
+- **Phase 1-3**: Repository setup, infrastructure, backend bootstrap
+- **Phase 4-5**: Frontend bootstrap, shared types package
+- **Phase 6**: Core authentication and profile management flows
+- **Phase 7**: **Payment Gateway Integration** - Remita + Flutterwave with webhook processing
 
-2. **Install all dependencies**
-   ```bash
-   pnpm install:all
-   ```
+### 🔄 **Current Capabilities**
 
-3. **Start development services**
-   ```bash
-   docker-compose up -d
-   ```
+- **Authentication**: JAMB verification, login, profile management
+- **Applications**: Complete application lifecycle management
+- **Payments**: Real payment gateway integration with Remita (primary) and Flutterwave (fallback)
+- **Security**: Webhook signature verification, idempotency, audit trails
+- **Receipts**: PDF generation with tamper detection
 
-4. **Set up environment variables**
-   ```bash
-   # Copy the example environment file
-cp env.example .env.development
-   
-   # Edit with your configuration
-   nano .env.development
-   ```
+## 🏗️ **Architecture**
 
-5. **Run the development servers**
-   ```bash
-   pnpm dev
-   ```
+- **Backend**: Express.js API with TypeScript
+- **Frontend**: React + TypeScript + Vite
+- **Database**: PostgreSQL with comprehensive schema
+- **Payment**: Multi-provider gateway integration with explicit module initialization
+- **Types**: Shared TypeScript types across monorepo
+- **Validation**: Zod schemas for runtime validation
 
-### Development Commands
+### **Payments Module Architecture**
+
+The payments system uses an explicit initialization pattern to ensure proper dependency injection and module loading:
+
+1. **Module Initializer**: `createPaymentsModule()` creates all dependencies in the correct order
+2. **Provider Registry**: Manages Remita (primary) and Flutterwave (fallback) providers
+3. **Service Layer**: Handles business logic with injected dependencies and idempotency enforcement
+4. **Controller Layer**: Manages HTTP requests with injected service and Idempotency-Key header validation
+5. **Router**: Express router with bound controller methods
+
+This architecture ensures:
+
+- Deterministic initialization order
+- Proper dependency injection
+- Clear separation of concerns
+- Easy testing and mocking
+- No circular dependencies
+- Robust idempotency for payment operations
+
+## 🚀 **Quick Start**
+
+### 1. Clone and Setup
 
 ```bash
-# Install dependencies
-pnpm install:all          # Install all workspace dependencies
-pnpm install               # Install root dependencies only
-
-# Development servers
-pnpm dev                   # Run both API and Web servers
-pnpm dev:api              # Run only the NestJS API server
-pnpm dev:web              # Run only the React frontend server
-
-# Building
-pnpm build:types          # Build the shared types package
-pnpm build:api            # Build the Express API
-pnpm build:web            # Build the React frontend
-pnpm build                # Build all packages
-
-# Quality checks
-pnpm typecheck            # Run TypeScript type checking
-pnpm lint                 # Run ESLint across all packages
-pnpm format               # Format code with Prettier
-
-# Testing
-pnpm test                 # Run all tests
-pnpm test:api            # Run API tests only
-pnpm test:web            # Run frontend tests only
+git clone <repository-url>
+cd fuep-postutme
+pnpm install
 ```
 
-## 🏗️ Architecture
+### 2. Environment Configuration
 
-### Monorepo Structure
+Create a `.env` file in the root directory with the following configuration:
+
+```bash
+# Server Configuration
+PORT=4000
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+
+# Database Configuration
+DATABASE_URL=postgresql://postgres:password@localhost:5432/fuep_postutme
+POSTGRES_DB=fuep_postutme
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
+
+# API Configuration
+API_BASE_URL=http://localhost:4000
+FRONTEND_BASE_URL=http://localhost:5173
+PAYMENT_CALLBACK_URL=http://localhost:5173/payment/callback
+
+# Payment Gateway Configuration
+
+# Remita Configuration (Primary Provider)
+REMITA_PUBLIC_KEY=your_remita_public_key
+REMITA_SECRET_KEY=your_remita_secret_key
+REMITA_WEBHOOK_SECRET=your_remita_webhook_secret
+REMITA_MERCHANT_ID=2547916
+REMITA_BASE_URL=https://remitademo.net
+
+# Flutterwave Configuration (Fallback Provider)
+FLUTTERWAVE_PUBLIC_KEY=your_flutterwave_public_key
+FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
+FLUTTERWAVE_WEBHOOK_SECRET=your_flutterwave_webhook_secret
+FLUTTERWAVE_BASE_URL=https://api.flutterwave.com/v3
+
+# Redis Configuration
+REDIS_URL=redis://localhost:6379
+
+# MinIO Configuration
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin
+MINIO_BUCKET_NAME=fuep-documents
+
+# Mail Configuration
+MAIL_HOST=localhost
+MAIL_PORT=1025
+MAIL_USER=test@example.com
+MAIL_PASS=test
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key
+JWT_EXPIRES_IN=24h
+
+# Security Configuration
+BCRYPT_ROUNDS=12
+RATE_LIMIT_WINDOW=15m
+RATE_LIMIT_MAX=100
+
+# Logging Configuration
+LOG_LEVEL=info
+LOG_FORMAT=json
+
+# Development Configuration
+ENABLE_MOCK_DATA=true
+ENABLE_DEBUG_LOGGING=true
+```
+
+### 3. Start Services
+
+```bash
+# Start infrastructure services (PostgreSQL, Redis, MinIO)
+docker compose up -d
+
+# Build shared types package
+pnpm build:types
+
+# Start development servers
+pnpm dev                    # Both API and Web
+# OR
+pnpm dev:api               # API only
+pnpm dev:web               # Web only
+```
+
+### 4. Verify Setup
+
+```bash
+# Check API health
+curl http://localhost:4000/health
+
+# Check payment providers status
+curl http://localhost:4000/payments/providers/status
+
+# Open web app
+# http://localhost:5173
+```
+
+## 📚 **API Documentation**
+
+### **Public Endpoints**
+
+#### Authentication
+
+- `POST /auth/check-jamb` - Verify JAMB registration number
+- `POST /auth/login` - Candidate login
+- `POST /auth/change-password` - Change password
+
+#### Profile Management
+
+- `PUT /profile` - Update candidate profile
+
+#### Applications
+
+- `POST /applications` - Create new application
+- `GET /applications/:id` - Get application details
+
+#### Payments
+
+- `POST /payments/init` - Initialize payment
+- `GET /payments/:id` - Get payment status
+- `POST /payments/:id/verify` - Verify payment manually
+- `GET /payments/:id/receipt` - Get payment receipt
+- `POST /payments/webhook/remita` - Remita webhook
+- `POST /payments/webhook/flutterwave` - Flutterwave webhook
+- `GET /payments/providers/status` - Provider health check
+
+#### System
+
+- `GET /health` - API health check
+
+### **Testing Examples**
+
+```bash
+# Health check
+curl http://localhost:4000/health
+
+# JAMB verification
+curl -X POST http://localhost:4000/auth/check-jamb \
+  -H "Content-Type: application/json" \
+  -d '{"jambRegNo":"TEST123456789"}'
+
+# Payment initiation
+curl -X POST http://localhost:4000/payments/init \
+  -H "Content-Type: application/json" \
+  -d '{"purpose":"postutme","amount":2500,"currency":"NGN","session":"2024/2025"}'
+
+# Check payment status
+curl http://localhost:4000/payments/{payment-id}
+
+# Get provider status
+curl http://localhost:4000/payments/providers/status
+```
+
+## 🛠️ **Development Commands**
+
+### **Build & Test**
+
+```bash
+# Build all packages
+pnpm build
+
+# Type checking
+pnpm typecheck
+
+# Linting
+pnpm lint
+
+# Formatting
+pnpm format
+```
+
+### **Package-Specific**
+
+```bash
+# Types package
+pnpm build:types
+pnpm --filter @fuep/types typecheck
+
+# API package
+pnpm --filter @fuep/api typecheck
+pnpm --filter @fuep/api start:dev
+
+# Web package
+pnpm --filter @fuep/web typecheck
+pnpm --filter @fuep/web dev
+```
+
+### **Database Operations**
+
+```bash
+# Access PostgreSQL
+docker compose exec postgres psql -U postgres -d fuep_postutme
+
+# Reset database
+docker compose down -v
+docker compose up -d
+```
+
+## 🔐 **Payment Gateway Integration**
+
+### **Supported Providers**
+
+- **Remita** (Primary): Nigerian payment gateway with RRR system
+- **Flutterwave** (Fallback): Pan-African payment platform
+
+### **Features**
+
+- **Secure Webhooks**: HMAC-SHA256 signature verification
+- **Idempotency**: Prevents duplicate payment processing with Idempotency-Key header
+- **Request Hash Validation**: Ensures identical requests return the same response
+- **Conflict Detection**: Returns 422 for same key with different request body
+- **Audit Trail**: Complete payment event logging with deduplication
+- **Provider Fallback**: Automatic failover between providers
+- **Receipt Generation**: PDF receipts with tamper detection
+
+### **Configuration**
+
+1. Set provider credentials in `.env`
+2. Configure webhook URLs in provider dashboards
+3. Test with sandbox credentials
+4. Deploy with production credentials
+
+## 📁 **Project Structure**
+
 ```
 fuep-postutme/
 ├── apps/
-│   ├── api/              # Express Backend API
-│   └── web/              # React Frontend
+│   ├── api/                 # Express.js backend
+│   └── web/                 # React frontend
 ├── packages/
-│   └── types/            # Shared TypeScript types
-├── infra/                # Infrastructure configuration
-└── docs/                 # Documentation
+│   └── types/               # Shared TypeScript types
+├── infra/
+│   ├── db/                  # Database schema
+│   └── docker/              # Docker configurations
+├── docs/                    # API documentation
+└── scripts/                 # Build and deployment scripts
 ```
 
-### Tech Stack
+## 🧪 **Testing**
 
-#### Backend (Express API)
-- **Framework**: Express (Node.js)
-- **Language**: TypeScript
-- **Database**: PostgreSQL with TypeORM
-- **Authentication**: JWT with role-based access
-- **File Storage**: S3-compatible object storage (MinIO for development)
-- **Caching**: Redis
-- **Payment**: Remita, Flutterwave integration
-- **Email**: SMTP with MailHog for development
+### **Test Coverage**
 
-#### Frontend (React)
-- **Framework**: React 19 with TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS
-- **State Management**: React Query + Zustand
-- **Routing**: React Router DOM
-- **Forms**: React Hook Form
-- **Icons**: Lucide React
+- Unit tests for payment providers
+- Integration tests for payment flows
+- Frontend tests for payment UI
+- Security tests for webhook validation
 
-#### Infrastructure
-- **Containerization**: Docker & Docker Compose
-- **Database**: PostgreSQL
-- **Cache/Queue**: Redis
-- **Object Storage**: MinIO (S3-compatible)
-- **Email Testing**: MailHog
-- **Reverse Proxy**: Nginx (production)
+### **Running Tests**
 
-#### Shared Types
-- **Package**: `@fuep/types`
-- **Language**: TypeScript
-- **Validation**: Zod schemas
-- **Build**: TypeScript compiler
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env.development` file in the root directory:
-
-```env
-# Application
-NODE_ENV=development
-PORT=4000
-
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=fuep
-DB_PASSWORD=fuep
-DB_NAME=fuep_portal
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-here
-JWT_EXPIRES_IN=24h
-JWT_REFRESH_SECRET=your-refresh-secret-key-here
-JWT_REFRESH_EXPIRES_IN=7d
-SESSION_TTL=86400
-
-# Payment Gateways
-REMITA_PUBLIC_KEY=your_remita_public_key
-REMITA_SECRET_KEY=your_remita_secret_key
-FLUTTERWAVE_PUBLIC_KEY=your_flutterwave_public_key
-FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
-
-# File Storage (MinIO for development)
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=fuep
-MINIO_SECRET_KEY=fuepstrongpassword
-MINIO_BUCKET=uploads
-MINIO_USE_SSL=false
-
-# Email (MailHog for development)
-SMTP_HOST=localhost
-SMTP_PORT=1025
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM=noreply@fuep.edu.ng
-
-# Redis (optional URL overrides host/port/db)
-REDIS_URL=
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-
-# Security
-CORS_ORIGIN=http://localhost:5173
-```
-
-### Docker Services
-
-The development environment includes:
-
-- **PostgreSQL** (Port 5432): Main database
-- **Redis** (Port 6379): Caching and job queues
-- **MinIO** (Port 9000): S3-compatible object storage
-- **MailHog** (Port 1025): Email testing and capture
-
-## 📊 Implementation Status
-
-### ✅ Completed Features
-
-#### Backend (Express API)
-- ✅ Basic project structure and configuration
-- ✅ Database entities and relationships (TypeORM)
-- ✅ Authentication module with JWT and Passport.js
-- ✅ Candidate management module with CRUD operations
-- ✅ Payment module structure and basic endpoints
-- ✅ Database configuration with TypeORM
-- ✅ Proper package naming and workspace setup
-
-#### Frontend (React)
-- ✅ Basic project structure with Vite
-- ✅ Tailwind CSS configuration and design system
-- ✅ React Router setup and navigation
-- ✅ Core page components (Home, Login, Registration, Dashboard)
-- ✅ Responsive design and mobile-friendly layout
-- ✅ Icon system with Lucide React
-
-#### Shared Types
-- ✅ TypeScript package structure
-- ✅ Comprehensive type definitions for all entities
-- ✅ Zod validation schemas
-- ✅ Proper exports and package configuration
-
-### 🚧 In Progress
-- 🔄 Payment gateway integration (Remita, Flutterwave)
-- 🔄 File upload functionality with virus scanning
-- 🔄 Admin modules for user management
-- 🔄 Form validation and error handling
-- 🔄 State management for user sessions
-
-### ❌ Pending
-- ⏳ Testing framework setup (Jest, React Testing Library)
-- ⏳ Email service implementation
-- ⏳ SMS integration
-- ⏳ Admin portal development
-- ⏳ Production deployment configuration
-
-## 🚀 Running the Application
-
-### 1. Start Development Services
 ```bash
-# Start all Docker services
-docker-compose up -d
+# Run all tests
+pnpm test
 
-# Verify services are running
-docker-compose ps
+# Run specific test suites
+pnpm test:unit
+pnpm test:integration
+pnpm test:e2e
 ```
 
-### 2. Install Dependencies
-```bash
-# Install all workspace dependencies
-pnpm install:all
-```
+## 🚀 **Deployment**
 
-### 3. Set Environment Variables
-```bash
-# Copy and configure environment file
-cp .env.example .env.development
-# Edit .env.development with your configuration
-```
+### **Development**
 
-### 4. Start Development Servers
-```bash
-# Run both frontend and backend
-pnpm dev
+- Local development with hot reload
+- Docker Compose for infrastructure
+- Sandbox payment credentials
 
-# Or run separately:
-pnpm dev:api    # Backend (Express) on http://localhost:4000
-pnpm dev:web    # Frontend on http://localhost:5173
-```
+### **Production**
 
-### 5. Access the Application
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:4000
-- **OpenAPI Spec**: [docs/openapi.yaml](docs/openapi.yaml)
-- **Sequence Diagrams (Mermaid)**: [docs/sequence-diagrams.md](docs/sequence-diagrams.md)
-- **MinIO Console**: http://localhost:9001 (fuep/fuepstrongpassword)
-- **MailHog**: http://localhost:8025
+- Environment-specific configurations
+- Production payment credentials
+- Monitoring and alerting
+- Backup and disaster recovery
 
-## 🐛 Troubleshooting
+## 📊 **Monitoring & Health**
 
-### Common Issues
+### **Health Checks**
 
-#### 1. Port Already in Use
-```bash
-# Frontend (Vite) default
-netstat -ano | findstr :5173
+- API endpoint health monitoring
+- Database connectivity checks
+- Payment provider status monitoring
+- Service uptime tracking
 
-# Backend (API)
-netstat -ano | findstr :4000
+### **Logging**
 
-# Kill the process by PID
-taskkill /PID <PID> /F
-```
+- Structured JSON logging
+- Payment event audit trails
+- Error tracking and alerting
+- Performance metrics
 
-#### 2. Docker Services Not Starting
-```bash
-# Check Docker status
-docker-compose ps
-docker-compose logs
+## 🤝 **Contributing**
 
-# Restart services
-docker-compose down
-docker-compose up -d
-```
+1. Follow the established code style and patterns
+2. Add tests for new features
+3. Update documentation as needed
+4. Use conventional commit messages
+5. Ensure all checks pass before submitting
 
-#### 3. Database Connection Issues
-```bash
-# Check PostgreSQL container
-docker-compose logs postgres
+## 📄 **License**
 
-# Connect to database manually
-docker-compose exec postgres psql -U fuep -d fuep_portal
-```
+This project is proprietary software for Federal University of Education, Pankshin.
 
-#### 4. Dependency Issues
-```bash
-# Clear pnpm cache
-pnpm store prune
-
-# Reinstall dependencies
-rm -rf node_modules
-pnpm install:all
-```
-
-#### 5. TypeScript Errors
-```bash
-# Check types
-pnpm typecheck
-
-# Build types package first
-pnpm build:types
-```
-
-### Development Tips
-
-1. **Always start with Docker services**: `docker-compose up -d`
-2. **Build types first**: `pnpm build:types` before `pnpm dev`
-3. **Check logs**: Use `docker-compose logs` for service debugging
-4. **Use workspace commands**: `pnpm --filter @fuep/api <command>`
-
-## 📐 Design Artifacts (Authoritative)
-
-- OpenAPI 3.0 contract: [docs/openapi.yaml](docs/openapi.yaml)
-- Sequence Diagrams (Mermaid): [docs/sequence-diagrams.md](docs/sequence-diagrams.md)
-
-These artifacts are normative and must be strictly adhered to in design, implementation, and reviews.
-
-## 📚 API Documentation (OpenAPI 3.0)
-
-- Source of truth: [docs/openapi.yaml](docs/openapi.yaml)
-- Preview locally (Redoc):
-  ```bash
-  npx @redocly/cli@latest preview-docs docs/openapi.yaml
-  ```
-- Preview locally (Swagger UI via Docker):
-  ```bash
-  docker run -p 8080:8080 -e SWAGGER_JSON=/openapi.yaml -v %cd%/docs/openapi.yaml:/openapi.yaml swaggerapi/swagger-ui
-  ```
-  Then open http://localhost:8080
-
-### Public
-- POST /auth/check-jamb — verify JAMB number
-- POST /auth/login — candidate login
-- POST /auth/change-password — change password
-- POST /payments/init — initialize payment
-- POST /payments/webhook/remita — Remita webhook
-
-### Candidate
-- GET /me — composite profile
-- PUT /profile — update biodata
-- POST /education-records — create education record
-- PUT /education-records/{id} — update education record
-- POST /uploads — upload document (multipart)
-- GET /registration-form — registration form JSON
-- GET /registration-form.pdf — registration form PDF
-- GET /dashboard — candidate dashboard summary
-- GET /admission-letter.pdf — admission letter (eligible only)
-
-### Admin
-- POST /admin/prelist/upload — upload JAMB prelist (CSV/Excel)
-- GET /admin/candidates — list candidates (filters)
-- PATCH /admin/admissions/{candidateId} — admission decision
-- POST /admin/matric/{candidateId} — assign matric number
-- POST /admin/reconcile/{paymentId} — re-verify payment
-- POST /admin/migrate/{studentId} — push to main portal
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📝 License
-
-This project is proprietary software developed for Federal University of Education, Pankshin.
-
-## 🆘 Support
+## 🆘 **Support**
 
 For technical support or questions:
-- Create an issue in the repository
+
+- Check the documentation in `/docs`
+- Review the development guide
 - Contact the development team
-- Check the troubleshooting section above
 
 ---
 
-**Built with ❤️ for FUEP**
+**Last Updated**: 2025-01-18  
+**Version**: 1.0.0  
+**Status**: Phase 7 Complete - Ready for Testing

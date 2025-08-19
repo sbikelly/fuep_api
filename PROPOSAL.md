@@ -7,9 +7,11 @@ The FUEP Post-UTME Portal is a comprehensive digital solution designed to stream
 ## Project Overview
 
 ### Background
+
 Federal University of Education, Pankshin (FUEP) currently manages post-UTME applications through manual processes, which are time-consuming, error-prone, and difficult to scale. The existing system lacks proper data management, payment tracking, and real-time communication capabilities.
 
 ### Objectives
+
 - **Digital Transformation**: Convert paper-based applications to digital format
 - **Efficiency**: Reduce application processing time by 70%
 - **Accuracy**: Minimize data entry errors and improve data integrity
@@ -22,6 +24,7 @@ Federal University of Education, Pankshin (FUEP) currently manages post-UTME app
 ### High-Level Scope
 
 #### Candidate-Facing Features
+
 - **Secure Registration & Login**: JAMB registration number as primary identifier with password reset via email/SMS
 - **Post-UTME Payment**: Support multiple payment providers with fallback options
 - **Biodata Entry**: Complete candidate, next-of-kin, and sponsor information
@@ -35,6 +38,7 @@ Federal University of Education, Pankshin (FUEP) currently manages post-UTME app
 - **Portal Migration**: Final migration to main student portal after validation
 
 #### Admin-Facing Features
+
 - **Role-Based Dashboard**: Super Admin, Admissions Officer, Finance, Registrar roles
 - **Candidate Management**: CRUD operations with bulk upload (CSV/Excel)
 - **Payment Reconciliation**: Dispute resolution and reconciliation interface
@@ -46,29 +50,35 @@ Federal University of Education, Pankshin (FUEP) currently manages post-UTME app
 ### Key Non-Functional Requirements (NFRs)
 
 #### Security
+
 - Strong authentication and role-based access control
 - Encryption at rest and in transit
 - File scanning for uploads
 - PCI DSS compliance for payment handling
 
 #### Availability
+
 - 99.9% SLA target during admissions windows
 - Graceful degradation outside peak periods
 
 #### Performance
+
 - Page load time < 2s on broadband
 - Payment flows < 10s for external interactions
 
 #### Scalability
+
 - Handle concurrent users during peak registration periods
 - Horizontal scaling capability
 
 #### Compliance
+
 - Data protection best practices
 - Local regulations compliance
 - Avoid unnecessary PII storage
 
 #### Maintainability
+
 - Clear modular codebase
 - Automated tests
 - CI/CD pipelines
@@ -78,38 +88,45 @@ Federal University of Education, Pankshin (FUEP) currently manages post-UTME app
 ### Proposed Technology Stack
 
 #### Frontend
+
 - **Framework**: React + TypeScript (Create React App / Vite)
 - **UI Library**: Component library (Chakra UI / Ant Design) for faster development
 - **State Management**: Modern state management solutions
 
 #### Backend
+
 - **Runtime**: Node.js + TypeScript
 - **Framework**: Express (Node.js with TypeScript)
 - **ORM**: TypeORM/Prisma for database operations
 
 #### Database & Storage
+
 - **Primary Database**: PostgreSQL hosted on cloud (AWS RDS / Aiven / DigitalOcean)
 - **File Storage**: S3-compatible object storage (AWS S3, DigitalOcean Spaces, MinIO)
 - **Caching**: Redis for caching, rate-limiting, and job queues
 - **Backup**: Strong backups with read replicas as needed
 
 #### Authentication & Security
+
 - **JWT + Refresh Tokens**: For API authentication
 - **OTP/Email**: For account confirmation
 - **OAuth**: For admin SSO (optional)
 
 #### Payment Integration
+
 - **Primary**: Remita
 - **Fallbacks**: Flutterwave
 - **Purpose**: Redundancy and local ubiquity
 
 #### Additional Services
+
 - **Search/Analytics**: ElasticSearch for fast searching (optional)
 - **Admin Analytics**: Metabase or Superset for dashboards
 - **Monitoring**: Prometheus + Grafana for metrics
 - **Logging**: ELK stack or Loki/Tempo for logs/traces
 
 #### CI/CD & Hosting
+
 - **CI/CD**: GitHub Actions / GitLab CI
 - **Frontend Hosting**: CDN (Cloudflare Pages / Netlify) or app server
 - **Backend Hosting**: Container platform (ECS, DigitalOcean App Platform, Kubernetes)
@@ -118,34 +135,43 @@ Federal University of Education, Pankshin (FUEP) currently manages post-UTME app
 ### Core Components
 
 #### 1. Public Web Frontend (React/TS)
+
 - Candidate registration flows, payments, file upload UI, status pages
 - Communicates with Backend APIs over HTTPS
 
 #### 2. Admin Web App (React/TS)
+
 - Role-based interfaces, batch operations, reconciliation tools
 
 #### 3. API Gateway / Backend (Express)
+
 - RESTful APIs for all operations: auth, profile, payments, documents, admin
 - Handles webhooks from payment providers and queues background tasks
 
 #### 4. Payments Service
+
 - Module within backend to orchestrate payment provider calls
 - Webhook processing and reconciliation jobs
 
 #### 5. Worker Queue
+
 - Background workers for document conversions, virus scans, email sending
 - Matric generation and admission batch jobs
 
 #### 6. Database (PostgreSQL)
+
 - Normalized schema for candidates, applications, payments, admissions, students
 
 #### 7. Object Storage (S3)
+
 - Store uploaded documents with lifecycle rules and encrypted buckets
 
 #### 8. Monitoring & Logging
+
 - Comprehensive system monitoring and logging
 
 #### 9. Local Backup Node
+
 - On-prem server for nightly DB dumps and file sync
 - Acts as cold standby
 
@@ -154,20 +180,24 @@ Federal University of Education, Pankshin (FUEP) currently manages post-UTME app
 ### Key Entities
 
 #### Core Entities
+
 - **Candidate**: `id`, `jamb_no` (unique), `email`, `phone`, `password_hash`, `created_at`
 - **Profile**: `candidate_id`, `surname`, `firstname`, `othernames`, `gender`, `dob`, `address`, `state`, `lga`
 - **NextOfKin**: `candidate_id`, `name`, `relationship`, `phone`, `address`
 - **Sponsor**: `candidate_id`, `name`, `phone`, `email`, `relationship`, `address`
 
 #### Academic & Documents
+
 - **EducationRecord**: `candidate_id`, `exam_type` (WAEC/NECO), `year`, `results_file_id`
 - **Upload**: `id`, `candidate_id`, `type` (passport, result, transcript), `url`, `checksum`, `virus_scan_status`
 
 #### Application & Payment
+
 - **Application**: `id`, `candidate_id`, `programme_applied`, `session`, `status` (pending, screened, admitted, rejected), `date_applied`
 - **Payment**: `id`, `candidate_id`, `amount`, `provider`, `provider_ref`, `status` (initiated, success, failed), `metadata`
 
 #### Student & Audit
+
 - **Student**: `id`, `matric_no`, `candidate_id`, `date_matriculated`, `department_id`
 - **AuditLog**: `actor_id`, `action`, `resource`, `timestamp`, `data`
 
@@ -183,32 +213,38 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ### Registration Flow
 
 #### Step 1: JAMB Verification
+
 - Candidate clicks Apply → enters JAMB Reg No
 - Frontend calls backend to check JAMB number in pre-uploaded dataset
 - If exists: Request Email & Phone Number
 - If not found: Display error and contact admissions office
 
 #### Step 2: Payment Initialization
+
 - Backend creates local Payment record (status=initiated)
 - Calls Remita API to initialize Post-UTME payment
 
 #### Step 3: Account Creation
+
 - After successful payment, backend creates Post-UTME account
 - Username = JAMB Reg No
 - Generates temporary random password (secure, 10-12 chars)
 - Sends password to candidate's email with login instructions
 
 #### Step 4-6: Login & Password Management
+
 - Candidate logs in using JAMB Reg No and temporary password
 - System prompts password change on first login
 - Clear warning to change password
 
 #### Step 7-9: Data Entry
+
 - Biodata Form (pre-filled with JAMB data, additional fields editable)
 - Educational Record Form for entry & uploads
 - Next-of-kin and Sponsor forms
 
 #### Step 10: Dashboard Access
+
 - Registration Form Preview for review & printing
 - Candidate Dashboard with tabs:
   - Payments (view, initiate, print receipts)
@@ -220,22 +256,26 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ### Algorithm & Data Flow Integration
 
 #### 1. Pre-Registration Verification Flow
+
 - Dataset from JAMB CAPS uploaded by admin
 - Backend maintains `jamb_prelist` table
 - Verification against JAMB number on registration
 
 #### 2. Payment Initialization Flow
+
 - Create payment record linked to `jamb_reg_no`
 - Call Remita API with orderId, amount, purpose
 - Save `remita_rrr` & status=initiated
 - Webhook verification success → update status=paid, trigger account creation
 
 #### 3. Account Creation Flow
+
 - Username = JAMB Reg No
 - Password = secureRandom(12) (hashed in DB)
 - Email with login details & force password change
 
 #### 4. Matric Number Generation (Post-Admit)
+
 - Triggered when admission status = admitted
 - Requires acceptance_fee & school_fee payment
 - Calls matric generator algorithm
@@ -243,6 +283,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ### Payment Flow
 
 #### Recommended Pattern
+
 1. **Payment Initiation**: Candidate clicks pay → frontend calls backend
 2. **Payment Record Creation**: Backend creates local Payment record (status=initiated)
 3. **Provider Integration**: Calls payment provider API (Primarily Remita)
@@ -255,6 +296,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 10. **Process Completion**: Updates Application status or triggers downstream processes
 
 #### Resilience & UX Improvements
+
 - Clear progress UI and guidance for failed payments
 - Polling + webhook combination to reduce user uncertainty
 - Idempotency keys on initialize calls to avoid double-charging
@@ -263,11 +305,13 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ### Matriculation & Auto-Account Provisioning
 
 #### Business Rules
+
 - When candidate status becomes "Admitted" and fees are paid
 - Generate matric number using university format (e.g., FUEP/2025/CSC/0123)
 - Create Student record and provision portal account
 
 #### Auto-Provisioning Steps
+
 1. Generate matric number according to agreed algorithm
 2. Create Student record linking Candidate
 3. Provision portal account with username = matric_no
@@ -278,6 +322,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ## Technical Implementation
 
 ### Document Upload & Validation
+
 - **File Restrictions**: PDF, JPG, JPEG, PNG formats
 - **Size Limits**: 5-10MB depending on document type
 - **Security**: Virus/malware scan (ClamAV or commercial)
@@ -286,6 +331,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - **Audit**: Store checksum and original file metadata
 
 ### Admin Tools & Operational Flows
+
 - **Bulk Operations**: CSV upload with schema matching and preview
 - **Payment Resolution**: Dispute resolution, manual verification, refunds
 - **Batch Processing**: Upload admitted JAMB numbers or selection tools
@@ -293,6 +339,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - **Audit**: Immutable audit logs for key actions
 
 ### Security & Compliance Checklist
+
 - **Transport**: TLS everywhere, HSTS
 - **Validation**: Server-side input validation, strict content-type checks
 - **Protection**: Rate limiting, brute-force protection on auth endpoints
@@ -305,29 +352,34 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ### Operational Considerations
 
 #### Backup Strategy
+
 - **Database**: Nightly pg_dump with WAL archiving
 - **Retention**: 30 days on cloud, replicate to local server nightly
 - **Files**: Sync to cloud and nightly replication to on-prem storage
 - **Testing**: Annual disaster recovery testing
 
 #### Local Backup Strategy
+
 - Local server as cold standby
 - Documented failover procedures
 - Maintain operational readiness
 
 ### Deployment & CI/CD
+
 - **Repository**: GitHub/GitLab with branch protection rules
 - **CI Pipeline**: Test → build → deploy to staging using GitHub Actions
 - **Infrastructure**: IaC (Terraform) for provisioning
 - **Deployment**: Blue/green or rolling deployments
 
 ### Testing Strategy
+
 - **Unit Tests**: Backend and frontend (60-80% coverage on critical modules)
 - **Integration Tests**: API endpoints, payment provider mocks
 - **End-to-End**: Cypress/Playwright for major flows
 - **Performance**: Load testing before admissions window
 
 ### Monitoring & Observability
+
 - **Metrics**: Request rates, latency, error rates
 - **Alerting**: Payment webhook failures, DB errors, high error rates
 - **Health Checks**: Endpoints and synthetic monitoring
@@ -349,21 +401,26 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ### Sample API Endpoints
 
 #### Authentication
+
 - `POST /api/auth/register` — Candidate signup
 - `POST /api/auth/login` — Login
 - `POST /api/auth/forgot-password` — Password reset
 
 #### Application Management
+
 - `GET /api/application/:id` — Application status
 - `POST /api/application/:id/pay` — Initiate payment
 
 #### File Management
+
 - `POST /api/uploads` — Upload document (multipart)
 
 #### Payment Processing
+
 - `POST /api/payments/webhook` — Provider webhook
 
 #### Admin Operations
+
 - `POST /api/admin/candidates/import` — Bulk CSV upload
 - `POST /api/admin/admissions/batch` — Batch admit
 - `POST /api/migrate/:candidateId` — Migrate to main student portal
@@ -371,6 +428,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ## Implementation Timeline
 
 ### Phase 1: Core Development (Weeks 1-8)
+
 - [ ] Project setup and infrastructure
 - [ ] Database design and implementation
 - [ ] Backend API development
@@ -383,6 +441,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - [ ] Local backup configuration
 
 ### Phase 2: Feature Development (Weeks 9-16)
+
 - [ ] Application submission system
 - [ ] Document upload and management
 - [ ] Second Payment provider integration (Flutterwave)
@@ -390,11 +449,13 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - [ ] Performance testing and security hardening
 
 ### Phase 3: Features & Automations (4 weeks)
+
 - [ ] Auto-provisioning student accounts & migration tools
 - [ ] Advanced reports & analytics
 - [ ] Acceptance/Matric workflow polishing and printing support
 
 ### Phase 4: Enhancement & Testing (Weeks 17-20)
+
 - [ ] Advanced features
 - [ ] Performance optimization
 - [ ] Security testing
@@ -402,6 +463,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - [ ] Documentation
 
 ### Phase 5: Deployment & Training (Weeks 21-24)
+
 - [ ] Production deployment
 - [ ] Staff training
 - [ ] Go-live support
@@ -410,12 +472,14 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ## Risk Assessment
 
 ### Technical Risks
+
 - **Integration Complexity**: Payment gateway integration challenges
 - **Performance Issues**: High concurrent user load
 - **Security Vulnerabilities**: Data breach potential
 - **Scalability Limitations**: System growth constraints
 
 ### Mitigation Strategies
+
 - **Phased Implementation**: Incremental feature rollout
 - **Load Testing**: Comprehensive performance testing
 - **Security Audits**: Regular security assessments
@@ -424,6 +488,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ## Success Metrics
 
 ### Quantitative Metrics
+
 - **Application Processing Time**: Reduce from 2 weeks to 3 days
 - **Error Rate**: Reduce data entry errors by 90%
 - **User Satisfaction**: Achieve 85%+ satisfaction rating
@@ -431,6 +496,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - **Processing Capacity**: Handle 5000+ applications per session
 
 ### Qualitative Metrics
+
 - **User Experience**: Intuitive and responsive interface
 - **Data Quality**: Improved accuracy and completeness
 - **Operational Efficiency**: Streamlined administrative processes
@@ -439,6 +505,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ## Budget Considerations
 
 ### Development Costs
+
 - **Backend Development**: 40% of total budget
 - **Frontend Development**: 25% of total budget
 - **Database & Infrastructure**: 20% of total budget
@@ -446,6 +513,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - **Documentation & Training**: 5% of total budget
 
 ### Operational Costs
+
 - **Hosting & Infrastructure**: Monthly operational expense
 - **Maintenance & Updates**: Ongoing system maintenance
 - **Support & Training**: User support and training programs
@@ -481,4 +549,4 @@ This project will position FUEP as a leader in educational technology adoption a
 
 ---
 
-*This proposal outlines the vision and implementation strategy for the FUEP Post-UTME Portal. For additional details or clarification, please contact the project team.*
+_This proposal outlines the vision and implementation strategy for the FUEP Post-UTME Portal. For additional details or clarification, please contact the project team._

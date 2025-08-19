@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 services:
   postgres:
     image: postgres:16
@@ -8,12 +8,12 @@ services:
       POSTGRES_PASSWORD: fuep
       POSTGRES_DB: fuep_portal
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - ./infra/db:/docker-entrypoint-initdb.d:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fuep -d fuep_portal"]
+      test: ['CMD-SHELL', 'pg_isready -U fuep -d fuep_portal']
       interval: 5s
       timeout: 3s
       retries: 30
@@ -22,7 +22,7 @@ services:
     image: redis:7
     container_name: fuep_redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   minio:
     image: minio/minio:latest
@@ -32,8 +32,8 @@ services:
       MINIO_ROOT_USER: fuep
       MINIO_ROOT_PASSWORD: fuepstrongpassword
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     volumes:
       - miniodata:/data
 
@@ -41,8 +41,50 @@ services:
     image: mailhog/mailhog
     container_name: fuep_mailhog
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - '1025:1025'
+      - '8025:8025'
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: fuep_api
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - CORS_ORIGIN=http://localhost:5173
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=fuep
+      - DB_PASSWORD=fuep
+      - DB_NAME=fuep_portal
+      - BRAND_PRIMARY_COLOR=FF134F47
+    ports:
+      - '4000:4000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4000/health || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: fuep_web
+    environment:
+      - VITE_API_BASE_URL=http://api:4000
+      - VITE_BRAND_PRIMARY_COLOR=#134F47
+    ports:
+      - '3000:80'
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:

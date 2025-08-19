@@ -16,7 +16,7 @@ const connectionUrl =
 export const db: Knex = knex({
   client: 'pg',
   connection: connectionUrl,
-  pool: { min: 0, max: 10 }
+  pool: { min: 0, max: 10 },
 });
 
 export async function pingDb(): Promise<boolean> {
@@ -24,7 +24,6 @@ export async function pingDb(): Promise<boolean> {
     await db.raw('select 1');
     return true;
   } catch (err: any) {
-    // eslint-disable-next-line no-console
     console.error('[DB] ping failed:', err?.message || err);
     return false;
   }
