@@ -89,7 +89,7 @@ Browser → http://localhost:8080 (Nginx Proxy)
 - Added development scripts
 - Docker management commands
 
-## 🚀 **Two Supported Workflows**
+## 🚀 **Three Supported Workflows**
 
 ### **A. Local Development (No Docker)**
 
@@ -106,15 +106,29 @@ pnpm dev:web
 # Vite proxy handles /api → localhost:4000
 ```
 
-### **B. Docker Compose (Single Command)**
+### **B. Docker Compose with Reverse Proxy (Recommended)**
 
 ```bash
 # Start everything
 docker compose up -d --build
 
-# Access:
-# Frontend + API: http://localhost:8080
-# Direct API: http://localhost:4000
+# Access everything at http://localhost:8080
+# Frontend: http://localhost:8080
+# API: http://localhost:8080/api/*
+
+# Stop everything
+docker compose down
+```
+
+### **C. Docker Compose with Direct Frontend Access**
+
+```bash
+# Start everything
+docker compose up -d --build
+
+# Access frontend directly at http://localhost:5173
+# Access API via proxy at http://localhost:8080/api/*
+# Access API directly at http://localhost:4000
 
 # Stop everything
 docker compose down
@@ -143,7 +157,16 @@ if (window.location.port === '8080') {
   // Running behind reverse proxy (Docker Compose)
   return '/api';
 } else if (window.location.port === '5173') {
-  // Running on Vite dev server (local development)
+  // Check if we're in Docker or local development
+  if (window.location.hostname === 'localhost') {
+    // Running on Vite dev server (local development)
+    return 'http://localhost:4000';
+  } else {
+    // Running in Docker container on port 5173
+    return '/api';
+  }
+} else if (window.location.hostname === 'localhost') {
+  // Running locally on default port
   return 'http://localhost:4000';
 } else {
   // Generic fallback
@@ -176,8 +199,9 @@ docker compose ps
 docker compose logs -f
 
 # Test endpoints
-curl -i http://localhost:8080          # Frontend
+curl -i http://localhost:8080          # Frontend via proxy
 curl -i http://localhost:8080/api/health # API via proxy
+curl -i http://localhost:5173          # Frontend direct access
 curl -i http://localhost:4000/health   # Direct API
 ```
 
@@ -202,17 +226,22 @@ curl -i http://localhost:5173/api/health
 
 ## 🚨 **Important Notes**
 
-1. **Port Changes**:
-   - Docker: Frontend now accessible at `http://localhost:8080` (not 5173)
-   - Local: Frontend still at `http://localhost:5173`
+1. **Port Access Options**:
+   - **Docker Reverse Proxy**: Frontend + API at `http://localhost:8080` (recommended)
+   - **Docker Direct Frontend**: Frontend at `http://localhost:5173`, API at `http://localhost:4000`
+   - **Local Development**: Frontend at `http://localhost:5173`, API at `http://localhost:4000`
 
 2. **API Endpoints**:
-   - Docker: Use `/api/health` (relative paths)
-   - Local: Use `http://localhost:4000/health` (absolute paths)
+   - **Via Proxy**: Use `/api/health` (relative paths)
+   - **Direct Access**: Use `http://localhost:4000/health` (absolute paths)
 
 3. **Environment Variables**:
-   - Docker: Built into container
-   - Local: Use `.env.local` files
+   - **Docker**: Built into container
+   - **Local**: Use `.env.local` files
+
+4. **Frontend API Base URL**:
+   - **Port 8080**: Automatically uses `/api` (proxy)
+   - **Port 5173**: Automatically detects Docker vs. local and uses appropriate URL
 
 ## 🔄 **Migration Path**
 
