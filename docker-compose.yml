@@ -109,10 +109,8 @@ services:
     environment:
       - VITE_API_BASE_URL=/api
       - VITE_BRAND_PRIMARY_COLOR=#134F47
-    ports:
-      - '5173:80' # Direct frontend access
     expose:
-      - '80' # Internal access for proxy
+      - '80' # Internal access for proxy (served to host via proxy service on 8080)
     depends_on:
       api:
         condition: service_healthy

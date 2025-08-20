@@ -24,12 +24,44 @@ const Status: React.FC = () => {
         const apiUrl = getApiBaseUrl();
         console.log('Checking API status at:', apiUrl);
 
-        const response = await fetch(`${apiUrl}/health`);
-        if (response.ok) {
-          const data = await response.json();
-          setApiStatus(data);
-        } else {
-          setError(`API returned ${response.status}: ${response.statusText}`);
+        const response = await fetch(`${apiUrl}/health`, {
+          headers: { Accept: 'application/json, */*' },
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => '');
+          console.error('API non-OK response:', response.status, response.statusText, text);
+          setError(
+            `API ${response.status} ${response.statusText}${text ? ` — ${text.slice(0, 200)}` : ''}`
+          );
+          return;
+        }
+
+        try {
+          let parsed: any;
+          if (contentType.includes('application/json')) {
+            parsed = await response.json();
+          } else {
+            // Fallback: non-JSON response (e.g., HTML error page proxied back)
+            const text = await response.text();
+            console.error('Expected JSON but got:', contentType, 'Body:', text);
+            setError('API returned non-JSON response');
+            return;
+          }
+
+          // Normalize shape: accept either { status, ... } or { success, data: { status, ... } }
+          const payload = parsed?.data ?? parsed;
+          const normalized: HealthStatus = {
+            status: payload?.status ?? (parsed?.success ? 'ok' : 'unknown'),
+            uptime: payload?.uptime,
+            timestamp: payload?.timestamp,
+          };
+          setApiStatus(normalized);
+        } catch (parseErr: any) {
+          console.error('Failed to parse API response as JSON:', parseErr);
+          setError('Failed to parse API response as JSON');
         }
       } catch (err) {
         console.error('API check failed:', err);
