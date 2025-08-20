@@ -5,6 +5,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import ICTBadge from './components/ICTBadge';
 import Logo from './components/Logo';
+import Navbar from './components/Navbar';
 
 export default function App() {
   const location = useLocation();
@@ -46,7 +47,7 @@ export default function App() {
             <span>ICT Division</span>
           </div>
         </div>
-          */}
+          
         <nav
           className="nav"
           style={{
@@ -73,6 +74,8 @@ export default function App() {
             </Link>
           </div>
         </nav>
+        */}
+        <Navbar />
       </header>
 
       <main>

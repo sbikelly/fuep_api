@@ -27,21 +27,21 @@
     <meta name="msapplication-TileColor" content="#134F47" />
     <meta name="msapplication-config" content="/browserconfig.xml" />
 
-    <!-- Runtime Configuration -->
-    <script>
-      // Runtime configuration that can be overridden by environment
-      window.APP_CONFIG = {
-        API_BASE_URL: 'http://api:4000', // Default for Docker
-        BRAND_PRIMARY_COLOR: '#134F47'
-      };
-      
-      // Allow environment override
-      if (typeof window.ENV_OVERRIDE !== 'undefined') {
-        Object.assign(window.APP_CONFIG, window.ENV_OVERRIDE);
-      }
-      
-      console.log('App configuration loaded:', window.APP_CONFIG);
-    </script>
+           <!-- Runtime Configuration -->
+       <script>
+         // Runtime configuration that can be overridden by environment
+         window.APP_CONFIG = {
+           API_BASE_URL: '/api', // Default for reverse proxy setup
+           BRAND_PRIMARY_COLOR: '#134F47'
+         };
+         
+         // Allow environment override
+         if (typeof window.ENV_OVERRIDE !== 'undefined') {
+           Object.assign(window.APP_CONFIG, window.ENV_OVERRIDE);
+         }
+         
+         console.log('App configuration loaded:', window.APP_CONFIG);
+       </script>
   </head>
   <body>
     <div id="root"></div>
