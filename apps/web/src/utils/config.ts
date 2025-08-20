@@ -16,6 +16,7 @@ export const getApiBaseUrl = (): string => {
   console.log('getApiBaseUrl called');
   console.log('window.APP_CONFIG:', window.APP_CONFIG);
   console.log('window.location.hostname:', window.location.hostname);
+  console.log('window.location.port:', window.location.port);
 
   // Try to get from runtime configuration first
   if (window.APP_CONFIG?.API_BASE_URL) {
@@ -31,15 +32,23 @@ export const getApiBaseUrl = (): string => {
     return envUrl;
   }
 
-  // Fallback based on environment
-  if (window.location.hostname === 'localhost') {
-    // Running locally, use localhost
+  // Smart fallback based on environment detection
+  if (window.location.port === '8080') {
+    // Running behind reverse proxy (Docker Compose)
+    console.log('Using reverse proxy fallback: /api');
+    return '/api';
+  } else if (window.location.port === '5173') {
+    // Running on Vite dev server (local development)
+    console.log('Using Vite dev server fallback: http://localhost:4000');
+    return 'http://localhost:4000';
+  } else if (window.location.hostname === 'localhost') {
+    // Running locally on default port
     console.log('Using localhost fallback: http://localhost:4000');
     return 'http://localhost:4000';
   } else {
-    // Running in Docker, use the service name
-    console.log('Using Docker service fallback: http://api:4000');
-    return 'http://api:4000';
+    // Fallback for other environments
+    console.log('Using generic fallback: /api');
+    return '/api';
   }
 };
 
