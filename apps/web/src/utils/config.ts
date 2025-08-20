@@ -38,16 +38,10 @@ export const getApiBaseUrl = (): string => {
     console.log('Using reverse proxy fallback: /api');
     return '/api';
   } else if (window.location.port === '5173') {
-    // Check if we're in Docker or local development
-    if (window.location.hostname === 'localhost') {
-      // Running on Vite dev server (local development)
-      console.log('Using Vite dev server fallback: http://localhost:4000');
-      return 'http://localhost:4000';
-    } else {
-      // Running in Docker container on port 5173
-      console.log('Using Docker container fallback: /api');
-      return '/api';
-    }
+    // When accessing frontend on port 5173, we need to use the proxy for API calls
+    // because the browser can't resolve Docker hostnames
+    console.log('Using proxy fallback for port 5173: http://localhost:8080/api');
+    return 'http://localhost:8080/api';
   } else if (window.location.hostname === 'localhost') {
     // Running locally on default port
     console.log('Using localhost fallback: http://localhost:4000');
