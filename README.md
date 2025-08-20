@@ -208,12 +208,6 @@ pnpm --filter @fuep/web dev
 docker compose down -v
 
 # Stop development servers
-pnpm stop
-# or
-pnpm stop:api
-pnpm stop:web
-
-#or
 Get-Process | Where-Object {$_.ProcessName -like "*node*"} | Stop-Process -Force
 ```
 

@@ -308,7 +308,7 @@ Deliverables:
 
 ---
 
-## Phase 10 — Admin Portal Foundations
+## Phase 10 — Admin Portal (Full stack)
 
 - [ ] App shell with RBAC
 - [ ] Prelist upload (CSV/Excel)
