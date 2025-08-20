@@ -187,9 +187,9 @@ a:hover {
   height: 40px;
   /*background: var(--brand-secondary);*/
   border-radius: var(--radius-lg);
-  display: flex;
+  /*display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: center;*/
   font-weight: bold;
   color: var(--text-inverse);
 }
