@@ -314,7 +314,7 @@ export class AdminPrelistService {
       program_choice_3: record.programChoice3,
       jamb_score: record.jambScore,
       is_uploaded: true,
-      uploaded_at: new Date(),
+      created_at: new Date(),
       uploaded_by: adminUserId,
     });
   }
@@ -359,7 +359,7 @@ export class AdminPrelistService {
         programChoice3: record.program_choice_3,
         jambScore: record.jamb_score,
         isUploaded: record.is_uploaded,
-        uploadedAt: record.uploaded_at,
+        uploadedAt: record.created_at,
         uploadedBy: record.uploaded_by,
         createdAt: record.created_at,
         updatedAt: record.updated_at,
@@ -450,7 +450,7 @@ export class AdminPrelistService {
           programChoice3: record.program_choice_3,
           jambScore: record.jamb_score,
           isUploaded: record.is_uploaded,
-          uploadedAt: record.uploaded_at,
+          uploadedAt: record.created_at,
           uploadedBy: record.uploaded_by,
           createdAt: record.created_at,
           updatedAt: record.updated_at,
@@ -486,11 +486,11 @@ export class AdminPrelistService {
       }
 
       if (filters?.startDate) {
-        query = query.where('uploaded_at', '>=', filters.startDate);
+        query = query.where('created_at', '>=', filters.startDate);
       }
 
       if (filters?.endDate) {
-        query = query.where('uploaded_at', '<=', filters.endDate);
+        query = query.where('created_at', '<=', filters.endDate);
       }
 
       // Get total count
@@ -504,7 +504,7 @@ export class AdminPrelistService {
       }
 
       // Get batches
-      const batches = await query.orderBy('uploaded_at', 'desc');
+      const batches = await query.orderBy('created_at', 'desc');
 
       return {
         batches: batches.map((batch) => ({
@@ -515,7 +515,7 @@ export class AdminPrelistService {
           failedRecords: batch.failed_records,
           status: batch.status,
           uploadedBy: batch.uploaded_by,
-          uploadedAt: batch.uploaded_at,
+          uploadedAt: batch.created_at,
           completedAt: batch.completed_at,
           errorMessage: batch.error_message,
         })),
@@ -542,7 +542,7 @@ export class AdminPrelistService {
         failedRecords: batch.failed_records,
         status: batch.status,
         uploadedBy: batch.uploaded_by,
-        uploadedAt: batch.uploaded_at,
+        uploadedAt: batch.created_at,
         completedAt: batch.completed_at,
         errorMessage: batch.error_message,
       };
@@ -672,7 +672,7 @@ export class AdminPrelistService {
 
       const result = await db('prelist_upload_batches')
         .where('status', 'failed')
-        .where('uploaded_at', '<', cutoffDate)
+        .where('created_at', '<', cutoffDate)
         .del();
 
       return result;

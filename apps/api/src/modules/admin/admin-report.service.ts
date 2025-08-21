@@ -542,40 +542,36 @@ export class AdminReportService {
     format: ReportGenerationJob['format']
   ): Promise<{ data: any; totalRecords: number }> {
     try {
-      let query = db('admission_decisions').join(
-        'candidates',
-        'admission_decisions.candidate_id',
-        'candidates.id'
-      );
+      let query = db('admissions').join('candidates', 'admissions.candidate_id', 'candidates.id');
 
       // Apply filters
       if (parameters.startDate) {
-        query = query.where('admission_decisions.created_at', '>=', parameters.startDate);
+        query = query.where('admissions.created_at', '>=', parameters.startDate);
       }
 
       if (parameters.endDate) {
-        query = query.where('admission_decisions.created_at', '<=', parameters.endDate);
+        query = query.where('admissions.created_at', '<=', parameters.endDate);
       }
 
       if (parameters.decisionType) {
-        query = query.where('admission_decisions.decision_type', parameters.decisionType);
+        query = query.where('admissions.decision', parameters.decisionType);
       }
 
       if (parameters.status) {
-        query = query.where('admission_decisions.status', parameters.status);
+        query = query.where('admissions.status', parameters.status);
       }
 
       if (parameters.program) {
         query = query.where('candidates.program_choice_1', parameters.program);
       }
 
-      const decisions = await query.orderBy('admission_decisions.created_at', 'desc');
+      const decisions = await query.orderBy('admissions.created_at', 'desc');
 
       const reportData = decisions.map((decision) => ({
         candidateName: `${decision.first_name} ${decision.last_name}`,
         jambRegNo: decision.jamb_reg_no,
         program: decision.program_choice_1,
-        decisionType: decision.decision_type,
+        decisionType: decision.decision,
         status: decision.status,
         subject: decision.subject,
         sentAt: decision.sent_at,

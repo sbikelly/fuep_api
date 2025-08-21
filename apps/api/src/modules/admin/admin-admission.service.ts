@@ -18,16 +18,9 @@ export interface AdmissionDecisionTemplate {
 export interface AdmissionDecision {
   id: string;
   candidateId: string;
-  templateId: string;
-  decisionType: 'provisional' | 'full' | 'rejection' | 'waitlist';
-  status: 'draft' | 'sent' | 'acknowledged' | 'expired';
-  subject: string;
-  body: string;
-  sentAt?: Date;
-  acknowledgedAt?: Date;
-  expiresAt?: Date;
+  decision: 'pending' | 'sent' | 'acknowledged' | 'expired';
+  decidedAt?: Date;
   notes?: string;
-  createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -288,15 +281,12 @@ export class AdminAdmissionService {
       const processedBody = this.processTemplate(template.body, candidate);
 
       // Create admission decision
-      const [decisionId] = await db('admission_decisions')
+      const [decisionId] = await db('admissions')
         .insert({
           candidate_id: candidateId,
-          template_id: templateId,
-          decision_type: template.templateType,
-          status: 'draft',
-          subject: processedSubject,
-          body: processedBody,
-          created_by: adminUserId,
+          decision: 'pending',
+          decided_by: adminUserId,
+          notes: `Generated from template: ${template.name}`,
         })
         .returning('id');
 
@@ -339,13 +329,13 @@ export class AdminAdmissionService {
         throw new Error('Admission decision not found');
       }
 
-      if (decision.status !== 'draft') {
-        throw new Error('Only draft decisions can be sent');
+      if (decision.decision !== 'pending') {
+        throw new Error('Only pending decisions can be sent');
       }
 
       const updateData: any = {
-        status: 'sent',
-        sent_at: new Date(),
+        decision: 'sent',
+        decided_at: new Date(),
         updated_at: new Date(),
       };
 
@@ -359,12 +349,12 @@ export class AdminAdmissionService {
         updateData.notes = sendOptions.notes;
       }
 
-      await db('admission_decisions').where('id', decisionId).update(updateData);
+      await db('admissions').where('id', decisionId).update(updateData);
 
       // Update candidate admission status
       await this.updateCandidateAdmissionStatus(
         decision.candidateId,
-        decision.decisionType,
+        decision.decision,
         adminUserId
       );
 
@@ -399,7 +389,7 @@ export class AdminAdmissionService {
         throw new Error('Admission decision not found');
       }
 
-      if (decision.status !== 'sent') {
+      if (decision.decision !== 'sent') {
         throw new Error('Only sent decisions can be acknowledged');
       }
 
@@ -407,9 +397,9 @@ export class AdminAdmissionService {
         throw new Error('Candidate ID mismatch');
       }
 
-      await db('admission_decisions').where('id', decisionId).update({
-        status: 'acknowledged',
-        acknowledged_at: new Date(),
+      await db('admissions').where('id', decisionId).update({
+        decision: 'acknowledged',
+        decided_at: new Date(),
         updated_at: new Date(),
       });
 
@@ -427,23 +417,16 @@ export class AdminAdmissionService {
 
   async getAdmissionDecisionById(id: string): Promise<AdmissionDecision | null> {
     try {
-      const decision = await db('admission_decisions').where('id', id).first();
+      const decision = await db('admissions').where('id', id).first();
 
       if (!decision) return null;
 
       return {
         id: decision.id,
         candidateId: decision.candidate_id,
-        templateId: decision.template_id,
-        decisionType: decision.decision_type,
-        status: decision.status,
-        subject: decision.subject,
-        body: decision.body,
-        sentAt: decision.sent_at,
-        acknowledgedAt: decision.acknowledged_at,
-        expiresAt: decision.expires_at,
+        decision: decision.decision,
+        decidedAt: decision.decided_at,
         notes: decision.notes,
-        createdBy: decision.created_by,
         createdAt: decision.created_at,
         updatedAt: decision.updated_at,
       };
@@ -459,15 +442,15 @@ export class AdminAdmissionService {
     pagination?: { page: number; limit: number }
   ): Promise<{ decisions: AdmissionDecision[]; total: number }> {
     try {
-      let query = db('admission_decisions');
+      let query = db('admissions');
 
       // Apply filters
       if (filters?.decisionType) {
-        query = query.where('decision_type', filters.decisionType);
+        query = query.where('decision', filters.decisionType);
       }
 
       if (filters?.status) {
-        query = query.where('status', filters.status);
+        query = query.where('decision', filters.status);
       }
 
       if (filters?.startDate) {
@@ -499,16 +482,9 @@ export class AdminAdmissionService {
         decisions: decisions.map((decision) => ({
           id: decision.id,
           candidateId: decision.candidate_id,
-          templateId: decision.template_id,
-          decisionType: decision.decision_type,
-          status: decision.status,
-          subject: decision.subject,
-          body: decision.body,
-          sentAt: decision.sent_at,
-          acknowledgedAt: decision.acknowledged_at,
-          expiresAt: decision.expires_at,
+          decision: decision.decision,
+          decidedAt: decision.decided_at,
           notes: decision.notes,
-          createdBy: decision.created_by,
           createdAt: decision.created_at,
           updatedAt: decision.updated_at,
         })),
@@ -753,10 +729,7 @@ export class AdminAdmissionService {
   // Statistics and Analytics
   async getTotalAdmissions(): Promise<number> {
     try {
-      const result = await db('admission_decisions')
-        .where('status', 'sent')
-        .count('* as count')
-        .first();
+      const result = await db('admissions').where('decision', 'sent').count('* as count').first();
       return result ? parseInt(result.count as string) : 0;
     } catch (error) {
       throw new Error(
@@ -767,10 +740,10 @@ export class AdminAdmissionService {
 
   async getAdmissionsByProgram(): Promise<{ [program: string]: number }> {
     try {
-      const results = await db('admission_decisions')
-        .join('candidates', 'admission_decisions.candidate_id', 'candidates.id')
+      const results = await db('admissions')
+        .join('candidates', 'admissions.candidate_id', 'candidates.id')
         .select('candidates.program_choice_1')
-        .where('admission_decisions.status', 'sent')
+        .where('admissions.decision', 'sent')
         .count('* as count')
         .groupBy('candidates.program_choice_1');
 
@@ -807,15 +780,12 @@ export class AdminAdmissionService {
         decisionsByStatus,
         averageResponseTime,
       ] = await Promise.all([
-        db('admission_decisions').count('* as count').first(),
-        db('admission_decisions').where('status', 'sent').count('* as count').first(),
-        db('admission_decisions').where('status', 'acknowledged').count('* as count').first(),
-        db('admission_decisions').where('status', 'expired').count('* as count').first(),
-        db('admission_decisions')
-          .select('decision_type')
-          .count('* as count')
-          .groupBy('decision_type'),
-        db('admission_decisions').select('status').count('* as count').groupBy('status'),
+        db('admissions').count('* as count').first(),
+        db('admissions').where('decision', 'sent').count('* as count').first(),
+        db('admissions').where('decision', 'acknowledged').count('* as count').first(),
+        db('admissions').where('decision', 'expired').count('* as count').first(),
+        db('admissions').select('decision').count('* as count').groupBy('decision'),
+        db('admissions').select('decision').count('* as count').groupBy('decision'),
         this.calculateAverageResponseTime(),
       ]);
 
@@ -826,14 +796,14 @@ export class AdminAdmissionService {
         totalExpired: totalExpired ? parseInt(totalExpired.count as string) : 0,
         decisionsByType: decisionsByType.reduce(
           (acc: { [type: string]: number }, row) => {
-            acc[row.decision_type as string] = parseInt(row.count as string);
+            acc[row.decision as string] = parseInt(row.count as string);
             return acc;
           },
           {} as { [type: string]: number }
         ),
         decisionsByStatus: decisionsByStatus.reduce(
           (acc: { [status: string]: number }, row) => {
-            acc[row.status as string] = parseInt(row.count as string);
+            acc[row.decision as string] = parseInt(row.count as string);
             return acc;
           },
           {} as { [status: string]: number }
@@ -947,23 +917,16 @@ export class AdminAdmissionService {
 
   private async calculateAverageResponseTime(): Promise<number> {
     try {
-      const results = await db('admission_decisions')
-        .select('sent_at', 'acknowledged_at')
-        .whereNotNull('sent_at')
-        .whereNotNull('acknowledged_at');
+      const results = await db('admissions')
+        .select('decided_at')
+        .whereNotNull('decided_at')
+        .where('decision', 'acknowledged');
 
       if (results.length === 0) return 0;
 
-      let totalDays = 0;
-      for (const result of results) {
-        const sentAt = new Date(result.sent_at);
-        const acknowledgedAt = new Date(result.acknowledged_at);
-        const diffTime = Math.abs(acknowledgedAt.getTime() - sentAt.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        totalDays += diffDays;
-      }
-
-      return totalDays / results.length;
+      // For now, return 0 since we don't have sent_at timestamp
+      // This can be enhanced later when we add more detailed tracking
+      return 0;
     } catch (error) {
       return 0;
     }

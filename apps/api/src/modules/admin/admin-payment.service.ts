@@ -32,8 +32,16 @@ export interface Payment {
   paymentTypeId: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'disputed';
-  paymentMethod: 'card' | 'bank_transfer' | 'remita' | 'flutterwave' | 'other';
+  status:
+    | 'initiated'
+    | 'pending'
+    | 'processing'
+    | 'success'
+    | 'failed'
+    | 'cancelled'
+    | 'disputed'
+    | 'refunded';
+  paymentMethod: string;
   reference: string;
   externalReference?: string;
   gatewayResponse?: any;
@@ -364,7 +372,7 @@ export class AdminPaymentService {
       const results = await db('payments')
         .select(db.raw('DATE(created_at) as date'))
         .sum('amount as total')
-        .where('status', 'completed')
+        .where('status', 'success')
         .where('created_at', '>=', startDate)
         .groupBy(db.raw('DATE(created_at)'))
         .orderBy('date', 'asc');
@@ -399,8 +407,8 @@ export class AdminPaymentService {
         throw new Error('Payment not found');
       }
 
-      if (payment.status !== 'completed') {
-        throw new Error('Only completed payments can be verified');
+      if (payment.status !== 'success') {
+        throw new Error('Only successful payments can be verified');
       }
 
       const updateData: any = {
@@ -457,8 +465,8 @@ export class AdminPaymentService {
         throw new Error('Payment not found');
       }
 
-      if (payment.status !== 'completed') {
-        throw new Error('Only completed payments can be refunded');
+      if (payment.status !== 'success') {
+        throw new Error('Only successful payments can be refunded');
       }
 
       if (refundDetails.amount > payment.amount) {
@@ -687,7 +695,7 @@ export class AdminPaymentService {
 
   async getPaymentStatistics(): Promise<{
     totalAmount: number;
-    totalCompleted: number;
+    totalSuccessful: number;
     totalPending: number;
     totalFailed: number;
     totalRefunded: number;
@@ -699,7 +707,7 @@ export class AdminPaymentService {
     try {
       const [
         totalAmount,
-        totalCompleted,
+        totalSuccessful,
         totalPending,
         totalFailed,
         totalRefunded,
@@ -709,7 +717,7 @@ export class AdminPaymentService {
         paymentsByStatus,
       ] = await Promise.all([
         db('payments').sum('amount as total').first(),
-        db('payments').where('status', 'completed').count('* as count').first(),
+        db('payments').where('status', 'success').count('* as count').first(),
         db('payments').where('status', 'pending').count('* as count').first(),
         db('payments').where('status', 'failed').count('* as count').first(),
         db('payments').where('status', 'refunded').count('* as count').first(),
@@ -721,7 +729,7 @@ export class AdminPaymentService {
 
       return {
         totalAmount: totalAmount ? parseFloat(totalAmount.total as string) : 0,
-        totalCompleted: totalCompleted ? parseInt(totalCompleted.count as string) : 0,
+        totalSuccessful: totalSuccessful ? parseInt(totalSuccessful.count as string) : 0,
         totalPending: totalPending ? parseInt(totalPending.count as string) : 0,
         totalFailed: totalFailed ? parseInt(totalFailed.count as string) : 0,
         totalRefunded: totalRefunded ? parseInt(totalRefunded.count as string) : 0,
