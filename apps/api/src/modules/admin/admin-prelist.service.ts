@@ -613,14 +613,14 @@ export class AdminPrelistService {
         uploadedRecords: uploadedRecords ? parseInt(uploadedRecords.count as string) : 0,
         pendingRecords: pendingRecords ? parseInt(pendingRecords.count as string) : 0,
         recordsByState: recordsByState.reduce(
-          (acc, row) => {
+          (acc: { [state: string]: number }, row) => {
             acc[row.state_of_origin as string] = parseInt(row.count as string);
             return acc;
           },
           {} as { [state: string]: number }
         ),
         recordsByProgram: recordsByProgram.reduce(
-          (acc, row) => {
+          (acc: { [program: string]: string }, row) => {
             acc[row.program_choice_1 as string] = row.count as string;
             return acc;
           },

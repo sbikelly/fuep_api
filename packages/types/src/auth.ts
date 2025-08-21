@@ -25,7 +25,7 @@ export interface JambVerificationRequest {
 }
 
 export const JambVerificationRequestSchema = z.object({
-  jambRegNo: z.string().min(1).max(15), // Allow shorter values for development/testing
+  jambRegNo: z.string().min(5).max(20),
 });
 
 // User authentication types
