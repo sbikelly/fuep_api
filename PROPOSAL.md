@@ -333,6 +333,8 @@ These artifacts are normative and must be strictly adhered to during design, imp
 ### Admin Tools & Operational Flows
 
 - **Bulk Operations**: CSV upload with schema matching and preview
+- **Candidate Management**: Filter candidates, view candidates, update candidate's information(including password) and delete candidates
+- **Payment Management**: view, filter, Create, update and delete payment types, amount, and other relevant informations
 - **Payment Resolution**: Dispute resolution, manual verification, refunds
 - **Batch Processing**: Upload admitted JAMB numbers or selection tools
 - **Reporting**: Daily counts, success rates, statistics, exports

@@ -29,12 +29,13 @@ export const PaymentStatusSchema = z.enum([
   'refunded',
 ]);
 
-// Payment types
-export type PaymentType = 'post_utme' | 'acceptance' | 'school_fees' | 'other';
+// Payment types (these are the same as payment purposes for clarity)
+export type PaymentType = 'post_utme' | 'acceptance' | 'school_fee' | 'other';
 
-export const PaymentTypeSchema = z.enum(['post_utme', 'acceptance', 'school_fees', 'other']);
+export const PaymentTypeSchema = z.enum(['post_utme', 'acceptance', 'school_fee', 'other']);
 
-// Payment purpose types (for database schema alignment)
+// Payment purpose types (equals payment types for database schema alignment)
+// Note: paymentPurpose equals payment types for clarity
 export type PaymentPurpose = 'post_utme' | 'acceptance' | 'school_fee';
 
 export const PaymentPurposeSchema = z.enum(['post_utme', 'acceptance', 'school_fee']);
@@ -48,6 +49,9 @@ export interface PaymentTransaction extends BaseEntity {
   amount: number;
   currency: string;
   status: PaymentStatus;
+  // Payment level and session for admin management
+  paymentLevel?: string; // e.g., '100', '200', '100L', etc.
+  session: string; // e.g., '2024/2025'
   idempotencyKey?: string; // Will be removed in future durable implementation
   requestHash?: string; // Will be removed in future durable implementation
   responseSnapshot?: any;
@@ -72,6 +76,9 @@ export const PaymentTransactionSchema = BaseEntitySchema.extend({
   amount: z.number().positive(),
   currency: z.string().min(3).max(3),
   status: PaymentStatusSchema,
+  // Payment level and session for admin management
+  paymentLevel: z.string().max(16).optional(), // e.g., '100', '200', '100L', etc.
+  session: z.string().max(16), // e.g., '2024/2025'
   idempotencyKey: z.string().max(128).optional(), // Will be removed in future durable implementation
   requestHash: z.string().max(128).optional(), // Will be removed in future durable implementation
   responseSnapshot: z.any().optional(),
@@ -86,6 +93,31 @@ export const PaymentTransactionSchema = BaseEntitySchema.extend({
   receiptUrl: z.string().optional(),
   webhookReceivedAt: z.date().optional(),
   verifiedAt: z.date().optional(),
+});
+
+// Payment Type Configuration (for admin management)
+export interface PaymentTypeConfig extends BaseEntity {
+  name: string; // e.g., 'Post-UTME Application Fee'
+  code: PaymentPurpose; // equals payment purpose for clarity
+  description?: string;
+  amount: number;
+  currency: string;
+  isActive: boolean;
+  session: string; // e.g., '2024/2025'
+  dueDate?: Date;
+  createdBy?: string; // admin user ID
+}
+
+export const PaymentTypeConfigSchema = BaseEntitySchema.extend({
+  name: z.string().max(100),
+  code: PaymentPurposeSchema,
+  description: z.string().optional(),
+  amount: z.number().positive(),
+  currency: z.string().min(3).max(3),
+  isActive: z.boolean(),
+  session: z.string().max(16),
+  dueDate: z.date().optional(),
+  createdBy: z.string().uuid().optional(),
 });
 
 // Payment Event for audit trail

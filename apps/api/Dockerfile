@@ -61,6 +61,9 @@ COPY --from=build /app/apps/api/dist /app/apps/api/dist
 COPY --from=build /app/apps/api/package.json /app/apps/api/package.json
 COPY --from=build /app/tsconfig.base.json /app/tsconfig.base.json
 
+# Copy OpenAPI documentation
+COPY docs /app/docs
+
 EXPOSE 4000
 
 CMD ["node", "apps/api/dist/main.js"]

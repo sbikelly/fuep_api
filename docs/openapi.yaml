@@ -6,12 +6,14 @@ info:
 
 servers:
   - url: https://api.example.edu/v1
+  - url: http://localhost:4000/api
+  - url: http://localhost:8080/api
 
 security:
   - bearerAuth: []
 
 paths:
-  /auth/check-jamb:
+  /api/auth/check-jamb:
     post:
       summary: Check if JAMB Reg No exists in preloaded list
       requestBody:
@@ -36,7 +38,7 @@ paths:
                     $ref: '#/components/schemas/JambPrelistMinimal'
         '400': { description: Invalid input }
 
-  /payments/init:
+  /api/payments/init:
     post:
       summary: Initialize a payment
       security:
@@ -63,7 +65,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaymentInitResponse'
 
-  /payments/{paymentId}:
+  /api/payments/{paymentId}:
     get:
       summary: Get payment status and details
       parameters:
@@ -80,7 +82,7 @@ paths:
                 $ref: '#/components/schemas/PaymentStatusCheckResponse'
         '404': { description: Payment not found }
 
-  /payments/{paymentId}/verify:
+  /api/payments/{paymentId}/verify:
     post:
       summary: Manually verify payment with provider
       parameters:
@@ -97,7 +99,7 @@ paths:
                 $ref: '#/components/schemas/PaymentVerificationResponse'
         '404': { description: Payment not found }
 
-  /payments/{paymentId}/receipt:
+  /api/payments/{paymentId}/receipt:
     get:
       summary: Get payment receipt
       parameters:
@@ -429,6 +431,356 @@ paths:
       responses:
         '202': { description: Migration queued }
 
+  # -------payment  ------------
+
+  /payments/history:
+    get:
+      summary: Get candidate payment history
+      responses:
+        '200':
+          description: Payment history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+
+    PaymentStatusCheckResponse:
+      type: object
+      properties:
+        payment:
+          $ref: '#/components/schemas/Payment'
+        providerResponse: { type: object, additionalProperties: true }
+
+    PaymentVerificationResponse:
+      type: object
+      properties:
+        payment:
+          $ref: '#/components/schemas/Payment'
+        verified: { type: boolean }
+        message: { type: string }
+
+    PaymentReceiptResponse:
+      type: object
+      properties:
+        payment:
+          $ref: '#/components/schemas/Payment'
+        receiptUrl: { type: string }
+
+  # ------- Payments management (for creating/updating/deleting payment type, amount, and other relevant informations) --------
+  /admin/payments/types:
+    get:
+      summary: List payment types
+      responses:
+        '200':
+          description: List of payment types
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PaymentPurpose' }
+
+  # ------Payments reconciliation tool  ------------
+  /admin/payments/reconcile:
+    post:
+      summary: Reconcile payments with provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider: { $ref: '#/components/schemas/PaymentProvider' }
+                startDate: { type: string, format: date-time }
+                endDate: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Reconciliation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reconciledCount: { type: integer }
+                  failedCount: { type: integer }
+
+  # ============================================
+  # Admin Portal Endpoints
+  # ============================================
+
+  /api/admin/auth/login:
+    post:
+      summary: Admin login
+      tags: [Admin Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/admin/auth/me:
+    get:
+      summary: Get current admin user info
+      tags: [Admin Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Admin user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        '401':
+          description: Unauthorized
+
+  /api/admin/auth/refresh:
+    post:
+      summary: Refresh admin access token
+      tags: [Admin Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthTokens'
+
+  /api/admin/dashboard:
+    get:
+      summary: Get admin dashboard summary
+      tags: [Admin Dashboard]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboardSummary'
+
+  /api/admin/prelist:
+    get:
+      summary: Get prelist records
+      tags: [Admin Prelist]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: session
+          schema: { type: string }
+      responses:
+        '200':
+          description: Prelist records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items: { $ref: '#/components/schemas/JambPrelistRecord' }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /api/admin/prelist/upload:
+    post:
+      summary: Upload prelist file
+      tags: [Admin Prelist]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrelistUploadResponse'
+
+  /api/admin/candidates:
+    get:
+      summary: Get candidates
+      tags: [Admin Candidates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: session
+          schema: { type: string }
+      responses:
+        '200':
+          description: Candidates list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  candidates:
+                    type: array
+                    items: { $ref: '#/components/schemas/CandidateAdminView' }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /api/admin/payments:
+    get:
+      summary: Get payments
+      tags: [Admin Payments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: level
+          schema: { type: string }
+        - in: query
+          name: session
+          schema: { type: string }
+      responses:
+        '200':
+          description: Payments list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payments:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaymentAdminView' }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /api/admin/payments/types:
+    get:
+      summary: Get payment types
+      tags: [Admin Payments]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Payment types
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PaymentType' }
+
+  /api/admin/admissions/decide:
+    post:
+      summary: Make admission decision
+      tags: [Admin Admissions]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jambRegNo, decision]
+              properties:
+                jambRegNo: { type: string }
+                decision: { type: string, enum: [offer, reject, waitlist] }
+                notes: { type: string }
+      responses:
+        '201':
+          description: Decision made
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionDecision'
+
+  /api/admin/reports:
+    post:
+      summary: Generate report
+      tags: [Admin Reports]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  {
+                    type: string,
+                    enum: [daily-summary, candidate-summary, payment-summary, admission-summary],
+                  }
+                startDate: { type: string, format: date }
+                endDate: { type: string, format: date }
+      responses:
+        '201':
+          description: Report generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportJob'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -651,3 +1003,134 @@ components:
         matricNo: { type: string }
         deptCode: { type: string }
         session: { type: string }
+
+    # ============================================
+    # Admin Portal Schemas
+    # ============================================
+
+    AdminUser:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        email: { type: string }
+        role:
+          {
+            type: string,
+            enum: [super_admin, admissions_officer, finance_officer, registrar, viewer],
+          }
+        isActive: { type: boolean }
+        lastLoginAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    AdminLoginResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            accessToken: { type: string }
+            refreshToken: { type: string }
+            expiresIn: { type: integer }
+            tokenType: { type: string }
+        user: { $ref: '#/components/schemas/AdminUser' }
+        timestamp: { type: string, format: date-time }
+
+    AdminAuthTokens:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer }
+        tokenType: { type: string }
+
+    AdminDashboardSummary:
+      type: object
+      properties:
+        totalCandidates: { type: integer }
+        pendingApplications: { type: integer }
+        totalPayments: { type: integer }
+        totalAdmissions: { type: integer }
+        recentActivity:
+          type: array
+          items:
+            type: object
+            properties:
+              action: { type: string }
+              timestamp: { type: string, format: date-time }
+              adminUser: { type: string }
+
+    JambPrelistRecord:
+      type: object
+      properties:
+        jambRegNo: { type: string }
+        surname: { type: string }
+        firstname: { type: string }
+        othernames: { type: string }
+        gender: { type: string }
+        programmeCode: { type: string }
+        departmentCode: { type: string }
+        faculty: { type: string }
+        stateOfOrigin: { type: string }
+        lgaOfOrigin: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        utmeScore: { type: integer }
+        session: { type: string }
+
+    PrelistUploadResponse:
+      type: object
+      properties:
+        batchId: { type: string, format: uuid }
+        filename: { type: string }
+        totalRecords: { type: integer }
+        status: { type: string }
+        message: { type: string }
+
+    PaymentType:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        description: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        isActive: { type: boolean }
+        session: { type: string }
+        dueDate: { type: string, format: date }
+
+    PaymentAdminView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+        provider: { $ref: '#/components/schemas/PaymentProvider' }
+        amount: { type: number }
+        currency: { type: string }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        level: { type: string }
+        session: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    AdmissionDecision:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jambRegNo: { type: string }
+        decision: { type: string, enum: [offer, reject, waitlist] }
+        notes: { type: string }
+        decidedBy: { type: string, format: uuid }
+        decidedAt: { type: string, format: date-time }
+
+    ReportJob:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        status: { type: string, enum: [pending, processing, completed, failed] }
+        resultUrl: { type: string }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }

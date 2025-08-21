@@ -18,11 +18,16 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import { readFileSync } from 'fs';
 import helmet from 'helmet';
-// Load environment variables from apps/api directory
+import yaml from 'js-yaml';
 import { join } from 'path';
+import swaggerUi from 'swagger-ui-express';
 
+// Load environment variables from apps/api directory
 import { db } from './db/knex.js';
+// Import admin module initializer (temporarily disabled due to compilation errors)
+// import { createAdminModule } from './modules/admin/admin.module.js';
 import { createCandidateModule } from './modules/candidates/index.js';
 // Import payments module initializer
 import { createPaymentsModule } from './payment/index.js';
@@ -93,8 +98,40 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 
+// Load OpenAPI specification (temporarily disabled)
+console.log('OpenAPI documentation temporarily disabled');
+/*
+let openApiSpec: any;
+try {
+  const specPath = join(process.cwd(), 'docs', 'openapi.yaml');
+  const specContent = readFileSync(specPath, 'utf8');
+  openApiSpec = yaml.load(specContent);
+  console.log('OpenAPI specification loaded successfully');
+} catch (error) {
+  console.error('Error loading OpenAPI specification:', error);
+  openApiSpec = null;
+}
+
+// Serve OpenAPI documentation
+if (openApiSpec) {
+  // Serve Swagger UI at /docs
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'FUEP Post-UTME Portal API Documentation'
+  }));
+
+  // Serve OpenAPI JSON at /api/openapi.json
+  app.get('/api/openapi.json', (req, res) => {
+    res.json(openApiSpec);
+  });
+
+  console.log('OpenAPI documentation available at /docs and /api/openapi.json');
+}
+*/
+
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   const response: ApiResponse = {
     success: true,
     data: {
@@ -108,7 +145,7 @@ app.get('/health', (req, res) => {
 });
 
 // Database connectivity check
-app.get('/health/db', async (req, res) => {
+app.get('/api/health/db', async (req, res) => {
   try {
     await db.raw('SELECT 1');
     const response: ApiResponse = {
@@ -131,7 +168,7 @@ app.get('/health/db', async (req, res) => {
 });
 
 // POST /auth/check-jamb
-app.post('/auth/check-jamb', async (req, res) => {
+app.post('/api/auth/check-jamb', async (req, res) => {
   try {
     // Validate request body
     const validationResult = JambVerificationRequestSchema.safeParse(req.body);
@@ -198,7 +235,7 @@ app.post('/auth/check-jamb', async (req, res) => {
 });
 
 // POST /auth/login
-app.post('/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
     // Validate request body
     const validationResult = LoginRequestSchema.safeParse(req.body);
@@ -247,7 +284,7 @@ app.post('/auth/login', async (req, res) => {
 });
 
 // POST /auth/change-password
-app.post('/auth/change-password', async (req, res) => {
+app.post('/api/auth/change-password', async (req, res) => {
   try {
     // Validate request body
     const validationResult = ChangePasswordRequestSchema.safeParse(req.body);
@@ -284,7 +321,7 @@ app.post('/auth/change-password', async (req, res) => {
 });
 
 // PUT /profile
-app.put('/profile', async (req, res) => {
+app.put('/api/profile', async (req, res) => {
   try {
     // Validate request body
     const validationResult = ProfileUpdateRequestSchema.safeParse(req.body);
@@ -339,7 +376,7 @@ app.put('/profile', async (req, res) => {
 });
 
 // POST /applications
-app.post('/applications', async (req, res) => {
+app.post('/api/applications', async (req, res) => {
   try {
     // Validate request body
     const validationResult = ApplicationCreateRequestSchema.safeParse(req.body);
@@ -395,7 +432,7 @@ try {
   console.log('Payments module initialized successfully');
 
   console.log('Mounting payment routes...');
-  app.use('/payments', paymentsModule.router);
+  app.use('/api/payments', paymentsModule.router);
   console.log('Payment routes mounted successfully');
 } catch (error) {
   console.error('Error initializing payments module:', error);
@@ -410,7 +447,7 @@ try {
   console.log('Candidate module initialized successfully');
 
   console.log('Mounting candidate routes...');
-  app.use('/candidates', candidateModule.router);
+  app.use('/api/candidates', candidateModule.router);
   console.log('Candidate routes mounted successfully');
 } catch (error) {
   console.error('Error initializing candidate module:', error);
@@ -500,7 +537,7 @@ try {
   );
 
   // Mount the router
-  app.use('/documents', documentsRouter);
+  app.use('/api/documents', documentsRouter);
 
   console.log('Document routes mounted successfully');
 } catch (error) {
@@ -508,6 +545,42 @@ try {
   // Don't throw error, continue without documents module
   console.log('Continuing without documents module...');
 }
+
+// Initialize and mount admin module (temporarily disabled due to compilation errors)
+console.log('Admin module temporarily disabled due to compilation errors');
+/*
+let adminModule;
+try {
+  console.log('Initializing admin module...');
+  adminModule = createAdminModule();
+  console.log('Admin module initialized successfully');
+
+  console.log('Mounting admin routes under /api/admin...');
+  app.use('/api/admin', adminModule.router);
+  console.log('Admin routes mounted successfully');
+} catch (error) {
+  console.error('Error initializing admin module:', error);
+  // Don't throw error, continue without admin module
+  console.log('Continuing without admin module...');
+}
+*/
+
+// Global error handling middleware (must come after all routes)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Global error handler:', err);
+
+  const errorResponse = {
+    error: {
+      code: err.status || 500,
+      message: err.message || 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      traceId: req.headers['x-request-id'] || `req-${Date.now()}`,
+    },
+    timestamp: new Date(),
+  };
+
+  res.status(err.status || 500).json(errorResponse);
+});
 
 // Start server
 app.listen(PORT, () => {

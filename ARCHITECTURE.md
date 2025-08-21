@@ -692,7 +692,8 @@ Below, each step maps components → endpoints → DB ops → queues → files �
 
 - **Prelist upload**: CSV/Excel → `admin/prelist/upload`
 - **Candidate CRUD & views**: Filters by session/programme/status
-- **Payments**: Disputes, manual re-verify, resend receipts
+- **Payment Management**: filter payment types, create payment type, add payment type amount, delete payment type, update payment type amount and view payment types
+- **Payments Reconciliation**: disputes, manual re-verify, resend receipts
 - **Admissions**: Batch admit/reject, notes, audit
 - **Matric**: Batch generation (with safety checks)
 - **Reports**: CSV/PDF exports (apps by programme, payment success, admission stats)

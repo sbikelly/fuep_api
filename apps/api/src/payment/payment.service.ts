@@ -29,6 +29,7 @@ export class PaymentService {
     amount: number;
     currency: string;
     session: string;
+    paymentLevel?: string; // e.g., '100', '200', '100L', etc.
     email?: string;
     phone?: string;
     preferredProvider?: string;
@@ -71,6 +72,8 @@ export class PaymentService {
         amount: request.amount,
         currency: request.currency,
         status: 'initiated' as PaymentStatus,
+        paymentLevel: request.paymentLevel, // Include payment level
+        session: request.session, // Include session
         requestHash: '', // Will be removed in future durable implementation
         responseSnapshot: providerResponse,
         statusCode: 201,
@@ -275,6 +278,8 @@ export class PaymentService {
       amount: data.amount,
       currency: data.currency,
       status: data.status,
+      paymentLevel: data.paymentLevel, // Include payment level
+      session: data.session, // Include session
       idempotencyKey: data.idempotencyKey,
       requestHash: data.requestHash,
       responseSnapshot: data.responseSnapshot,
