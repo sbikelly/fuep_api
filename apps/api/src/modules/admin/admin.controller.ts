@@ -156,21 +156,6 @@ export class AdminController {
     // Payment management
     this.router.get('/payments', authMiddleware(['payments', 'read']), this.getPayments.bind(this));
     this.router.get(
-      '/payments/:id',
-      authMiddleware(['payments', 'read']),
-      this.getPayment.bind(this)
-    );
-    this.router.put(
-      '/payments/:id',
-      authMiddleware(['payments', 'update']),
-      this.updatePayment.bind(this)
-    );
-    this.router.post(
-      '/payments/:id/reconcile',
-      authMiddleware(['payments', 'update']),
-      this.reconcilePayment.bind(this)
-    );
-    this.router.get(
       '/payments/types',
       authMiddleware(['payment_types', 'read']),
       this.getPaymentTypes.bind(this)
@@ -192,13 +177,28 @@ export class AdminController {
     );
     this.router.get(
       '/payments/disputes',
-      authMiddleware(['disputes', 'read']),
+      authMiddleware(['payments', 'read']),
       this.getPaymentDisputes.bind(this)
     );
     this.router.put(
       '/payments/disputes/:id',
-      authMiddleware(['disputes', 'update']),
+      authMiddleware(['payments', 'update']),
       this.updatePaymentDispute.bind(this)
+    );
+    this.router.get(
+      '/payments/:id',
+      authMiddleware(['payments', 'read']),
+      this.getPayment.bind(this)
+    );
+    this.router.put(
+      '/payments/:id',
+      authMiddleware(['payments', 'update']),
+      this.updatePayment.bind(this)
+    );
+    this.router.post(
+      '/payments/:id/reconcile',
+      authMiddleware(['payments', 'update']),
+      this.reconcilePayment.bind(this)
     );
 
     // Admissions management

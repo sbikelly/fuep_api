@@ -500,8 +500,8 @@ export class AdminCandidateService {
 
   async getPendingApplicationsCount(): Promise<number> {
     try {
-      const result = await db('candidates')
-        .where('application_status', 'pending')
+      const result = await db('applications')
+        .where('status', 'pending')
         .count('* as count')
         .first();
       return result ? parseInt(result.count as string) : 0;
@@ -515,9 +515,10 @@ export class AdminCandidateService {
   async getCandidatesByStatus(): Promise<{ [status: string]: number }> {
     try {
       const results = await db('candidates')
-        .select('application_status')
+        .join('applications', 'candidates.id', 'applications.candidate_id')
+        .select('applications.status as application_status')
         .count('* as count')
-        .groupBy('application_status');
+        .groupBy('applications.status');
 
       return results.reduce(
         (acc: { [status: string]: number }, row) => {
@@ -536,9 +537,10 @@ export class AdminCandidateService {
   async getCandidatesByProgram(): Promise<{ [program: string]: number }> {
     try {
       const results = await db('candidates')
-        .select('program_choice_1')
+        .join('applications', 'candidates.id', 'applications.candidate_id')
+        .select('applications.programme_code as program_choice_1')
         .count('* as count')
-        .groupBy('program_choice_1');
+        .groupBy('applications.programme_code');
 
       return results.reduce(
         (acc: { [program: string]: number }, row) => {
@@ -557,9 +559,10 @@ export class AdminCandidateService {
   async getCandidatesByState(): Promise<{ [state: string]: number }> {
     try {
       const results = await db('candidates')
-        .select('state_of_origin')
+        .join('profiles', 'candidates.id', 'profiles.candidate_id')
+        .select('profiles.state as state_of_origin')
         .count('* as count')
-        .groupBy('state_of_origin');
+        .groupBy('profiles.state');
 
       return results.reduce(
         (acc: { [state: string]: number }, row) => {
