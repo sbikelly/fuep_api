@@ -553,14 +553,10 @@ let adminModule;
 try {
   console.log('Initializing admin module...');
   adminModule = createAdminModule();
-  console.log('Admin module initialized successfully');
-
-  console.log('Mounting admin routes under /api/admin...');
   app.use('/api/admin', adminModule.router);
-  console.log('Admin routes mounted successfully');
+  console.log('Admin module initialized and mounted successfully');
 } catch (error) {
   console.error('Error initializing admin module:', error);
-  // Don't throw error, continue without admin module
   console.log('Continuing without admin module...');
 }
 */
