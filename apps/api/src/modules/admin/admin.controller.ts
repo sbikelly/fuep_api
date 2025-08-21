@@ -558,7 +558,8 @@ export class AdminController {
 
   private async getAnalytics(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const analytics = await this.adminService.getAnalytics(req.query);
+      const timeRange = req.query.timeRange as '7d' | '30d' | '90d' | '1y' | undefined;
+      const analytics = await this.adminService.getAnalytics(timeRange);
       res.json({
         success: true,
         data: analytics,
@@ -576,8 +577,38 @@ export class AdminController {
   // Prelist management endpoints
   private async uploadPrelist(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const result = await this.adminService.uploadPrelist(req, res);
-      // Response handled by service
+      // Handle different file upload scenarios
+      let file: Express.Multer.File;
+      if (Array.isArray(req.files)) {
+        file = req.files[0];
+      } else if (req.files && typeof req.files === 'object') {
+        file = (req.files as any).prelist || Object.values(req.files)[0];
+      } else {
+        res.status(400).json({
+          success: false,
+          error: 'No file uploaded',
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      if (!file) {
+        res.status(400).json({
+          success: false,
+          error: 'No file uploaded',
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      const adminUserId = (req as any).adminUserId;
+      const result = await this.adminService.uploadPrelist(file, adminUserId);
+
+      res.json({
+        success: true,
+        data: result,
+        timestamp: new Date(),
+      });
     } catch (error: any) {
       res.status(500).json({
         success: false,
@@ -589,7 +620,9 @@ export class AdminController {
 
   private async getPrelistBatches(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const batches = await this.adminService.getPrelistBatches(req.query);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const batches = await this.adminService.getPrelistBatches(limit, offset);
       res.json({
         success: true,
         data: batches,
@@ -643,7 +676,10 @@ export class AdminController {
   // Candidate management endpoints
   private async getCandidates(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const candidates = await this.adminService.getCandidates(req.query);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const filters = req.query.filters ? JSON.parse(req.query.filters as string) : undefined;
+      const candidates = await this.adminService.getCandidates(limit, offset, filters);
       res.json({
         success: true,
         data: candidates,
@@ -761,7 +797,10 @@ export class AdminController {
   // Payment management endpoints
   private async getPayments(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const payments = await this.adminService.getPayments(req.query);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const filters = req.query.filters ? JSON.parse(req.query.filters as string) : undefined;
+      const payments = await this.adminService.getPayments(limit, offset, filters);
       res.json({
         success: true,
         data: payments,
@@ -841,7 +880,7 @@ export class AdminController {
   // Payment types management
   private async getPaymentTypes(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const paymentTypes = await this.adminService.getPaymentTypes(req.query);
+      const paymentTypes = await this.adminService.getPaymentTypes();
       res.json({
         success: true,
         data: paymentTypes,
@@ -922,7 +961,9 @@ export class AdminController {
   // Payment disputes management
   private async getPaymentDisputes(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const disputes = await this.adminService.getPaymentDisputes(req.query);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const disputes = await this.adminService.getPaymentDisputes(limit, offset);
       res.json({
         success: true,
         data: disputes,
@@ -962,7 +1003,10 @@ export class AdminController {
   // Admissions management endpoints
   private async getAdmissions(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const admissions = await this.adminService.getAdmissions(req.query);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const filters = req.query.filters ? JSON.parse(req.query.filters as string) : undefined;
+      const admissions = await this.adminService.getAdmissions(limit, offset, filters);
       res.json({
         success: true,
         data: admissions,
@@ -1004,7 +1048,11 @@ export class AdminController {
       const batchData = req.body;
       const initiatedBy = (req as any).user.sub;
 
-      const result = await this.adminService.batchUpdateAdmissions(batchData, initiatedBy);
+      const result = await this.adminService.batchUpdateAdmissions(
+        batchData.admissionIds || [],
+        batchData.updates || {},
+        initiatedBy
+      );
       res.json({
         success: true,
         data: result,
@@ -1113,7 +1161,9 @@ export class AdminController {
   // Reports and exports endpoints
   private async getReports(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const reports = await this.adminService.getReports(req.query);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const reports = await this.adminService.getReports(limit, offset);
       res.json({
         success: true,
         data: reports,
@@ -1170,8 +1220,19 @@ export class AdminController {
   private async downloadReport(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { id } = req.params;
-      await this.adminService.downloadReport(id, res);
-      // Response handled by service
+      const reportData = await this.adminService.downloadReport(id);
+
+      // Set appropriate headers for download
+      res.setHeader('Content-Type', reportData.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${reportData.filename}"`);
+
+      res.json({
+        success: true,
+        data: reportData.data,
+        filename: reportData.filename,
+        mimeType: reportData.mimeType,
+        timestamp: new Date(),
+      });
     } catch (error: any) {
       res.status(500).json({
         success: false,
@@ -1184,7 +1245,9 @@ export class AdminController {
   // Audit logs endpoints
   private async getAuditLogs(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const auditLogs = await this.adminService.getAuditLogs(req.query);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const auditLogs = await this.adminService.getAuditLogs(limit, offset);
       res.json({
         success: true,
         data: auditLogs,
@@ -1201,7 +1264,8 @@ export class AdminController {
 
   private async getAuditSummary(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const summary = await this.adminService.getAuditSummary(req.query);
+      const timeRange = req.query.timeRange as '7d' | '30d' | '90d' | '1y' | undefined;
+      const summary = await this.adminService.getAuditSummary(timeRange);
       res.json({
         success: true,
         data: summary,
@@ -1218,7 +1282,8 @@ export class AdminController {
 
   private async exportAuditLogs(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const auditLogs = await this.adminService.exportAuditLogs(req.query);
+      const format = req.query.format as 'csv' | 'json' | undefined;
+      const auditLogs = await this.adminService.exportAuditLogs(format);
       res.json({
         success: true,
         data: auditLogs,

@@ -85,7 +85,11 @@ export class AdminReportService {
         details: jobData,
       });
 
-      return this.getReportJobById(jobId);
+      const createdJob = await this.getReportJobById(jobId);
+      if (!createdJob) {
+        throw new Error('Failed to retrieve created report job');
+      }
+      return createdJob;
     } catch (error) {
       throw new Error(
         `Failed to create report job: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -153,7 +157,11 @@ export class AdminReportService {
         throw error;
       }
 
-      return this.getReportJobById(jobId);
+      const executedJob = await this.getReportJobById(jobId);
+      if (!executedJob) {
+        throw new Error('Failed to retrieve executed report job');
+      }
+      return executedJob;
     } catch (error) {
       throw new Error(
         `Failed to execute report job: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -288,20 +296,11 @@ export class AdminReportService {
         details: templateData,
       });
 
-      return {
-        id: templateId,
-        name: templateData.name,
-        description: templateData.description,
-        reportType: templateData.reportType,
-        query: templateData.query,
-        parameters: templateData.parameters,
-        isActive: true,
-        createdBy: adminUserId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      return this.getReportTemplateById(templateId);
+      const createdTemplate = await this.getReportTemplateById(templateId);
+      if (!createdTemplate) {
+        throw new Error('Failed to retrieve created report template');
+      }
+      return createdTemplate;
     } catch (error) {
       throw new Error(
         `Failed to create report template: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -329,6 +328,37 @@ export class AdminReportService {
     } catch (error) {
       throw new Error(
         `Failed to get report templates: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async downloadReport(
+    reportId: string
+  ): Promise<{ data: any; filename: string; mimeType: string }> {
+    try {
+      const job = await this.getReportJobById(reportId);
+      if (!job) {
+        throw new Error('Report job not found');
+      }
+
+      if (job.status !== 'completed') {
+        throw new Error('Report is not ready for download');
+      }
+
+      if (!job.filePath) {
+        throw new Error('Report file not found');
+      }
+
+      // In a real implementation, you would read the file from storage
+      // For now, return the job data as a placeholder
+      return {
+        data: job,
+        filename: `${job.reportType}_report_${new Date(job.completedAt!).toISOString().split('T')[0]}.${job.format}`,
+        mimeType: this.getMimeType(job.format),
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to download report: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

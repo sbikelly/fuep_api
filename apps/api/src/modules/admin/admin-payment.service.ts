@@ -370,7 +370,7 @@ export class AdminPaymentService {
         .orderBy('date', 'asc');
 
       return results.reduce(
-        (acc, row) => {
+        (acc: { [month: string]: number }, row: any) => {
           acc[row.date as string] = parseFloat(row.total as string);
           return acc;
         },
@@ -430,7 +430,11 @@ export class AdminPaymentService {
         details: verificationDetails,
       });
 
-      return this.getPaymentById(paymentId);
+      const verifiedPayment = await this.getPaymentById(paymentId);
+      if (!verifiedPayment) {
+        throw new Error('Failed to retrieve verified payment');
+      }
+      return verifiedPayment;
     } catch (error) {
       throw new Error(
         `Failed to verify payment: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -484,7 +488,11 @@ export class AdminPaymentService {
         details: refundDetails,
       });
 
-      return this.getPaymentById(paymentId);
+      const refundedPayment = await this.getPaymentById(paymentId);
+      if (!refundedPayment) {
+        throw new Error('Failed to retrieve refunded payment');
+      }
+      return refundedPayment;
     } catch (error) {
       throw new Error(
         `Failed to refund payment: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -536,7 +544,11 @@ export class AdminPaymentService {
         },
       });
 
-      return this.getPaymentDisputeById(disputeId);
+      const createdDispute = await this.getPaymentDisputeById(disputeId);
+      if (!createdDispute) {
+        throw new Error('Failed to retrieve created payment dispute');
+      }
+      return createdDispute;
     } catch (error) {
       throw new Error(
         `Failed to create payment dispute: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -576,7 +588,11 @@ export class AdminPaymentService {
         details: { resolution },
       });
 
-      return this.getPaymentDisputeById(disputeId);
+      const resolvedDispute = await this.getPaymentDisputeById(disputeId);
+      if (!resolvedDispute) {
+        throw new Error('Failed to retrieve resolved payment dispute');
+      }
+      return resolvedDispute;
     } catch (error) {
       throw new Error(
         `Failed to resolve payment dispute: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -712,14 +728,14 @@ export class AdminPaymentService {
         totalDisputed: totalDisputed ? parseInt(totalDisputed.count as string) : 0,
         averageAmount: averageAmount ? parseFloat(averageAmount.avg as string) : 0,
         paymentsByMethod: paymentsByMethod.reduce(
-          (acc, row) => {
+          (acc: { [method: string]: number }, row) => {
             acc[row.payment_method as string] = parseInt(row.count as string);
             return acc;
           },
           {} as { [method: string]: number }
         ),
         paymentsByStatus: paymentsByStatus.reduce(
-          (acc, row) => {
+          (acc: { [status: string]: number }, row) => {
             acc[row.status as string] = parseInt(row.count as string);
             return acc;
           },

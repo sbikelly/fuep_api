@@ -26,8 +26,8 @@ import swaggerUi from 'swagger-ui-express';
 
 // Load environment variables from apps/api directory
 import { db } from './db/knex.js';
-// Import admin module initializer (temporarily disabled due to compilation errors)
-// import { createAdminModule } from './modules/admin/admin.module.js';
+// Import admin module initializer
+import { createAdminModule } from './modules/admin/admin.module.js';
 import { createCandidateModule } from './modules/candidates/index.js';
 // Import payments module initializer
 import { createPaymentsModule } from './payment/index.js';
@@ -546,9 +546,7 @@ try {
   console.log('Continuing without documents module...');
 }
 
-// Initialize and mount admin module (temporarily disabled due to compilation errors)
-console.log('Admin module temporarily disabled due to compilation errors');
-/*
+// Initialize and mount admin module
 let adminModule;
 try {
   console.log('Initializing admin module...');
@@ -559,7 +557,6 @@ try {
   console.error('Error initializing admin module:', error);
   console.log('Continuing without admin module...');
 }
-*/
 
 // Global error handling middleware (must come after all routes)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -186,7 +186,7 @@ export class AdminAdmissionService {
   }
 
   async getAllAdmissionTemplates(
-    templateType?: string,
+    templateType?: AdmissionDecisionTemplate['templateType'],
     isActive?: boolean
   ): Promise<AdmissionDecisionTemplate[]> {
     try {
@@ -218,6 +218,44 @@ export class AdminAdmissionService {
     } catch (error) {
       throw new Error(
         `Failed to get admission templates: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async deleteAdmissionTemplate(
+    id: string,
+    adminUserId: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const currentTemplate = await this.getAdmissionTemplateById(id);
+      if (!currentTemplate) {
+        throw new Error('Admission template not found');
+      }
+
+      // Soft delete by setting is_active to false
+      await db('admission_decision_templates').where('id', id).update({
+        is_active: false,
+        updated_at: new Date(),
+      });
+
+      // Log audit
+      await this.auditService.logAction({
+        adminUserId,
+        action: 'delete_admission_template',
+        resource: 'admission_template',
+        resourceId: id,
+        details: {
+          previous: currentTemplate,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Admission template deleted successfully',
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to delete admission template: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -375,7 +413,11 @@ export class AdminAdmissionService {
         updated_at: new Date(),
       });
 
-      return this.getAdmissionDecisionById(decisionId);
+      const acknowledgedDecision = await this.getAdmissionDecisionById(decisionId);
+      if (!acknowledgedDecision) {
+        throw new Error('Failed to retrieve acknowledged admission decision');
+      }
+      return acknowledgedDecision;
     } catch (error) {
       throw new Error(
         `Failed to acknowledge admission decision: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -516,7 +558,11 @@ export class AdminAdmissionService {
         details: operationData,
       });
 
-      return this.getBatchAdmissionOperationById(operationId);
+      const createdOperation = await this.getBatchAdmissionOperationById(operationId);
+      if (!createdOperation) {
+        throw new Error('Failed to retrieve created batch admission operation');
+      }
+      return createdOperation;
     } catch (error) {
       throw new Error(
         `Failed to create batch admission operation: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -607,7 +653,11 @@ export class AdminAdmissionService {
         throw error;
       }
 
-      return this.getBatchAdmissionOperationById(operationId);
+      const executedOperation = await this.getBatchAdmissionOperationById(operationId);
+      if (!executedOperation) {
+        throw new Error('Failed to retrieve executed batch admission operation');
+      }
+      return executedOperation;
     } catch (error) {
       throw new Error(
         `Failed to execute batch admission operation: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -725,7 +775,7 @@ export class AdminAdmissionService {
         .groupBy('candidates.program_choice_1');
 
       return results.reduce(
-        (acc, row) => {
+        (acc: { [program: string]: number }, row) => {
           acc[row.program_choice_1 as string] = parseInt(row.count as string);
           return acc;
         },
@@ -775,14 +825,14 @@ export class AdminAdmissionService {
         totalAcknowledged: totalAcknowledged ? parseInt(totalAcknowledged.count as string) : 0,
         totalExpired: totalExpired ? parseInt(totalExpired.count as string) : 0,
         decisionsByType: decisionsByType.reduce(
-          (acc, row) => {
+          (acc: { [type: string]: number }, row) => {
             acc[row.decision_type as string] = parseInt(row.count as string);
             return acc;
           },
           {} as { [type: string]: number }
         ),
         decisionsByStatus: decisionsByStatus.reduce(
-          (acc, row) => {
+          (acc: { [status: string]: number }, row) => {
             acc[row.status as string] = parseInt(row.count as string);
             return acc;
           },

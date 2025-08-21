@@ -327,13 +327,22 @@ export class AdminService {
     }
   }
 
-  async getAuditLogs(limit: number = 1000): Promise<any[]> {
+  async getAuditLogs(
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<{ logs: any[]; total: number }> {
     try {
       // This would come from the audit service
-      // For now, return empty array
-      return [];
+      // For now, return empty array with pagination structure
+      return {
+        logs: [],
+        total: 0,
+      };
     } catch (error) {
-      return [];
+      return {
+        logs: [],
+        total: 0,
+      };
     }
   }
 
@@ -426,11 +435,14 @@ export class AdminService {
 
   // Prelist Management
   async uploadPrelist(file: Express.Multer.File, adminUserId: string) {
-    return this.prelistService.uploadPrelist(file, adminUserId);
+    return this.prelistService.uploadPrelist(file.buffer, file.originalname, adminUserId);
   }
 
   async getPrelistBatches(limit: number = 50, offset: number = 0) {
-    return this.prelistService.getUploadBatches(limit, offset);
+    return this.prelistService.getUploadBatches(undefined, {
+      page: Math.floor(offset / limit) + 1,
+      limit,
+    });
   }
 
   async getPrelistBatch(batchId: string) {
@@ -443,7 +455,10 @@ export class AdminService {
 
   // Candidate Management
   async getCandidates(limit: number = 50, offset: number = 0, filters?: any) {
-    return this.candidateService.getAllCandidates(limit, offset, filters);
+    return this.candidateService.getAllCandidates(filters, {
+      page: Math.floor(offset / limit) + 1,
+      limit,
+    });
   }
 
   async getCandidate(candidateId: string) {
@@ -465,7 +480,7 @@ export class AdminService {
   }
 
   async addCandidateNote(candidateId: string, note: string, adminUserId: string) {
-    return this.candidateService.addCandidateNote(candidateId, note, adminUserId);
+    return this.candidateService.addCandidateNote(candidateId, note, 'general', false, adminUserId);
   }
 
   async getCandidateNotes(candidateId: string) {
@@ -474,7 +489,10 @@ export class AdminService {
 
   // Payment Management
   async getPayments(limit: number = 50, offset: number = 0, filters?: any) {
-    return this.paymentService.getAllPayments(limit, offset, filters);
+    return this.paymentService.getAllPayments(filters, {
+      page: Math.floor(offset / limit) + 1,
+      limit,
+    });
   }
 
   async getPayment(paymentId: string) {
@@ -486,9 +504,9 @@ export class AdminService {
     return { success: true, message: 'Payment updated successfully' };
   }
 
-  async reconcilePayment(paymentId: string, adminUserId: string) {
+  async reconcilePayment(paymentId: string, reconciliationData: any, adminUserId: string) {
     // This would reconcile payment with provider
-    return { success: true, message: 'Payment reconciled successfully' };
+    return { success: true, message: 'Payment reconciled successfully', data: reconciliationData };
   }
 
   async getPaymentTypes() {
@@ -509,7 +527,10 @@ export class AdminService {
   }
 
   async getPaymentDisputes(limit: number = 50, offset: number = 0) {
-    return this.paymentService.getAllPaymentDisputes(limit, offset);
+    return this.paymentService.getAllPaymentDisputes(undefined, {
+      page: Math.floor(offset / limit) + 1,
+      limit,
+    });
   }
 
   async updatePaymentDispute(disputeId: string, updates: any, adminUserId: string) {
@@ -552,8 +573,18 @@ export class AdminService {
   }
 
   // Report Management
+  async getAllReportJobs(limit: number = 50, offset: number = 0) {
+    return this.reportService.getAllReportJobs(undefined, {
+      page: Math.floor(offset / limit) + 1,
+      limit,
+    });
+  }
+
   async getReports(limit: number = 50, offset: number = 0) {
-    return this.reportService.getAllReportJobs(limit, offset);
+    return this.reportService.getAllReportJobs(undefined, {
+      page: Math.floor(offset / limit) + 1,
+      limit,
+    });
   }
 
   async generateReport(reportData: any, adminUserId: string) {
