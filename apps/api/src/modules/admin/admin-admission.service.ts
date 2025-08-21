@@ -275,7 +275,11 @@ export class AdminAdmissionService {
         },
       });
 
-      return this.getAdmissionDecisionById(decisionId);
+      const createdDecision = await this.getAdmissionDecisionById(decisionId);
+      if (!createdDecision) {
+        throw new Error('Failed to retrieve created admission decision');
+      }
+      return createdDecision;
     } catch (error) {
       throw new Error(
         `Failed to generate admission letter: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -335,7 +339,11 @@ export class AdminAdmissionService {
         details: sendOptions,
       });
 
-      return this.getAdmissionDecisionById(decisionId);
+      const updatedDecision = await this.getAdmissionDecisionById(decisionId);
+      if (!updatedDecision) {
+        throw new Error('Failed to retrieve updated admission decision');
+      }
+      return updatedDecision;
     } catch (error) {
       throw new Error(
         `Failed to send admission decision: ${error instanceof Error ? error.message : 'Unknown error'}`

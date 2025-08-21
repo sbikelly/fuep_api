@@ -188,7 +188,11 @@ export class AdminPaymentService {
         },
       });
 
-      return this.getPaymentTypeById(id);
+      const updatedPaymentType = await this.getPaymentTypeById(id);
+      if (!updatedPaymentType) {
+        throw new Error('Failed to retrieve updated payment type');
+      }
+      return updatedPaymentType;
     } catch (error) {
       throw new Error(
         `Failed to update payment type: ${error instanceof Error ? error.message : 'Unknown error'}`
