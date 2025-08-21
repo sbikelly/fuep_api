@@ -486,19 +486,19 @@ Deliverables:
   - **JAMB verification endpoint working correctly with TEST123 record**
   - **Payment endpoints working (provider status, etc.)**
   - **MinIO client configuration error in logs (non-blocking)**
-  - **Next: Fix admin module compilation errors and re-enable for testing**
+  - **Next: Fix admin module TypeScript errors incrementally and re-enable for testing**
 
 ### Immediate Next 10 Tasks
 
-1. **Phase 10 - Admin Portal**: Fix admin module TypeScript compilation errors
-2. **Phase 10 - Admin Portal**: Re-enable admin module in main.ts
-3. **Phase 10 - Admin Portal**: Test admin authentication endpoints with curl
-4. **Phase 10 - Admin Portal**: Test admin RBAC and permissions system
-5. **Phase 10 - Admin Portal**: Test admin candidate and payment management endpoints
-6. **Phase 10 - Admin Portal**: Verify audit logging for admin operations
-7. **Phase 10 - Admin Portal**: Fix OpenAPI documentation serving (deferred)
-8. **Phase 10 - Admin Portal**: Debug JAMB verification endpoint issue
-9. **Phase 10 - Admin Portal**: Fix MinIO client configuration
+1. **Phase 10 - Admin Portal**: Fix admin module TypeScript compilation errors incrementally
+2. **Phase 10 - Admin Portal**: Address null-safety issues in admin services
+3. **Phase 10 - Admin Portal**: Fix type mismatches in dictionary objects
+4. **Phase 10 - Admin Portal**: Resolve method signature inconsistencies
+5. **Phase 10 - Admin Portal**: Re-enable admin module in main.ts
+6. **Phase 10 - Admin Portal**: Test admin authentication endpoints with curl
+7. **Phase 10 - Admin Portal**: Test admin RBAC and permissions system
+8. **Phase 10 - Admin Portal**: Test admin candidate and payment management endpoints
+9. **Phase 10 - Admin Portal**: Verify audit logging for admin operations
 10. **Phase 10 - Admin Portal**: Begin admin frontend implementation planning
 
 ---
