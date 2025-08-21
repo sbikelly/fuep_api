@@ -520,7 +520,7 @@ export class AdminCandidateService {
         .groupBy('application_status');
 
       return results.reduce(
-        (acc, row) => {
+        (acc: { [status: string]: number }, row) => {
           acc[row.application_status as string] = parseInt(row.count as string);
           return acc;
         },
@@ -541,7 +541,7 @@ export class AdminCandidateService {
         .groupBy('program_choice_1');
 
       return results.reduce(
-        (acc, row) => {
+        (acc: { [program: string]: number }, row) => {
           acc[row.program_choice_1 as string] = parseInt(row.count as string);
           return acc;
         },
@@ -562,7 +562,7 @@ export class AdminCandidateService {
         .groupBy('state_of_origin');
 
       return results.reduce(
-        (acc, row) => {
+        (acc: { [state: string]: number }, row) => {
           acc[row.state_of_origin as string] = parseInt(row.count as string);
           return acc;
         },

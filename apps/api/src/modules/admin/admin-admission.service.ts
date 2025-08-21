@@ -99,7 +99,11 @@ export class AdminAdmissionService {
         details: templateData,
       });
 
-      return this.getAdmissionTemplateById(templateId);
+      const createdTemplate = await this.getAdmissionTemplateById(templateId);
+      if (!createdTemplate) {
+        throw new Error('Failed to retrieve created admission template');
+      }
+      return createdTemplate;
     } catch (error) {
       throw new Error(
         `Failed to create admission template: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -143,7 +147,11 @@ export class AdminAdmissionService {
         },
       });
 
-      return this.getAdmissionTemplateById(id);
+      const updatedTemplate = await this.getAdmissionTemplateById(id);
+      if (!updatedTemplate) {
+        throw new Error('Failed to retrieve updated admission template');
+      }
+      return updatedTemplate;
     } catch (error) {
       throw new Error(
         `Failed to update admission template: ${error instanceof Error ? error.message : 'Unknown error'}`
