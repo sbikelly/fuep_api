@@ -124,7 +124,11 @@ export class AdminPaymentService {
         details: paymentTypeData,
       });
 
-      return this.getPaymentTypeById(paymentTypeId);
+      const createdPaymentType = await this.getPaymentTypeById(paymentTypeId);
+      if (!createdPaymentType) {
+        throw new Error('Failed to retrieve created payment type');
+      }
+      return createdPaymentType;
     } catch (error) {
       throw new Error(
         `Failed to create payment type: ${error instanceof Error ? error.message : 'Unknown error'}`
