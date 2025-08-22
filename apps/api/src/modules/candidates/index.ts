@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { CandidateController } from './candidate.controller.js';
 import { CandidateService } from './candidate.service.js';
+import { candidateRateLimit } from '../../middleware/rateLimiting.js';
 
 export interface CandidateModuleDependencies {
   logger?: Console;
@@ -32,6 +33,9 @@ export function createCandidateModule(deps: CandidateModuleDependencies = {}): C
     // 3. Create router and bind routes
     logger.log('[CandidateModule] Creating router and binding routes...');
     const router = Router();
+    
+    // Apply candidate-specific rate limiting to all routes
+    router.use(candidateRateLimit);
 
     // Profile management
     router.get('/profile/:jambRegNo', controller.getCandidateProfile.bind(controller));

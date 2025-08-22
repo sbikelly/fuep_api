@@ -65,38 +65,63 @@ if (!process.env.FLUTTERWAVE_PUBLIC_KEY) {
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Middleware
-app.use(helmet());
-// CORS configuration for multiple environments
-const allowedOrigins = [
-  'http://localhost:5173', // Vite dev server
-  'http://127.0.0.1:5173', // Vite dev server (alternative)
-  'http://localhost:8080', // Docker reverse proxy
-  'http://127.0.0.1:8080', // Docker reverse proxy (alternative)
-  'http://localhost', // Local development
-  'http://127.0.0.1', // Local development (alternative)
-];
+// Import security middleware
+import { 
+  helmetConfig, 
+  corsConfig, 
+  customSecurityHeaders, 
+  securityLogger 
+} from './middleware/security.js';
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+// Import logging middleware
+import { 
+  logger, 
+  httpLoggingMiddleware, 
+  errorLoggingMiddleware 
+} from './middleware/logging.js';
 
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        console.log('CORS blocked origin:', origin);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  })
-);
+// Import metrics and tracing middleware
+import { 
+  httpMetricsMiddleware, 
+  tracingMiddleware, 
+  metricsStore 
+} from './middleware/metrics.js';
+
+// Import caching middleware
+import { 
+  createCacheMiddleware, 
+  cacheInstances, 
+  generateCacheKey,
+  getCacheHealth 
+} from './middleware/caching.js';
+
+// Apply security middleware
+app.use(helmetConfig);
+app.use(customSecurityHeaders);
+app.use(securityLogger);
+app.use(cors(corsConfig));
+
+// Apply logging, metrics, and tracing middleware
+app.use(tracingMiddleware);
+app.use(httpMetricsMiddleware);
+app.use(httpLoggingMiddleware);
+
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
+
+  // Import rate limiting middleware
+import { 
+  generalRateLimit, 
+  authRateLimit, 
+  healthCheckRateLimit,
+  speedLimiter,
+  uploadRateLimit,
+  getRateLimitStats 
+} from './middleware/rateLimiting.js';
+
+// Apply general rate limiting and speed limiting to all routes
+app.use(generalRateLimit);
+app.use(speedLimiter);
 
 // Load OpenAPI specification
 let openApiSpec: any;
@@ -131,8 +156,8 @@ if (openApiSpec) {
   console.log('OpenAPI documentation available at /docs and /api/openapi.json');
 }
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Health check endpoint (with fast caching)
+app.get('/api/health', healthCheckRateLimit, createCacheMiddleware(cacheInstances.fast, 10000), (req, res) => {
   const response: ApiResponse = {
     success: true,
     data: {
@@ -146,7 +171,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Database connectivity check
-app.get('/api/health/db', async (req, res) => {
+app.get('/api/health/db', healthCheckRateLimit, async (req, res) => {
   try {
     await db.raw('SELECT 1');
     const response: ApiResponse = {
@@ -168,8 +193,113 @@ app.get('/api/health/db', async (req, res) => {
   }
 });
 
+// Rate limit monitoring endpoint (admin only)
+app.get('/api/admin/rate-limit-stats', (req, res) => {
+  try {
+    const stats = getRateLimitStats();
+    const response: ApiResponse = {
+      success: true,
+      data: stats,
+      timestamp: new Date(),
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to get rate limit statistics',
+      timestamp: new Date(),
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Metrics endpoint (admin only)
+app.get('/api/admin/metrics', (req, res) => {
+  try {
+    const metrics = metricsStore.getAllMetrics();
+    const response: ApiResponse = {
+      success: true,
+      data: metrics,
+      timestamp: new Date(),
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to get metrics',
+      timestamp: new Date(),
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Cache health endpoint
+app.get('/api/admin/cache-stats', (req, res) => {
+  try {
+    const cacheHealth = getCacheHealth();
+    const response: ApiResponse = {
+      success: true,
+      data: cacheHealth,
+      timestamp: new Date(),
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to get cache statistics',
+      timestamp: new Date(),
+    };
+    res.status(500).json(response);
+  }
+});
+
+// Health endpoint with metrics
+app.get('/api/health/detailed', createCacheMiddleware(cacheInstances.fast, 30000), (req, res) => {
+  try {
+    const memUsage = process.memoryUsage();
+    const metrics = metricsStore.getAllMetrics();
+    
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        status: 'healthy',
+        uptime: process.uptime(),
+        memory: {
+          heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)} MB`,
+          heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)} MB`,
+          external: `${Math.round(memUsage.external / 1024 / 1024)} MB`,
+          rss: `${Math.round(memUsage.rss / 1024 / 1024)} MB`
+        },
+        requests: {
+          total: metrics.counters['http_requests_total'] || 0,
+          active: metrics.gauges['http_requests_active'] || 0,
+          errors: metrics.counters['http_errors_total'] || 0
+        },
+        database: {
+          queries: metrics.counters['database_queries_total'] || 0,
+          errors: metrics.counters['database_errors_total'] || 0
+        },
+        payments: {
+          events: metrics.counters['payment_events_total'] || 0,
+          errors: metrics.counters['payment_errors_total'] || 0
+        },
+        timestamp: new Date()
+      },
+      timestamp: new Date(),
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to get detailed health status',
+      timestamp: new Date(),
+    };
+    res.status(500).json(response);
+  }
+});
+
 // POST /auth/check-jamb
-app.post('/api/auth/check-jamb', async (req, res) => {
+app.post('/api/auth/check-jamb', authRateLimit, async (req, res) => {
   try {
     // Validate request body
     const validationResult = JambVerificationRequestSchema.safeParse(req.body);
@@ -236,7 +366,7 @@ app.post('/api/auth/check-jamb', async (req, res) => {
 });
 
 // POST /auth/login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authRateLimit, async (req, res) => {
   try {
     // Validate request body
     const validationResult = LoginRequestSchema.safeParse(req.body);
@@ -310,7 +440,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // POST /auth/change-password
-app.post('/api/auth/change-password', async (req, res) => {
+app.post('/api/auth/change-password', authRateLimit, async (req, res) => {
   try {
     // Validate request body
     const validationResult = ChangePasswordRequestSchema.safeParse(req.body);
@@ -576,9 +706,10 @@ try {
     },
   });
 
-  // Mount document routes
+  // Mount document routes (with upload rate limiting)
   documentsRouter.post(
     '/upload',
+    uploadRateLimit,
     upload.single('file'),
     documentsController.uploadDocument.bind(documentsController)
   );
@@ -631,15 +762,15 @@ try {
 }
 
 // Global error handling middleware (must come after all routes)
+app.use(errorLoggingMiddleware);
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Global error handler:', err);
-
   const errorResponse = {
+    success: false,
     error: {
       code: err.status || 500,
       message: err.message || 'Internal server error',
       details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-      traceId: req.headers['x-request-id'] || `req-${Date.now()}`,
+      traceId: req.headers['x-request-id'] || (req as any).requestId || `req-${Date.now()}`,
     },
     timestamp: new Date(),
   };
