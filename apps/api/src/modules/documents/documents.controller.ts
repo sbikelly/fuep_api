@@ -116,7 +116,7 @@ export class DocumentsController {
 
       res.status(200).json({
         success: true,
-        data: documents.map((doc) => ({
+        data: documents.map((doc: any) => ({
           id: doc.id,
           type: doc.type,
           size: doc.sizeBytes,
@@ -145,7 +145,7 @@ export class DocumentsController {
   async downloadDocument(req: Request, res: Response): Promise<void> {
     try {
       const { documentId } = req.params;
-      const document = await this.documentsService.getDocument(documentId);
+      const _document = await this.documentsService.getDocument(documentId);
 
       // Generate secure download URL
       const downloadUrl = await this.documentsService.generateSecureDownloadUrl(documentId, 3600);

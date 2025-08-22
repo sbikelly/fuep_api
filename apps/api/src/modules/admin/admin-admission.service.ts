@@ -18,7 +18,7 @@ export interface AdmissionDecisionTemplate {
 export interface AdmissionDecision {
   id: string;
   candidateId: string;
-  decision: 'pending' | 'sent' | 'acknowledged' | 'expired';
+  decision: 'pending' | 'admitted' | 'rejected';
   decidedAt?: Date;
   notes?: string;
   createdAt: Date;
@@ -277,8 +277,8 @@ export class AdminAdmissionService {
       }
 
       // Process template variables
-      const processedSubject = this.processTemplate(template.subject, candidate);
-      const processedBody = this.processTemplate(template.body, candidate);
+      const _processedSubject = this.processTemplate(template.subject, candidate);
+      const _processedBody = this.processTemplate(template.body, candidate);
 
       // Create admission decision
       const [decisionId] = await db('admissions')
@@ -330,11 +330,11 @@ export class AdminAdmissionService {
       }
 
       if (decision.decision !== 'pending') {
-        throw new Error('Only pending decisions can be sent');
+        throw new Error('Only pending decisions can be updated');
       }
 
       const updateData: any = {
-        decision: 'sent',
+        decision: 'admitted',
         decided_at: new Date(),
         updated_at: new Date(),
       };
@@ -389,8 +389,8 @@ export class AdminAdmissionService {
         throw new Error('Admission decision not found');
       }
 
-      if (decision.decision !== 'sent') {
-        throw new Error('Only sent decisions can be acknowledged');
+      if (decision.decision !== 'admitted') {
+        throw new Error('Only admitted decisions can be processed');
       }
 
       if (decision.candidateId !== candidateId) {
@@ -398,7 +398,7 @@ export class AdminAdmissionService {
       }
 
       await db('admissions').where('id', decisionId).update({
-        decision: 'acknowledged',
+        decision: 'admitted',
         decided_at: new Date(),
         updated_at: new Date(),
       });
@@ -729,7 +729,7 @@ export class AdminAdmissionService {
   // Statistics and Analytics
   async getTotalAdmissions(): Promise<number> {
     try {
-      const result = await db('admissions').where('decision', 'sent').count('* as count').first();
+      const result = await db('admissions').where('decision', 'admitted').count('* as count').first();
       return result ? parseInt(result.count as string) : 0;
     } catch (error) {
       throw new Error(
@@ -743,7 +743,7 @@ export class AdminAdmissionService {
       const results = await db('admissions')
         .join('candidates', 'admissions.candidate_id', 'candidates.id')
         .select('candidates.program_choice_1')
-        .where('admissions.decision', 'sent')
+        .where('admissions.decision', 'admitted')
         .count('* as count')
         .groupBy('candidates.program_choice_1');
 
@@ -763,9 +763,9 @@ export class AdminAdmissionService {
 
   async getAdmissionStatistics(): Promise<{
     totalDecisions: number;
-    totalSent: number;
-    totalAcknowledged: number;
-    totalExpired: number;
+    totalPending: number;
+    totalAdmitted: number;
+    totalRejected: number;
     decisionsByType: { [type: string]: number };
     decisionsByStatus: { [status: string]: number };
     averageResponseTime: number; // in days
@@ -773,17 +773,17 @@ export class AdminAdmissionService {
     try {
       const [
         totalDecisions,
-        totalSent,
-        totalAcknowledged,
-        totalExpired,
+        totalPending,
+        totalAdmitted,
+        totalRejected,
         decisionsByType,
         decisionsByStatus,
         averageResponseTime,
       ] = await Promise.all([
         db('admissions').count('* as count').first(),
-        db('admissions').where('decision', 'sent').count('* as count').first(),
-        db('admissions').where('decision', 'acknowledged').count('* as count').first(),
-        db('admissions').where('decision', 'expired').count('* as count').first(),
+        db('admissions').where('decision', 'pending').count('* as count').first(),
+        db('admissions').where('decision', 'admitted').count('* as count').first(),
+        db('admissions').where('decision', 'rejected').count('* as count').first(),
         db('admissions').select('decision').count('* as count').groupBy('decision'),
         db('admissions').select('decision').count('* as count').groupBy('decision'),
         this.calculateAverageResponseTime(),
@@ -791,9 +791,9 @@ export class AdminAdmissionService {
 
       return {
         totalDecisions: totalDecisions ? parseInt(totalDecisions.count as string) : 0,
-        totalSent: totalSent ? parseInt(totalSent.count as string) : 0,
-        totalAcknowledged: totalAcknowledged ? parseInt(totalAcknowledged.count as string) : 0,
-        totalExpired: totalExpired ? parseInt(totalExpired.count as string) : 0,
+        totalPending: totalPending ? parseInt(totalPending.count as string) : 0,
+        totalAdmitted: totalAdmitted ? parseInt(totalAdmitted.count as string) : 0,
+        totalRejected: totalRejected ? parseInt(totalRejected.count as string) : 0,
         decisionsByType: decisionsByType.reduce(
           (acc: { [type: string]: number }, row) => {
             acc[row.decision as string] = parseInt(row.count as string);
@@ -847,7 +847,7 @@ export class AdminAdmissionService {
   private async updateCandidateAdmissionStatus(
     candidateId: string,
     decisionType: string,
-    adminUserId: string
+    _adminUserId: string
   ): Promise<void> {
     try {
       let newStatus: string;
@@ -873,8 +873,8 @@ export class AdminAdmissionService {
         admission_status: newStatus,
         updated_at: new Date(),
       });
-    } catch (error) {
-      console.error('Failed to update candidate admission status:', error);
+    } catch (_error) {
+      console.error('Failed to update candidate admission status:', _error);
     }
   }
 
@@ -920,7 +920,7 @@ export class AdminAdmissionService {
       const results = await db('admissions')
         .select('decided_at')
         .whereNotNull('decided_at')
-        .where('decision', 'acknowledged');
+        .where('decision', 'admitted');
 
       if (results.length === 0) return 0;
 

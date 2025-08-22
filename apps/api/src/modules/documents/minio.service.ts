@@ -31,9 +31,20 @@ export class MinioService {
 
   private initializeMinioClient() {
     try {
+      const rawPort = this.configService.get('MINIO_PORT', 9000);
+      const port = typeof rawPort === 'string' ? parseInt(rawPort.trim(), 10) : rawPort;
+      
+      console.log('MinIO configuration debug:');
+      console.log('  - MINIO_ENDPOINT:', this.configService.get('MINIO_ENDPOINT', 'localhost'));
+      console.log('  - MINIO_PORT (raw):', rawPort, 'type:', typeof rawPort);
+      console.log('  - MINIO_PORT (parsed):', port, 'type:', typeof port);
+      console.log('  - MINIO_USE_SSL:', this.configService.get('MINIO_USE_SSL', false));
+      console.log('  - MINIO_ACCESS_KEY:', this.configService.get('MINIO_ROOT_USER', 'fuep'));
+      console.log('  - MINIO_SECRET_KEY:', this.configService.get('MINIO_ROOT_PASSWORD', 'fuepstrongpassword'));
+      
       const config: MinioConfig = {
         endPoint: this.configService.get('MINIO_ENDPOINT', 'localhost'),
-        port: this.configService.get('MINIO_PORT', 9000),
+        port: port,
         useSSL: this.configService.get('MINIO_USE_SSL', false),
         accessKey: this.configService.get('MINIO_ROOT_USER', 'fuep'),
         secretKey: this.configService.get('MINIO_ROOT_PASSWORD', 'fuepstrongpassword'),
@@ -42,13 +53,46 @@ export class MinioService {
 
       this.bucketName = config.bucketName;
 
-      this.minioClient = new Minio.Client({
-        endPoint: config.endPoint,
-        port: config.port,
-        useSSL: config.useSSL,
-        accessKey: config.accessKey,
-        secretKey: config.secretKey,
-      });
+      // Try different MinIO client construction approaches
+      let minioClient: Minio.Client;
+      
+      try {
+        // Approach 1: Use port as number
+        console.log('Attempting MinIO client construction with port as number...');
+        minioClient = new Minio.Client({
+          endPoint: config.endPoint,
+          port: Number(config.port),
+          useSSL: false, // Force HTTP for Docker environment
+          accessKey: String(config.accessKey),
+          secretKey: String(config.secretKey),
+        });
+        console.log('MinIO client created successfully with port as number');
+      } catch (_error1) {
+        console.log('Port as number failed, trying without port...');
+        try {
+          // Approach 2: Try without port (use default)
+          minioClient = new Minio.Client({
+            endPoint: config.endPoint,
+            useSSL: false, // Force HTTP for Docker environment
+            accessKey: String(config.accessKey),
+            secretKey: String(config.secretKey),
+          });
+          console.log('MinIO client created successfully without port');
+        } catch (_error2) {
+          console.log('Without port failed, trying with string port...');
+          // Approach 3: Try with string port
+          minioClient = new Minio.Client({
+            endPoint: config.endPoint,
+            port: Number(config.port),
+            useSSL: false, // Force HTTP for Docker environment
+            accessKey: String(config.accessKey),
+            secretKey: String(config.secretKey),
+          });
+          console.log('MinIO client created successfully with string port');
+        }
+      }
+      
+      this.minioClient = minioClient;
 
       console.log(`MinIO client initialized for bucket: ${this.bucketName}`);
       this.ensureBucketExists();

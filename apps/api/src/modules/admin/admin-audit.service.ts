@@ -49,7 +49,26 @@ export class AdminAuditService {
         createdAt: new Date(auditLog.created_at),
       };
     } catch (error: any) {
-      console.error('Failed to log audit entry:', error);
+      // Enhanced error logging with context
+      const errorContext = {
+        timestamp: new Date().toISOString(),
+        action: params.action,
+        resource: params.resource,
+        resourceId: params.resourceId,
+        adminUserId: params.adminUserId,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          code: error.code,
+        },
+        params: {
+          ipAddress: params.ipAddress,
+          userAgent: params.userAgent,
+        },
+      };
+      
+      console.error('Failed to log audit entry:', JSON.stringify(errorContext, null, 2));
+      
       // Don't throw error to avoid breaking main operations
       // Return a mock entry for now
       return {

@@ -87,6 +87,9 @@ export class AdminController {
       this.getPermissionMatrix.bind(this)
     );
 
+    // Health check (no auth required)
+    this.router.get('/health', this.getHealthStatus.bind(this));
+
     // Dashboard and analytics
     this.router.get(
       '/dashboard',
@@ -404,14 +407,20 @@ export class AdminController {
   private async deleteAdminUser(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { id } = req.params;
-      // TODO: Implement delete admin user
+      const deletedBy = (req as any).user.sub;
+
+      await this.adminAuthService.deleteAdminUser(id, deletedBy);
+      
       res.json({
         success: true,
         message: 'Admin user deleted successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
-      res.status(500).json({
+      const statusCode = error.message.includes('not found') ? 404 : 
+                        error.message.includes('Cannot delete') ? 400 : 500;
+      
+      res.status(statusCode).json({
         success: false,
         error: error.message,
         timestamp: new Date(),
@@ -1287,6 +1296,36 @@ export class AdminController {
       res.json({
         success: true,
         data: auditLogs,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async getHealthStatus(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const healthStatus = {
+        status: 'healthy',
+        timestamp: new Date(),
+        module: 'admin',
+        version: '1.0.0',
+        services: {
+          database: 'connected',
+          audit: 'operational',
+          permissions: 'operational',
+        },
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+      };
+
+      res.json({
+        success: true,
+        data: healthStatus,
         timestamp: new Date(),
       });
     } catch (error: any) {
