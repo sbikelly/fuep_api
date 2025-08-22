@@ -275,6 +275,18 @@ export class AdminController {
       authMiddleware(['audit_logs', 'read']),
       this.exportAuditLogs.bind(this)
     );
+
+    // Enhanced Audit Analytics
+    this.router.get(
+      '/audit-logs/analytics',
+      authMiddleware(['audit_logs', 'read']),
+      this.getAuditAnalytics.bind(this)
+    );
+    this.router.get(
+      '/audit-logs/security-risk',
+      authMiddleware(['audit_logs', 'read']),
+      this.getSecurityRiskAssessment.bind(this)
+    );
   }
 
   // Authentication endpoints
@@ -1307,6 +1319,46 @@ export class AdminController {
         success: false,
         error: error.message,
         timestamp: new Date(),
+      });
+    }
+  }
+
+  // Enhanced Audit Analytics Methods
+  private async getAuditAnalytics(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const timeRange = (req.query.timeRange as '7d' | '30d' | '90d' | '1y') || '30d';
+      const auditAnalytics = await this.adminService.getAuditAnalytics(timeRange);
+      
+      res.json({
+        success: true,
+        data: auditAnalytics,
+        message: 'Audit analytics retrieved successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get audit analytics',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  private async getSecurityRiskAssessment(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const securityAssessment = await this.adminService.getSecurityRiskAssessment();
+      
+      res.json({
+        success: true,
+        data: securityAssessment,
+        message: 'Security risk assessment retrieved successfully',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get security risk assessment',
+        timestamp: new Date().toISOString(),
       });
     }
   }

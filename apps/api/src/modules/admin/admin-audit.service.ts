@@ -10,6 +10,12 @@ export interface AuditLogEntry {
   ipAddress?: string;
   userAgent?: string;
   createdAt: Date;
+  // Enhanced audit fields
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  category?: 'security' | 'data' | 'system' | 'user' | 'financial';
+  outcome?: 'success' | 'failure' | 'partial';
+  duration?: number; // milliseconds
+  relatedLogs?: string[]; // IDs of related audit entries
 }
 
 export interface CreateAuditLogParams {
@@ -85,6 +91,109 @@ export class AdminAuditService {
     }
   }
 
+  // Enhanced audit logging with performance tracking
+  async logActionWithPerformance(params: CreateAuditLogParams & {
+    startTime: number;
+    outcome?: 'success' | 'failure' | 'partial';
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+    category?: 'security' | 'data' | 'system' | 'user' | 'financial';
+  }): Promise<AuditLogEntry> {
+    const duration = Date.now() - params.startTime;
+    
+    return this.logAction({
+      ...params,
+      details: {
+        ...params.details,
+        performance: { duration, startTime: params.startTime },
+        outcome: params.outcome,
+        severity: params.severity,
+        category: params.category,
+      },
+    });
+  }
+
+  // Bulk audit logging for batch operations
+  async logBulkAction(params: {
+    adminUserId: string;
+    action: string;
+    resource: string;
+    items: Array<{
+      resourceId: string;
+      details?: any;
+      outcome: 'success' | 'failure' | 'partial';
+    }>;
+    ipAddress?: string;
+    userAgent?: string;
+    summary?: any;
+  }): Promise<AuditLogEntry[]> {
+    const auditLogs: AuditLogEntry[] = [];
+    
+    for (const item of params.items) {
+      const auditLog = await this.logAction({
+        adminUserId: params.adminUserId,
+        action: params.action,
+        resource: params.resource,
+        resourceId: item.resourceId,
+        details: {
+          ...item.details,
+          bulkOperation: true,
+          summary: params.summary,
+          totalItems: params.items.length,
+        },
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
+      });
+      
+      auditLogs.push(auditLog);
+    }
+    
+    return auditLogs;
+  }
+
+  // Security-focused audit logging
+  async logSecurityEvent(params: CreateAuditLogParams & {
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    threatLevel?: 'none' | 'low' | 'medium' | 'high';
+    source?: 'internal' | 'external' | 'system';
+    mitigation?: string;
+  }): Promise<AuditLogEntry> {
+    return this.logAction({
+      ...params,
+      details: {
+        ...params.details,
+        security: {
+          severity: params.severity,
+          threatLevel: params.threatLevel,
+          source: params.source,
+          mitigation: params.mitigation,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+  }
+
+  // Data access audit logging
+  async logDataAccess(params: CreateAuditLogParams & {
+    dataType: string;
+    accessLevel: 'read' | 'write' | 'delete';
+    sensitiveData: boolean;
+    justification?: string;
+  }): Promise<AuditLogEntry> {
+    return this.logAction({
+      ...params,
+      details: {
+        ...params.details,
+        dataAccess: {
+          dataType: params.dataType,
+          accessLevel: params.accessLevel,
+          sensitiveData: params.sensitiveData,
+          justification: params.justification,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+  }
+
   async getAuditLogs(filters?: {
     adminUserId?: string;
     action?: string;
@@ -94,6 +203,9 @@ export class AdminAuditService {
     endDate?: Date;
     limit?: number;
     offset?: number;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+    category?: 'security' | 'data' | 'system' | 'user' | 'financial';
+    outcome?: 'success' | 'failure' | 'partial';
   }): Promise<{ logs: AuditLogEntry[]; total: number }> {
     try {
       let query = db('admin_audit_logs').select('*').orderBy('created_at', 'desc');
@@ -387,6 +499,185 @@ export class AdminAuditService {
       return deletedCount;
     } catch (error: any) {
       throw new Error(`Failed to cleanup old audit logs: ${error.message}`);
+    }
+  }
+
+  // Enhanced audit analytics methods
+  async getAuditAnalytics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d') {
+    try {
+      const startDate = this.getStartDateFromTimeRange(timeRange);
+      
+      const [
+        totalActions,
+        actionsByType,
+        actionsByUser,
+        securityEvents,
+        dataAccessEvents,
+        severityDistribution,
+        categoryDistribution,
+        outcomeDistribution,
+        performanceMetrics,
+      ] = await Promise.all([
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .count('* as count')
+          .first(),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .select('action')
+          .count('* as count')
+          .groupBy('action'),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .select('admin_user_id')
+          .count('* as count')
+          .groupBy('admin_user_id'),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .whereRaw("details::text LIKE '%security%'")
+          .count('* as count')
+          .first(),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .whereRaw("details::text LIKE '%dataAccess%'")
+          .count('* as count')
+          .first(),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .whereRaw("details::text LIKE '%\"severity\":%'")
+          .select(db.raw("JSON_EXTRACT_PATH_TEXT(details, 'severity') as severity"))
+          .count('* as count')
+          .groupBy('severity'),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .whereRaw("details::text LIKE '%\"category\":%'")
+          .select(db.raw("JSON_EXTRACT_PATH_TEXT(details, 'category') as category"))
+          .count('* as count')
+          .groupBy('category'),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .whereRaw("details::text LIKE '%\"outcome\":%'")
+          .select(db.raw("JSON_EXTRACT_PATH_TEXT(details, 'outcome') as outcome"))
+          .count('* as count')
+          .groupBy('outcome'),
+        db('admin_audit_logs')
+          .where('created_at', '>=', startDate)
+          .whereRaw("details::text LIKE '%\"performance\"%'")
+          .select(db.raw("AVG(CAST(JSON_EXTRACT_PATH_TEXT(details, 'performance', 'duration') as INTEGER)) as avgDuration"))
+          .first(),
+      ]);
+
+      return {
+        totalActions: totalActions ? parseInt(totalActions.count as string) : 0,
+        actionsByType: actionsByType.reduce((acc: { [key: string]: number }, row) => {
+          acc[row.action as string] = parseInt(row.count as string);
+          return acc;
+        }, {}),
+        actionsByUser: actionsByUser.reduce((acc: { [key: string]: number }, row) => {
+          acc[row.admin_user_id as string] = parseInt(row.count as string);
+          return acc;
+        }, {}),
+        securityEvents: securityEvents ? parseInt(securityEvents.count as string) : 0,
+        dataAccessEvents: dataAccessEvents ? parseInt(dataAccessEvents.count as string) : 0,
+        severityDistribution: severityDistribution.reduce((acc: { [key: string]: number }, row) => {
+          acc[row.severity as string] = parseInt(row.count as string);
+          return acc;
+        }, {}),
+        categoryDistribution: categoryDistribution.reduce((acc: { [key: string]: number }, row) => {
+          acc[row.category as string] = parseInt(row.count as string);
+          return acc;
+        }, {}),
+        outcomeDistribution: outcomeDistribution.reduce((acc: { [key: string]: number }, row) => {
+          acc[row.outcome as string] = parseInt(row.count as string);
+          return acc;
+        }, {}),
+        performanceMetrics: {
+          averageDuration: performanceMetrics?.avgDuration ? parseFloat(performanceMetrics.avgDuration as string) : 0,
+        },
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get audit analytics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  // Get security risk assessment
+  async getSecurityRiskAssessment(): Promise<{
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    threats: Array<{
+      type: string;
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      description: string;
+      mitigation: string;
+    }>;
+    recommendations: string[];
+  }> {
+    try {
+      const recentSecurityEvents = await db('admin_audit_logs')
+        .where('created_at', '>=', new Date(Date.now() - 24 * 60 * 60 * 1000)) // Last 24 hours
+        .whereRaw("details::text LIKE '%security%'")
+        .orderBy('created_at', 'desc')
+        .limit(50);
+
+      let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+      const threats: Array<{
+        type: string;
+        severity: 'low' | 'medium' | 'high' | 'critical';
+        description: string;
+        mitigation: string;
+      }> = [];
+
+      // Analyze security events
+      for (const event of recentSecurityEvents) {
+        const details = event.details ? JSON.parse(event.details) : {};
+        if (details.security?.severity === 'critical') {
+          riskLevel = 'critical';
+        } else if (details.security?.severity === 'high' && riskLevel !== 'critical') {
+          riskLevel = 'high';
+        } else if (details.security?.severity === 'medium' && riskLevel !== 'critical' && riskLevel !== 'high') {
+          riskLevel = 'medium';
+        }
+
+        if (details.security) {
+          threats.push({
+            type: event.action,
+            severity: details.security.severity || 'low',
+            description: `Security event: ${event.action} on ${event.resource}`,
+            mitigation: details.security.mitigation || 'Review and investigate',
+          });
+        }
+      }
+
+      const recommendations = [
+        'Implement additional monitoring for high-risk actions',
+        'Review access controls for sensitive resources',
+        'Enhance authentication mechanisms',
+        'Regular security training for admin users',
+      ];
+
+      return { riskLevel, threats, recommendations };
+    } catch (error) {
+      throw new Error(
+        `Failed to get security risk assessment: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  // Private Helper Methods
+  private getStartDateFromTimeRange(timeRange: '7d' | '30d' | '90d' | '1y'): Date {
+    const now = new Date();
+    switch (timeRange) {
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      case '90d':
+        return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      case '1y':
+        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      default:
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
   }
 }

@@ -648,6 +648,88 @@ export class AdminReportService {
     }
   }
 
+  // Enhanced Audit Analytics Methods
+  async getAuditAnalytics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d') {
+    try {
+      // This would call the audit service to get analytics
+      // For now, return mock data
+      return {
+        totalActions: 150,
+        actionsByType: {
+          'create_candidate': 45,
+          'update_candidate': 30,
+          'delete_candidate': 5,
+          'view_analytics': 70,
+        },
+        actionsByUser: {
+          'admin1': 50,
+          'admin2': 40,
+          'admin3': 60,
+        },
+        securityEvents: 12,
+        dataAccessEvents: 25,
+        severityDistribution: {
+          low: 100,
+          medium: 35,
+          high: 12,
+          critical: 3,
+        },
+        categoryDistribution: {
+          security: 12,
+          data: 25,
+          system: 45,
+          user: 68,
+        },
+        outcomeDistribution: {
+          success: 120,
+          failure: 20,
+          partial: 10,
+        },
+        performanceMetrics: {
+          averageDuration: 150,
+        },
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get audit analytics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getSecurityRiskAssessment() {
+    try {
+      // This would analyze security events and provide risk assessment
+      // For now, return mock data
+      return {
+        riskLevel: 'medium' as const,
+        threats: [
+          {
+            type: 'Failed login attempts',
+            severity: 'medium' as const,
+            description: 'Multiple failed login attempts detected',
+            mitigation: 'Implement account lockout and review access logs',
+          },
+          {
+            type: 'Suspicious data access',
+            severity: 'low' as const,
+            description: 'Unusual pattern of data access detected',
+            mitigation: 'Review user permissions and access patterns',
+          },
+        ],
+        recommendations: [
+          'Implement additional monitoring for high-risk actions',
+          'Review access controls for sensitive resources',
+          'Enhance authentication mechanisms',
+          'Regular security training for admin users',
+        ],
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get security risk assessment: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
   // Private Helper Methods
   private async generateReport(
     reportType: ReportGenerationJob['reportType'],

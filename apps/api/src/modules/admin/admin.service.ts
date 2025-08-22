@@ -36,6 +36,35 @@ export interface AdminAnalytics {
     applications: number;
     conversionRate: number;
   }>;
+  // Enhanced Analytics
+  financialMetrics: {
+    totalRevenue: number;
+    pendingPayments: number;
+    failedPayments: number;
+    averagePaymentAmount: number;
+    paymentSuccessRate: number;
+  };
+  candidateMetrics: {
+    totalRegistered: number;
+    profileCompletionRate: number;
+    applicationSubmissionRate: number;
+    averageJambScore: number;
+    genderDistribution: { [gender: string]: number };
+    stateDistribution: { [state: string]: number };
+  };
+  performanceMetrics: {
+    systemUptime: number;
+    averageResponseTime: number;
+    errorRate: number;
+    activeUsers: number;
+    peakUsageHours: string[];
+  };
+  predictiveAnalytics: {
+    expectedApplications: number;
+    projectedRevenue: number;
+    capacityUtilization: number;
+    riskFactors: string[];
+  };
 }
 
 export class AdminService {
@@ -82,6 +111,7 @@ export class AdminService {
   }
 
   async getAnalytics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AdminAnalytics> {
+    const timeRangeTyped: '7d' | '30d' | '90d' | '1y' = timeRange;
     try {
       const [
         candidatesByStatus,
@@ -89,12 +119,20 @@ export class AdminService {
         admissionsByProgram,
         applicationTrends,
         topPerformingPrograms,
+        financialMetrics,
+        candidateMetrics,
+        performanceMetrics,
+        predictiveAnalytics,
       ] = await Promise.all([
         this.candidateService.getCandidatesByStatus(),
-        this.paymentService.getPaymentsByMonth(timeRange),
+        this.paymentService.getPaymentsByMonth(timeRangeTyped),
         this.admissionService.getAdmissionsByProgram(),
-        this.getApplicationTrends(timeRange),
-        this.getTopPerformingPrograms(timeRange),
+        this.getApplicationTrends(timeRangeTyped),
+        this.getTopPerformingPrograms(timeRangeTyped),
+        this.getFinancialMetrics(timeRangeTyped),
+        this.getCandidateMetrics(timeRangeTyped),
+        this.getPerformanceMetrics(),
+        this.getPredictiveAnalytics(timeRangeTyped),
       ]);
 
       return {
@@ -103,6 +141,10 @@ export class AdminService {
         admissionsByProgram,
         applicationTrends,
         topPerformingPrograms,
+        financialMetrics,
+        candidateMetrics,
+        performanceMetrics,
+        predictiveAnalytics,
       };
     } catch (error) {
       throw new Error(
@@ -220,7 +262,7 @@ export class AdminService {
   }
 
   async getApplicationTrends(
-    timeRange: '7d' | '30d' | '90d' | '1y'
+    timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['applicationTrends']> {
     try {
       // This would calculate trends based on the time range
@@ -246,7 +288,7 @@ export class AdminService {
   }
 
   async getTopPerformingPrograms(
-    timeRange: '7d' | '30d' | '90d' | '1y'
+    timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['topPerformingPrograms']> {
     try {
       // This would analyze program performance
@@ -270,6 +312,126 @@ export class AdminService {
       ];
     } catch (error) {
       return [];
+    }
+  }
+
+  // Enhanced Analytics Methods
+  async getFinancialMetrics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AdminAnalytics['financialMetrics']> {
+    try {
+      const [
+        totalRevenue,
+        pendingPayments,
+        failedPayments,
+        totalPayments,
+        successfulPayments,
+      ] = await Promise.all([
+        this.paymentService.getTotalRevenue(timeRange),
+        this.paymentService.getPendingPaymentsCount(),
+        this.paymentService.getFailedPaymentsCount(),
+        this.paymentService.getTotalPayments(),
+        this.paymentService.getSuccessfulPaymentsCount(),
+      ]);
+
+      const averagePaymentAmount = totalPayments > 0 ? totalRevenue / totalPayments : 0;
+      const paymentSuccessRate = totalPayments > 0 ? (successfulPayments / totalPayments) * 100 : 0;
+
+      return {
+        totalRevenue,
+        pendingPayments,
+        failedPayments,
+        averagePaymentAmount: Math.round(averagePaymentAmount * 100) / 100,
+        paymentSuccessRate: Math.round(paymentSuccessRate * 100) / 100,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get financial metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getCandidateMetrics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AdminAnalytics['candidateMetrics']> {
+    try {
+      const [
+        totalRegistered,
+        completedProfiles,
+        submittedApplications,
+        jambScores,
+        genderDistribution,
+        stateDistribution,
+      ] = await Promise.all([
+        this.candidateService.getTotalCandidates(),
+        this.candidateService.getCompletedProfilesCount(),
+        this.candidateService.getSubmittedApplicationsCount(),
+        this.candidateService.getJambScores(),
+        this.candidateService.getGenderDistribution(),
+        this.candidateService.getStateDistribution(),
+      ]);
+
+      const profileCompletionRate = totalRegistered > 0 ? (completedProfiles / totalRegistered) * 100 : 0;
+      const applicationSubmissionRate = totalRegistered > 0 ? (submittedApplications / totalRegistered) * 100 : 0;
+      const averageJambScore = jambScores.length > 0 ? jambScores.reduce((sum, score) => sum + score, 0) / jambScores.length : 0;
+
+      return {
+        totalRegistered,
+        profileCompletionRate: Math.round(profileCompletionRate * 100) / 100,
+        applicationSubmissionRate: Math.round(applicationSubmissionRate * 100) / 100,
+        averageJambScore: Math.round(averageJambScore * 100) / 100,
+        genderDistribution,
+        stateDistribution,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get candidate metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getPerformanceMetrics(): Promise<AdminAnalytics['performanceMetrics']> {
+    try {
+      const systemHealth = await this.getSystemHealth();
+      const uptime = process.uptime();
+      
+      // These would be collected from the metrics middleware
+      const averageResponseTime = 150; // ms - placeholder
+      const errorRate = 0.5; // % - placeholder
+      const activeUsers = 25; // placeholder
+      const peakUsageHours = ['09:00', '14:00', '16:00']; // placeholder
+
+      return {
+        systemUptime: Math.round(uptime),
+        averageResponseTime,
+        errorRate,
+        activeUsers,
+        peakUsageHours,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get performance metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getPredictiveAnalytics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AdminAnalytics['predictiveAnalytics']> {
+    try {
+      const currentApplications = await this.candidateService.getTotalCandidates();
+      const currentRevenue = await this.paymentService.getTotalRevenue(timeRange);
+      
+      // Simple predictive models (would be enhanced with ML in production)
+      const expectedApplications = Math.round(currentApplications * 1.15); // 15% growth
+      const projectedRevenue = Math.round(currentRevenue * 1.2); // 20% growth
+      const capacityUtilization = 75; // % - placeholder
+      const riskFactors = ['Payment failures', 'System downtime', 'Capacity limits'];
+
+      return {
+        expectedApplications,
+        projectedRevenue,
+        capacityUtilization,
+        riskFactors,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get predictive analytics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -600,6 +762,27 @@ export class AdminService {
   }
 
   // Audit Management
+  // Enhanced Audit Methods
+  async getAuditAnalytics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d') {
+    try {
+      return await this.reportService.getAuditAnalytics(timeRange);
+    } catch (error) {
+      throw new Error(
+        `Failed to get audit analytics: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getSecurityRiskAssessment() {
+    try {
+      return await this.reportService.getSecurityRiskAssessment();
+    } catch (error) {
+      throw new Error(
+        `Failed to get security risk assessment: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
   async getAuditSummary(timeRange: '7d' | '30d' | '90d' | '1y' = '30d') {
     // This would get audit summary
     return { totalActions: 0, actionsByType: {}, actionsByUser: {} };

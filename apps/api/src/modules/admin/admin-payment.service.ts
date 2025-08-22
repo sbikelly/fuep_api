@@ -757,6 +757,85 @@ export class AdminPaymentService {
     }
   }
 
+  // Enhanced Analytics Methods
+  async getTotalRevenue(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<number> {
+    try {
+      const startDate = this.getStartDateFromTimeRange(timeRange);
+      const result = await db('payments')
+        .where('status', 'success')
+        .where('created_at', '>=', startDate)
+        .sum('amount as total')
+        .first();
+      
+      return result ? parseFloat(result.total as string) : 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get total revenue: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getPendingPaymentsCount(): Promise<number> {
+    try {
+      const result = await db('payments')
+        .where('status', 'pending')
+        .count('* as count')
+        .first();
+      
+      return result ? parseInt(result.count as string) : 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get pending payments count: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getFailedPaymentsCount(): Promise<number> {
+    try {
+      const result = await db('payments')
+        .where('status', 'failed')
+        .count('* as count')
+        .first();
+      
+      return result ? parseInt(result.count as string) : 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get failed payments count: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getSuccessfulPaymentsCount(): Promise<number> {
+    try {
+      const result = await db('payments')
+        .where('status', 'success')
+        .count('* as count')
+        .first();
+      
+      return result ? parseInt(result.count as string) : 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get successful payments count: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  private getStartDateFromTimeRange(timeRange: '7d' | '30d' | '90d' | '1y'): Date {
+    const now = new Date();
+    switch (timeRange) {
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      case '90d':
+        return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      case '1y':
+        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      default:
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+  }
+
   // Private Helper Methods
   private mapDbRecordToPayment(record: any): Payment {
     return {
