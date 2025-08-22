@@ -320,7 +320,7 @@ export class AdminReportService {
     }
   }
 
-  async getAllReportTemplates(reportType?: string, isActive?: boolean): Promise<ReportTemplate[]> {
+  async getAllReportTemplates(_reportType?: string, _isActive?: boolean): Promise<ReportTemplate[]> {
     try {
       // Note: report_templates table needs to be created in the database schema
       // For now, return empty array as templates are not persisted
@@ -411,7 +411,7 @@ export class AdminReportService {
       state?: string;
       status?: string;
     },
-    format: ReportGenerationJob['format']
+    _format: ReportGenerationJob['format']
   ): Promise<{ data: any; totalRecords: number }> {
     try {
       let query = db('candidates');
@@ -476,7 +476,7 @@ export class AdminReportService {
       minAmount?: number;
       maxAmount?: number;
     },
-    format: ReportGenerationJob['format']
+    _format: ReportGenerationJob['format']
   ): Promise<{ data: any; totalRecords: number }> {
     try {
       let query = db('payments');
@@ -539,7 +539,7 @@ export class AdminReportService {
       status?: string;
       program?: string;
     },
-    format: ReportGenerationJob['format']
+    _format: ReportGenerationJob['format']
   ): Promise<{ data: any; totalRecords: number }> {
     try {
       let query = db('admissions').join('candidates', 'admissions.candidate_id', 'candidates.id');
@@ -572,13 +572,13 @@ export class AdminReportService {
         jambRegNo: decision.jamb_reg_no,
         program: decision.program_choice_1,
         decisionType: decision.decision,
-        status: decision.status,
-        subject: decision.subject,
-        sentAt: decision.sent_at,
-        acknowledgedAt: decision.acknowledged_at,
+        status: decision.decision, // Use decision field as status
+        subject: 'Admission Decision', // Default subject since we don't have it
+        sentAt: decision.decided_at, // Use decided_at instead of sent_at
+        acknowledgedAt: decision.decided_at, // Use decided_at instead of acknowledged_at
         createdAt: decision.created_at,
       }));
-
+      
       return {
         data: reportData,
         totalRecords: decisions.length,
@@ -598,7 +598,7 @@ export class AdminReportService {
       action?: string;
       resource?: string;
     },
-    format: ReportGenerationJob['format']
+    _format: ReportGenerationJob['format']
   ): Promise<{ data: any; totalRecords: number }> {
     try {
       let query = db('admin_audit_logs');

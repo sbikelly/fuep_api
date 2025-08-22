@@ -1,5 +1,6 @@
 import { db } from '../../db/knex.js';
 import { AdminAuditService } from './admin-audit.service.js';
+import { AdminValidationService } from './admin-validation.service.js';
 
 export interface Candidate {
   id: string;
@@ -197,6 +198,21 @@ export class AdminCandidateService {
     adminUserId: string
   ): Promise<Candidate> {
     try {
+      // Validate inputs
+      const uuidValidation = AdminValidationService.validateUUID(candidateId);
+      if (!uuidValidation.isValid) {
+        throw new Error(`Invalid candidate ID: ${uuidValidation.errors.join(', ')}`);
+      }
+
+      const statusValidation = AdminValidationService.validateCandidateStatus(newStatus);
+      if (!statusValidation.isValid) {
+        throw new Error(`Invalid status: ${statusValidation.errors.join(', ')}`);
+      }
+
+      if (!reason || reason.trim().length < 3) {
+        throw new Error('Reason must be at least 3 characters long');
+      }
+
       const candidate = await this.getCandidateById(candidateId);
       if (!candidate) {
         throw new Error('Candidate not found');

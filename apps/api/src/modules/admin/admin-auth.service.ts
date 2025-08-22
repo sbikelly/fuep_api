@@ -392,4 +392,48 @@ export class AdminAuthService {
       throw new Error(`Failed to list admin users: ${error.message}`);
     }
   }
+
+  async deleteAdminUser(id: string, deletedBy: string): Promise<void> {
+    try {
+      // Check if user exists
+      const existingUser = await db('admin_users').where({ id }).first();
+      if (!existingUser) {
+        throw new Error('Admin user not found');
+      }
+
+      // Prevent self-deletion
+      if (id === deletedBy) {
+        throw new Error('Cannot delete your own account');
+      }
+
+      // Prevent deletion of super_admin users
+      if (existingUser.role === 'super_admin') {
+        throw new Error('Cannot delete super admin users');
+      }
+
+      // Soft delete by setting is_active to false
+      await db('admin_users').where({ id }).update({ 
+        is_active: false,
+        updated_at: new Date()
+      });
+
+      // Audit user deletion
+      await this.auditService.logAction({
+        adminUserId: deletedBy,
+        action: 'delete',
+        resource: 'admin_users',
+        resourceId: id,
+        details: {
+          deletedUser: {
+            username: existingUser.username,
+            email: existingUser.email,
+            role: existingUser.role,
+          },
+          deletionMethod: 'soft_delete',
+        },
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to delete admin user: ${error.message}`);
+    }
+  }
 }
