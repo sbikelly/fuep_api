@@ -98,9 +98,7 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 
-// Load OpenAPI specification (temporarily disabled)
-console.log('OpenAPI documentation temporarily disabled');
-/*
+// Load OpenAPI specification
 let openApiSpec: any;
 try {
   const specPath = join(process.cwd(), 'docs', 'openapi.yaml');
@@ -115,11 +113,15 @@ try {
 // Serve OpenAPI documentation
 if (openApiSpec) {
   // Serve Swagger UI at /docs
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
-    explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'FUEP Post-UTME Portal API Documentation'
-  }));
+  app.use(
+    '/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(openApiSpec, {
+      explorer: true,
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'FUEP Post-UTME Portal API Documentation',
+    })
+  );
 
   // Serve OpenAPI JSON at /api/openapi.json
   app.get('/api/openapi.json', (req, res) => {
@@ -128,7 +130,6 @@ if (openApiSpec) {
 
   console.log('OpenAPI documentation available at /docs and /api/openapi.json');
 }
-*/
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -251,27 +252,52 @@ app.post('/api/auth/login', async (req, res) => {
     const loginData = validationResult.data;
 
     // TODO: Implement actual login logic with JWT
-    // For now, return mock login response
-    const mockLoginResponse: LoginResponse = {
-      success: true,
-      data: {
-        accessToken: 'mock-access-token-' + Date.now(),
-        refreshToken: 'mock-refresh-token-' + Date.now(),
-        expiresIn: 3600,
-        tokenType: 'Bearer',
-      },
-      user: {
-        id: 'mock-user-id',
-        jambRegNo: loginData.username,
-        email: 'candidate@fuep.edu.ng',
-        phone: '08000000000',
-        isActive: true,
-        tempPasswordFlag: false,
-      },
-      timestamp: new Date(),
-    };
+    // For now, implement basic candidate lookup
+    try {
+      // Look up candidate by JAMB registration number
+      const candidate = await db('candidates').where({ jamb_reg_no: loginData.username }).first();
 
-    return res.json(mockLoginResponse);
+      if (!candidate) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Invalid JAMB registration number',
+          timestamp: new Date(),
+        };
+        return res.status(401).json(response);
+      }
+
+      // TODO: Implement proper password verification when password system is added
+      // For now, allow any password for testing
+
+      const loginResponse: LoginResponse = {
+        success: true,
+        data: {
+          accessToken: 'mock-access-token-' + Date.now(),
+          refreshToken: 'mock-refresh-token-' + Date.now(),
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+        user: {
+          id: candidate.id,
+          jambRegNo: candidate.jamb_reg_no,
+          email: candidate.email || 'candidate@fuep.edu.ng',
+          phone: candidate.phone || '08000000000',
+          isActive: true,
+          tempPasswordFlag: false,
+        },
+        timestamp: new Date(),
+      };
+
+      return res.json(loginResponse);
+    } catch (dbError: any) {
+      console.error('[auth-login] database error:', dbError?.message || dbError);
+      const response: ApiResponse = {
+        success: false,
+        error: 'Database error during login',
+        timestamp: new Date(),
+      };
+      return res.status(500).json(response);
+    }
   } catch (err: any) {
     console.error('[auth-login] error:', err?.message || err);
     const response: ApiResponse = {
@@ -300,15 +326,29 @@ app.post('/api/auth/change-password', async (req, res) => {
     const passwordData = validationResult.data;
 
     // TODO: Implement actual password change logic
-    // For now, return mock response
-    const mockChangePasswordResponse: ChangePasswordResponse = {
-      success: true,
-      data: null,
-      message: 'Password changed successfully',
-      timestamp: new Date(),
-    };
+    // For now, implement basic password change
+    try {
+      // TODO: Get candidate ID from authenticated user session
+      // TODO: Verify current password
+      // TODO: Hash and store new password
 
-    return res.json(mockChangePasswordResponse);
+      const mockChangePasswordResponse: ChangePasswordResponse = {
+        success: true,
+        data: null,
+        message: 'Password changed successfully',
+        timestamp: new Date(),
+      };
+
+      return res.json(mockChangePasswordResponse);
+    } catch (dbError: any) {
+      console.error('[auth-change-password] database error:', dbError?.message || dbError);
+      const response: ApiResponse = {
+        success: false,
+        error: 'Database error during password change',
+        timestamp: new Date(),
+      };
+      return res.status(500).json(response);
+    }
   } catch (err: any) {
     console.error('[auth-change-password] error:', err?.message || err);
     const response: ApiResponse = {
@@ -337,33 +377,49 @@ app.put('/api/profile', async (req, res) => {
     const profileData = validationResult.data;
 
     // TODO: Implement profile update logic
-    // For now, return mock profile data
-    const mockProfile: SimpleProfile = {
-      id: 'mock-profile-id',
-      candidateId: 'mock-candidate-id',
-      surname: profileData.surname,
-      firstname: profileData.firstname,
-      othernames: profileData.othernames,
-      gender: profileData.gender,
-      dob: profileData.dob ? new Date(profileData.dob) : undefined,
-      address: profileData.address,
-      state: profileData.state,
-      lga: profileData.lga,
-      city: profileData.city,
-      nationality: profileData.nationality,
-      maritalStatus: profileData.maritalStatus,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // For now, implement basic profile update
+    try {
+      // TODO: Get candidate ID from authenticated user session
+      // For now, we'll use a mock candidate ID
+      const candidateId = 'mock-candidate-id';
 
-    const response: ProfileUpdateResponse = {
-      success: true,
-      data: mockProfile,
-      message: 'Profile updated successfully',
-      timestamp: new Date(),
-    };
+      // TODO: Update candidate profile in database
+      // For now, return mock profile data
+      const mockProfile: SimpleProfile = {
+        id: 'mock-profile-id',
+        candidateId: candidateId,
+        surname: profileData.surname,
+        firstname: profileData.firstname,
+        othernames: profileData.othernames,
+        gender: profileData.gender,
+        dob: profileData.dob ? new Date(profileData.dob) : undefined,
+        address: profileData.address,
+        state: profileData.state,
+        lga: profileData.lga,
+        city: profileData.city,
+        nationality: profileData.nationality,
+        maritalStatus: profileData.maritalStatus,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-    return res.json(response);
+      const response: ProfileUpdateResponse = {
+        success: true,
+        data: mockProfile,
+        message: 'Profile updated successfully',
+        timestamp: new Date(),
+      };
+
+      return res.json(response);
+    } catch (dbError: any) {
+      console.error('[profile-update] database error:', dbError?.message || dbError);
+      const response: ApiResponse = {
+        success: false,
+        error: 'Database error during profile update',
+        timestamp: new Date(),
+      };
+      return res.status(500).json(response);
+    }
   } catch (err: any) {
     console.error('[profile-update] error:', err?.message || err);
     const response: ApiResponse = {
@@ -392,27 +448,43 @@ app.post('/api/applications', async (req, res) => {
     const appData = validationResult.data;
 
     // TODO: Implement application creation logic
-    // For now, return mock application data
-    const mockApplication: SimpleApplication = {
-      id: 'mock-application-id',
-      candidateId: 'mock-candidate-id',
-      session: appData.session,
-      programmeCode: appData.programmeCode,
-      departmentCode: appData.departmentCode,
-      status: 'pending',
-      submittedAt: undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // For now, implement basic application creation
+    try {
+      // TODO: Get candidate ID from authenticated user session
+      // For now, we'll use a mock candidate ID
+      const candidateId = 'mock-candidate-id';
 
-    const response: ApplicationCreateResponse = {
-      success: true,
-      data: mockApplication,
-      message: 'Application created successfully',
-      timestamp: new Date(),
-    };
+      // TODO: Create application in database
+      // For now, return mock application data
+      const mockApplication: SimpleApplication = {
+        id: 'mock-application-id',
+        candidateId: candidateId,
+        session: appData.session,
+        programmeCode: appData.programmeCode,
+        departmentCode: appData.departmentCode,
+        status: 'pending',
+        submittedAt: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-    return res.json(response);
+      const response: ApplicationCreateResponse = {
+        success: true,
+        data: mockApplication,
+        message: 'Application created successfully',
+        timestamp: new Date(),
+      };
+
+      return res.json(response);
+    } catch (dbError: any) {
+      console.error('[application-create] database error:', dbError?.message || dbError);
+      const response: ApiResponse = {
+        success: false,
+        error: 'Database error during application creation',
+        timestamp: new Date(),
+      };
+      return res.status(500).json(response);
+    }
   } catch (err: any) {
     console.error('[application-create] error:', err?.message || err);
     const response: ApiResponse = {

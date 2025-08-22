@@ -40,8 +40,33 @@ export class PaymentController {
       const requestData = validationResult.data;
 
       // TODO: Get candidate ID from authenticated user or JAMB verification
-      // For now, we'll use a mock candidate ID
-      const candidateId = 'mock-candidate-id';
+      // For now, implement basic candidate lookup by JAMB registration number
+      let candidateId = 'mock-candidate-id';
+
+      // Try to get candidate ID from JAMB verification if email is provided
+      if (requestData.email) {
+        try {
+          // Look up candidate by email (assuming email is unique)
+          const candidate = await this.paymentService.getCandidateByEmail(requestData.email);
+          if (candidate) {
+            candidateId = candidate.id;
+          }
+        } catch (error) {
+          console.log('Could not find candidate by email, using mock ID');
+        }
+      }
+
+      // TODO: Also implement lookup by JAMB registration number from request body
+      // if (requestData.jambRegNo) {
+      //   try {
+      //     const candidate = await this.paymentService.getCandidateByJambRegNo(requestData.jambRegNo);
+      //     if (candidate) {
+      //       candidateId = candidate.id;
+      //     }
+      //   } catch (error) {
+      //     console.log('Could not find candidate by JAMB registration number, using mock ID');
+      //   }
+      // }
 
       // Initialize payment
       const paymentResponse = await this.paymentService.initializePayment({
@@ -54,11 +79,11 @@ export class PaymentController {
         phone: requestData.phone,
       });
 
-      // Create response
+      // Create response using actual payment data from service
       const response = {
         success: true,
         data: {
-          id: randomUUID(), // Mock payment ID
+          id: randomUUID(), // Generate new payment ID for response
           candidateId,
           purpose: requestData.purpose,
           provider: paymentResponse.provider,
@@ -301,6 +326,91 @@ export class PaymentController {
       res.status(500).json({
         success: false,
         error: 'Provider status check failed',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  async getPaymentTypes(req: Request, res: Response): Promise<void> {
+    try {
+      const { session } = req.query;
+
+      if (!session || typeof session !== 'string') {
+        res.status(400).json({
+          success: false,
+          error: 'Session parameter is required',
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      const paymentTypes = await this.paymentService.getPaymentTypes(session);
+
+      res.status(200).json({
+        success: true,
+        data: paymentTypes,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      console.error('Payment types retrieval failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Payment types retrieval failed',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  async getCandidatePaymentHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+      const { session } = req.query;
+
+      if (!candidateId) {
+        res.status(400).json({
+          success: false,
+          error: 'Candidate ID is required',
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      const paymentHistory = await this.paymentService.getCandidatePaymentHistory(
+        candidateId,
+        session as string
+      );
+
+      res.status(200).json({
+        success: true,
+        data: paymentHistory,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      console.error('Payment history retrieval failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Payment history retrieval failed',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  async getPaymentStatistics(req: Request, res: Response): Promise<void> {
+    try {
+      const { session } = req.query;
+
+      const statistics = await this.paymentService.getPaymentStatistics(session as string);
+
+      res.status(200).json({
+        success: true,
+        data: statistics,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      console.error('Payment statistics retrieval failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Payment statistics retrieval failed',
         timestamp: new Date(),
       });
     }

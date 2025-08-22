@@ -49,6 +49,9 @@ ENV PORT=4000
 # Branding color for downstream decisions
 ENV BRAND_PRIMARY_COLOR=FF134F47
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 WORKDIR /app
 
 # Copy only the built artifacts and production deps

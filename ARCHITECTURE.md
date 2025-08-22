@@ -348,10 +348,40 @@ audit_logs(
 
 ### **Candidate Endpoints**
 
+#### **Core Profile Management**
+
 - `GET /me` → profile + composite completion states
 - `PUT /profile` → biodata updates
 - `POST /education-records` / `PUT /education-records/:id`
 - `POST /uploads` (multipart; type param)
+
+#### **Application Management**
+
+- `GET /api/candidates/jamb/:jambRegNo` → get candidate by JAMB registration number
+- `GET /api/candidates/:candidateId/application` → get application details
+- `POST /api/candidates/:candidateId/application` → create new application
+- `PUT /api/candidates/:candidateId/application` → update application with program choices
+
+#### **Registration & Forms**
+
+- `GET /api/candidates/:candidateId/registration-form` → get registration form data
+- `GET /api/candidates/:candidateId/registration-form.pdf` → generate registration form PDF
+
+#### **Status & Dashboard**
+
+- `GET /api/candidates/:candidateId/status` → comprehensive candidate status
+- `GET /api/candidates/:candidateId/dashboard` → candidate dashboard data
+- `GET /api/candidates/:candidateId/completion-status` → profile completion tracking
+
+#### **Admission & Matriculation**
+
+- `GET /api/candidates/:candidateId/admission-status` → admission decision status
+- `GET /api/candidates/:candidateId/admission-letter.pdf` → generate admission letter PDF
+- `GET /api/candidates/:candidateId/matric-number` → get matriculation number
+- `GET /api/candidates/:candidateId/migration-status` → migration to main portal status
+
+#### **Legacy Endpoints**
+
 - `GET /registration-form.pdf`
 - `GET /dashboard` → summary (passport/name/program/department/status/matric)
 - `POST /payments/init` (acceptance, school_fee)
