@@ -4,6 +4,7 @@ import { AdminService } from './admin.service.js';
 import { createAdminAuthMiddleware } from './admin-auth.middleware.js';
 import { AdminAuthService } from './admin-auth.service.js';
 import { AdminPermissionService } from './admin-permission.service.js';
+import { adminRateLimit, authRateLimit, healthCheckRateLimit } from '../../middleware/rateLimiting.js';
 
 export class AdminController {
   public router: express.Router;
@@ -18,9 +19,12 @@ export class AdminController {
   }
 
   private setupRoutes(): void {
-    // Public admin authentication routes
-    this.router.post('/auth/login', this.login.bind(this));
-    this.router.post('/auth/refresh', this.refreshToken.bind(this));
+    // Apply admin rate limiting to all routes
+    this.router.use(adminRateLimit);
+    
+    // Public admin authentication routes (with auth-specific rate limiting)
+    this.router.post('/auth/login', authRateLimit, this.login.bind(this));
+    this.router.post('/auth/refresh', authRateLimit, this.refreshToken.bind(this));
 
     // Protected admin routes (require authentication)
     const authMiddleware = createAdminAuthMiddleware(
@@ -87,8 +91,8 @@ export class AdminController {
       this.getPermissionMatrix.bind(this)
     );
 
-    // Health check (no auth required)
-    this.router.get('/health', this.getHealthStatus.bind(this));
+    // Health check (no auth required, with health check rate limiting)
+    this.router.get('/health', healthCheckRateLimit, this.getHealthStatus.bind(this));
 
     // Dashboard and analytics
     this.router.get(

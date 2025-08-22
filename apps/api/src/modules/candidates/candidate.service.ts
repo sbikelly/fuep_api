@@ -1,6 +1,7 @@
 import { Education, NextOfKin, Profile, ProfileCompletionStatus, Sponsor } from '@fuep/types';
 
 import { db } from '../../db/knex.js';
+import { logger, withDatabaseLogging, withPerformanceLogging } from '../../middleware/logging.js';
 
 // Additional interfaces for candidate module
 export interface Candidate {

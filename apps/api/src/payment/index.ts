@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { PaymentController } from './payment.controller.js';
 import { PaymentService } from './payment.service.js';
 import { PaymentProviderRegistry } from './providers/provider-registry.js';
+import { paymentRateLimit } from '../middleware/rateLimiting.js';
 
 export interface PaymentsModuleDependencies {
   logger?: Console;
@@ -40,8 +41,8 @@ export function createPaymentsModule(deps: PaymentsModuleDependencies = {}): Pay
     logger.log('[PaymentsModule] Creating router and binding routes...');
     const router = Router();
 
-    // Payment initiation
-    router.post('/init', controller.initiatePayment.bind(controller));
+    // Payment initiation (with strict rate limiting)
+    router.post('/init', paymentRateLimit, controller.initiatePayment.bind(controller));
 
     // Static routes (must come before parameterized routes)
     router.get('/types', controller.getPaymentTypes.bind(controller));
@@ -58,7 +59,7 @@ export function createPaymentsModule(deps: PaymentsModuleDependencies = {}): Pay
 
     // Parameterized routes (must come after static routes)
     router.get('/:paymentId', controller.getPaymentStatus.bind(controller));
-    router.post('/:paymentId/verify', controller.verifyPayment.bind(controller));
+    router.post('/:paymentId/verify', paymentRateLimit, controller.verifyPayment.bind(controller));
     router.get('/:paymentId/receipt', controller.getPaymentReceipt.bind(controller));
 
     logger.log('[PaymentsModule] Router created and routes bound successfully');
