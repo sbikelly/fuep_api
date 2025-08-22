@@ -214,9 +214,10 @@ These artifacts are normative and must be strictly adhered to during design, imp
 
 #### Step 1: JAMB Verification
 
-- Candidate clicks Apply → enters JAMB Reg No
+- Candidate clicks Apply(from the home screen or login screen) → enters JAMB Reg No (in the Application/registration screen)
 - Frontend calls backend to check JAMB number in pre-uploaded dataset
-- If exists: Request Email & Phone Number
+- If exists: Request candidate's Email & Phone Number (if not available in the prelist)
+- if exists and complete: the candidate clicks apply
 - If not found: Display error and contact admissions office
 
 #### Step 2: Payment Initialization
