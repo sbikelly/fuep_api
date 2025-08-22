@@ -220,16 +220,11 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - if exists and complete: the candidate clicks apply
 - If not found: Display error and contact admissions office
 
-#### Step 2: Payment Initialization
+#### Step 2-3: Account Creation
 
-- Backend creates local Payment record (status=initiated)
-- Calls Remita API to initialize Post-UTME payment
-
-#### Step 3: Account Creation
-
-- After successful payment, backend creates Post-UTME account
+- After successful application, backend creates Post-UTME account
 - Username = JAMB Reg No
-- Generates temporary random password (secure, 10-12 chars)
+- Generates temporary random password (secure, 6-12 chars)
 - Sends password to candidate's email with login instructions
 
 #### Step 4-6: Login & Password Management
@@ -238,21 +233,36 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - System prompts password change on first login
 - Clear warning to change password
 
-#### Step 7-9: Data Entry
+#### Step 7-9: Data Entry(in a step-by-step fashion)
 
-- Biodata Form (pre-filled with JAMB data, additional fields editable)
-- Educational Record Form for entry & uploads
-- Next-of-kin and Sponsor forms
+- after a successful login and password change, the system displays the registration form containing the following   forms in a sequence:
+  - Biodata Form (pre-filled with JAMB data, passport image, additional fields editable)
+    - if properly filled and all the required/compulsary fiels are filled, the user click next to move to the next form
+  - Educational Record Form for entry & uploads
+    - if all the required documents are uploaded, the user click next to move to the next form
+  - Next-of-kin and Sponsor forms
+    - after all the registration forms are properly filled, save/cache all the entered data temporarily(may be in the backend if possible to avoid data loss) and then move to the next step which is post-utme payment by indicating in the registration step indicator that the user is in the final stage of his registartion which is payment and move to the payment step
 
-#### Step 10: Dashboard Access
+#### Step 10: Payment Initialization(payment step)
 
-- Registration Form Preview for review & printing
+- Backend creates local Payment record (status=initiated)
+- Calls Remita API to initialize Post-UTME payment
+
+#### Step 11: Dashboard Access
+
+- After successful payment, Registration Form Preview for review & printing
+- After successful registration and payment, save the candidates records to the backend and redirect the candidate to his dashboard home tab
 - Candidate Dashboard with tabs:
   - Payments (view, initiate, print receipts)
   - Admission Letter (view/print if admitted & acceptance fee paid)
   - Biodata (view/edit)
   - SSCE, A-Level, Transcript (uploads)
   - UTME (JAMB result)
+
+#### Step 10: Completed registration and post-utme payment checks
+  
+  - For every candidate's succesful login, verify the candidate's registration and post-utme payment,
+  - if the registration or post-utme payment  is not complete, redirect/open the registration form for the candidat with a notification to complete his registration
 
 ### Algorithm & Data Flow Integration
 
@@ -261,21 +271,35 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - Dataset from JAMB CAPS uploaded by admin
 - Backend maintains `jamb_prelist` table
 - Verification against JAMB number on registration
+- Trigger account creation
 
-#### 2. Payment Initialization Flow
 
-- Create payment record linked to `jamb_reg_no`
-- Call Remita API with orderId, amount, purpose
-- Save `remita_rrr` & status=initiated
-- Webhook verification success → update status=paid, trigger account creation
-
-#### 3. Account Creation Flow
+#### 2. Account Creation Flow
 
 - Username = JAMB Reg No
 - Password = secureRandom(12) (hashed in DB)
 - Email with login details & force password change
 
-#### 4. Matric Number Generation (Post-Admit)
+#### 3. Data Entry Flow
+
+- Biodata Form
+- Educational Record Form for entry & uploads
+- Next-of-kin and Sponsor forms
+- Post-UTME Payment
+
+
+#### 4. Payment Initialization Flow
+
+- Create payment record linked to `jamb_reg_no`
+- Call Remita API with orderId, amount, purpose
+- Save `remita_rrr` & status=initiated
+- Webhook verification success → update status=paid,
+
+#### 5. Admission Letter Generation Flow
+
+- If 
+
+#### 6. Matric Number Generation (Post-Admit)
 
 - Triggered when admission status = admitted
 - Requires acceptance_fee & school_fee payment
@@ -307,7 +331,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 
 #### Business Rules
 
-- When candidate status becomes "Admitted" and fees are paid
+- When candidate status becomes "Admitted" and all fees are paid(Post-utme, acceptance fee, school fee)
 - Generate matric number using university format (e.g., FUEP/2025/CSC/0123)
 - Create Student record and provision portal account
 
@@ -428,49 +452,7 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - `POST /api/admin/admissions/batch` — Batch admit
 - `POST /api/migrate/:candidateId` — Migrate to main student portal
 
-## Implementation Timeline
 
-### Phase 1: Core Development (Weeks 1-8)
-
-- [ ] Project setup and infrastructure
-- [ ] Database design and implementation
-- [ ] Backend API development
-- [ ] Basic candidate portal (signup, biodata, file upload)
-- [ ] Authentication system
-- [ ] Admin CRUD + basic reports
-- [ ] User management
-- [ ] Payment integration (1 provider i.e., Remita) + payment records
-- [ ] Acceptance letter PDF generation and basic matric assignment
-- [ ] Local backup configuration
-
-### Phase 2: Feature Development (Weeks 9-16)
-
-- [ ] Application submission system
-- [ ] Document upload and management
-- [ ] Second Payment provider integration (Flutterwave)
-- [ ] Add virus-scan & document conversion pipeline
-- [ ] Performance testing and security hardening
-
-### Phase 3: Features & Automations (4 weeks)
-
-- [ ] Auto-provisioning student accounts & migration tools
-- [ ] Advanced reports & analytics
-- [ ] Acceptance/Matric workflow polishing and printing support
-
-### Phase 4: Enhancement & Testing (Weeks 17-20)
-
-- [ ] Advanced features
-- [ ] Performance optimization
-- [ ] Security testing
-- [ ] User acceptance testing
-- [ ] Documentation
-
-### Phase 5: Deployment & Training (Weeks 21-24)
-
-- [ ] Production deployment
-- [ ] Staff training
-- [ ] Go-live support
-- [ ] Post-deployment monitoring
 
 ## Risk Assessment
 

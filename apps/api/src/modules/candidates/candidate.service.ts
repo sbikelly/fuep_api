@@ -199,56 +199,86 @@ export class CandidateService {
    * Get candidate profile with JAMB prefill data
    */
   async getCandidateProfile(jambRegNo: string): Promise<Profile | null> {
-    try {
-      this.logger.log(`[CandidateService] Getting profile for JAMB: ${jambRegNo}`);
+    return withPerformanceLogging('getCandidateProfile', async () => {
+      return withDatabaseLogging('SELECT', 'candidates,profiles,jamb_prelist', async () => {
+        try {
+          logger.info('Getting candidate profile', {
+            module: 'candidates',
+            operation: 'getCandidateProfile',
+            metadata: { jambRegNo }
+          });
 
-      // First check if candidate exists
-      const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
+          // First check if candidate exists
+          const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
 
-      if (!candidate) {
-        this.logger.log(`[CandidateService] Candidate not found for JAMB: ${jambRegNo}`);
-        return null;
-      }
+          if (!candidate) {
+            logger.info('Candidate not found for profile', {
+              module: 'candidates',
+              operation: 'getCandidateProfile',
+              metadata: { jambRegNo, found: false }
+            });
+            return null;
+          }
 
-      // Get profile data
-      const profile = await db('profiles').where('candidate_id', candidate.id).first();
+          // Get profile data
+          const profile = await db('profiles').where('candidate_id', candidate.id).first();
 
-      // Get JAMB prelist data for prefill
-      const jambData = await db('jamb_prelist').where('jamb_reg_no', jambRegNo).first();
+          // Get JAMB prelist data for prefill
+          const jambData = await db('jamb_prelist').where('jamb_reg_no', jambRegNo).first();
 
-      if (profile) {
-        // Merge with JAMB data for prefill
-        return {
-          ...profile,
-          candidateId: candidate.id,
-          surname: profile.surname || jambData?.surname,
-          firstname: profile.firstname || jambData?.firstname,
-          othernames: profile.othernames || jambData?.othernames,
-          gender: profile.gender || jambData?.gender,
-          state: profile.state || jambData?.state_of_origin,
-          lga: profile.lga || jambData?.lga_of_origin,
-        };
-      } else {
-        // Create profile from JAMB data
-        const newProfile: Partial<Profile> = {
-          candidateId: candidate.id,
-          surname: jambData?.surname,
-          firstname: jambData?.firstname,
-          othernames: jambData?.othernames,
-          gender: jambData?.gender,
-          state: jambData?.state_of_origin,
-          lga: jambData?.lga_of_origin,
-        };
+          if (profile) {
+            // Merge with JAMB data for prefill
+            const result = {
+              ...profile,
+              candidateId: candidate.id,
+              surname: profile.surname || jambData?.surname,
+              firstname: profile.firstname || jambData?.firstname,
+              othernames: profile.othernames || jambData?.othernames,
+              gender: profile.gender || jambData?.gender,
+              state: profile.state || jambData?.state_of_origin,
+              lga: profile.lga || jambData?.lga_of_origin,
+            };
 
-        const [insertedProfile] = await db('profiles').insert(newProfile).returning('*');
+            logger.info('Profile retrieved successfully', {
+              module: 'candidates',
+              operation: 'getCandidateProfile',
+              metadata: { jambRegNo, candidateId: candidate.id, found: true, hasProfile: true }
+            });
 
-        this.logger.log(`[CandidateService] Created new profile for candidate: ${candidate.id}`);
-        return insertedProfile as Profile;
-      }
-    } catch (error) {
-      this.logger.error('[CandidateService] Error getting candidate profile:', error);
-      throw new Error('Failed to get candidate profile');
-    }
+            return result;
+          } else {
+            // Create profile from JAMB data
+            const newProfile: Partial<Profile> = {
+              candidateId: candidate.id,
+              surname: jambData?.surname,
+              firstname: jambData?.firstname,
+              othernames: jambData?.othernames,
+              gender: jambData?.gender,
+              state: jambData?.state_of_origin,
+              lga: jambData?.lga_of_origin,
+            };
+
+            const [insertedProfile] = await db('profiles').insert(newProfile).returning('*');
+
+            logger.info('New profile created from JAMB data', {
+              module: 'candidates',
+              operation: 'getCandidateProfile',
+              metadata: { jambRegNo, candidateId: candidate.id, found: true, hasProfile: false, created: true }
+            });
+
+            return insertedProfile as Profile;
+          }
+        } catch (error) {
+          logger.error('Failed to get candidate profile', {
+            module: 'candidates',
+            operation: 'getCandidateProfile',
+            metadata: { jambRegNo },
+            error: error instanceof Error ? error.message : String(error)
+          });
+          throw new Error('Failed to get candidate profile');
+        }
+      }, { metadata: { jambRegNo } });
+    }, { metadata: { jambRegNo } });
   }
 
   /**
@@ -622,19 +652,46 @@ export class CandidateService {
   }
 
   async getApplication(candidateId: string): Promise<any> {
-    try {
-      this.logger.log(`[CandidateService] Getting application for candidate: ${candidateId}`);
+    return withPerformanceLogging('getApplication', async () => {
+      return withDatabaseLogging('SELECT', 'applications', async () => {
+        try {
+          logger.info('Getting application for candidate', {
+            module: 'candidates',
+            operation: 'getApplication',
+            metadata: { candidateId }
+          });
 
-      const application = await db('applications')
-        .where('candidate_id', candidateId)
-        .orderBy('created_at', 'desc')
-        .first();
+          const application = await db('applications')
+            .where('candidate_id', candidateId)
+            .orderBy('created_at', 'desc')
+            .first();
 
-      return application;
-    } catch (error) {
-      this.logger.error('[CandidateService] Error getting application:', error);
-      throw new Error('Failed to get application');
-    }
+          if (application) {
+            logger.info('Application retrieved successfully', {
+              module: 'candidates',
+              operation: 'getApplication',
+              metadata: { candidateId, applicationId: application.id, found: true }
+            });
+          } else {
+            logger.info('No application found for candidate', {
+              module: 'candidates',
+              operation: 'getApplication',
+              metadata: { candidateId, found: false }
+            });
+          }
+
+          return application;
+        } catch (error) {
+          logger.error('Failed to get application', {
+            module: 'candidates',
+            operation: 'getApplication',
+            metadata: { candidateId },
+            error: error instanceof Error ? error.message : String(error)
+          });
+          throw new Error('Failed to get application');
+        }
+      }, { metadata: { candidateId } });
+    }, { metadata: { candidateId } });
   }
 
   async updateApplication(
@@ -646,47 +703,67 @@ export class CandidateService {
       jambScore?: number;
     }
   ): Promise<any> {
-    try {
-      // Update the candidate's program choices and JAMB score
-      if (
-        updateData.programChoice1 ||
-        updateData.programChoice2 ||
-        updateData.programChoice3 ||
-        updateData.jambScore
-      ) {
-        const candidateUpdates: any = {};
+    return withPerformanceLogging('updateApplication', async () => {
+      return withDatabaseLogging('UPDATE', 'candidates,applications', async () => {
+        try {
+          logger.info('Updating application for candidate', {
+            module: 'candidates',
+            operation: 'updateApplication',
+            metadata: { candidateId, updates: updateData }
+          });
 
-        if (updateData.programChoice1)
-          candidateUpdates.program_choice_1 = updateData.programChoice1;
-        if (updateData.programChoice2)
-          candidateUpdates.program_choice_2 = updateData.programChoice2;
-        if (updateData.programChoice3)
-          candidateUpdates.program_choice_3 = updateData.programChoice3;
-        if (updateData.jambScore) candidateUpdates.jamb_score = updateData.jambScore;
+          // Update the candidate's program choices and JAMB score
+          if (
+            updateData.programChoice1 ||
+            updateData.programChoice2 ||
+            updateData.programChoice3 ||
+            updateData.jambScore
+          ) {
+            const candidateUpdates: any = {};
 
-        await db('candidates').where('id', candidateId).update(candidateUpdates);
-      }
+            if (updateData.programChoice1)
+              candidateUpdates.program_choice_1 = updateData.programChoice1;
+            if (updateData.programChoice2)
+              candidateUpdates.program_choice_2 = updateData.programChoice2;
+            if (updateData.programChoice3)
+              candidateUpdates.program_choice_3 = updateData.programChoice3;
+            if (updateData.jambScore) candidateUpdates.jamb_score = updateData.jambScore;
 
-      // Update the application's programme and department codes
-      const applicationUpdates: any = {};
-      if (updateData.programChoice1) {
-        applicationUpdates.programme_code = updateData.programChoice1;
-      }
-      if (updateData.programChoice2) {
-        applicationUpdates.department_code = updateData.programChoice2;
-      }
+            await db('candidates').where('id', candidateId).update(candidateUpdates);
+          }
 
-      if (Object.keys(applicationUpdates).length > 0) {
-        await db('applications').where('candidate_id', candidateId).update(applicationUpdates);
-      }
+          // Update the application's programme and department codes
+          const applicationUpdates: any = {};
+          if (updateData.programChoice1) {
+            applicationUpdates.programme_code = updateData.programChoice1;
+          }
+          if (updateData.programChoice2) {
+            applicationUpdates.department_code = updateData.programChoice2;
+          }
 
-      // Return the updated application
-      return this.getApplication(candidateId);
-    } catch (error) {
-      throw new Error(
-        `Failed to update application: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+          if (Object.keys(applicationUpdates).length > 0) {
+            await db('applications').where('candidate_id', candidateId).update(applicationUpdates);
+          }
+
+          logger.info('Application updated successfully', {
+            module: 'candidates',
+            operation: 'updateApplication',
+            metadata: { candidateId, updates: updateData }
+          });
+
+          // Return the updated application
+          return this.getApplication(candidateId);
+        } catch (error) {
+          logger.error('Failed to update application', {
+            module: 'candidates',
+            operation: 'updateApplication',
+            metadata: { candidateId, updates: updateData },
+            error: error instanceof Error ? error.message : String(error)
+          });
+          throw new Error('Failed to update application');
+        }
+      }, { metadata: { candidateId, updates: updateData } });
+    }, { metadata: { candidateId } });
   }
 
   // Registration form methods
