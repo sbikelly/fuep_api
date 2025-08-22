@@ -104,80 +104,95 @@ export class CandidateService {
    * Get candidate by JAMB registration number
    */
   async getCandidateByJambRegNo(jambRegNo: string): Promise<Candidate | null> {
-    try {
-      this.logger.log(`[CandidateService] Getting candidate by JAMB: ${jambRegNo}`);
+    return withPerformanceLogging(
+      'getCandidateByJambRegNo',
+      async () => {
+        return withDatabaseLogging(
+          'SELECT',
+          'candidates',
+          async () => {
+            // Get candidate from database
+            const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
 
-      // Get candidate from database
-      const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
-
-      if (!candidate) {
-        this.logger.log(`[CandidateService] Candidate not found for JAMB: ${jambRegNo}`);
-        return null;
-      }
-
-      // Get additional data from related tables
-      const profile = await db('profiles').where('candidate_id', candidate.id).first();
-
-      const application = await db('applications').where('candidate_id', candidate.id).first();
-
-      const admission = await db('admissions').where('candidate_id', candidate.id).first();
-
-      const candidateData: Candidate = {
-        id: candidate.id,
-        jambRegNo: candidate.jamb_reg_no,
-        username: candidate.username,
-        email: candidate.email,
-        phone: candidate.phone,
-        programChoice1: candidate.program_choice_1,
-        programChoice2: candidate.program_choice_2,
-        programChoice3: candidate.program_choice_3,
-        jambScore: candidate.jamb_score,
-        stateOfOrigin: candidate.state_of_origin,
-        applicationStatus: candidate.application_status,
-        paymentStatus: candidate.payment_status,
-        admissionStatus: candidate.admission_status,
-        profile: profile
-          ? {
-              surname: profile.surname,
-              firstname: profile.firstname,
-              othernames: profile.othernames,
-              gender: profile.gender,
-              dateOfBirth: profile.dob,
-              address: profile.address,
-              state: profile.state,
-              lga: profile.lga,
-              city: profile.city,
-              nationality: profile.nationality,
-              maritalStatus: profile.marital_status,
+            if (!candidate) {
+              logger.info('Candidate not found by JAMB reg no', {
+                module: 'candidates',
+                operation: 'getCandidateByJambRegNo',
+                metadata: { jambRegNo, found: false },
+              });
+              return null;
             }
-          : null,
-        application: application
-          ? {
-              id: application.id,
-              session: application.session,
-              programmeCode: application.programme_code,
-              departmentCode: application.department_code,
-              status: application.status,
-            }
-          : null,
-        admission: admission
-          ? {
-              id: admission.id,
-              decision: admission.decision,
-              decidedAt: admission.decided_at,
-              notes: admission.notes,
-            }
-          : null,
-        createdAt: candidate.created_at,
-        updatedAt: candidate.updated_at,
-      };
 
-      this.logger.log(`[CandidateService] Found candidate: ${candidate.id} for JAMB: ${jambRegNo}`);
-      return candidateData;
-    } catch (error) {
-      this.logger.error('[CandidateService] Error getting candidate by JAMB:', error);
-      throw new Error('Failed to get candidate by JAMB');
-    }
+            // Get additional data from related tables
+            const profile = await db('profiles').where('candidate_id', candidate.id).first();
+            const application = await db('applications')
+              .where('candidate_id', candidate.id)
+              .first();
+            const admission = await db('admissions').where('candidate_id', candidate.id).first();
+
+            const candidateData: Candidate = {
+              id: candidate.id,
+              jambRegNo: candidate.jamb_reg_no,
+              username: candidate.username,
+              email: candidate.email,
+              phone: candidate.phone,
+              programChoice1: candidate.program_choice_1,
+              programChoice2: candidate.program_choice_2,
+              programChoice3: candidate.program_choice_3,
+              jambScore: candidate.jamb_score,
+              stateOfOrigin: candidate.state_of_origin,
+              applicationStatus: candidate.application_status,
+              paymentStatus: candidate.payment_status,
+              admissionStatus: candidate.admission_status,
+              profile: profile
+                ? {
+                    surname: profile.surname,
+                    firstname: profile.firstname,
+                    othernames: profile.othernames,
+                    gender: profile.gender,
+                    dateOfBirth: profile.dob,
+                    address: profile.address,
+                    state: profile.state,
+                    lga: profile.lga,
+                    city: profile.city,
+                    nationality: profile.nationality,
+                    maritalStatus: profile.marital_status,
+                  }
+                : null,
+              application: application
+                ? {
+                    id: application.id,
+                    session: application.session,
+                    programmeCode: application.programme_code,
+                    departmentCode: application.department_code,
+                    status: application.status,
+                  }
+                : null,
+              admission: admission
+                ? {
+                    id: admission.id,
+                    decision: admission.decision,
+                    decidedAt: admission.decided_at,
+                    notes: admission.notes,
+                  }
+                : null,
+              createdAt: candidate.created_at,
+              updatedAt: candidate.updated_at,
+            };
+
+            logger.info('Candidate found by JAMB reg no', {
+              module: 'candidates',
+              operation: 'getCandidateByJambRegNo',
+              metadata: { jambRegNo, candidateId: candidate.id, found: true },
+            });
+
+            return candidateData;
+          },
+          { metadata: { jambRegNo } }
+        );
+      },
+      { metadata: { jambRegNo } }
+    );
   }
 
   /**
@@ -571,28 +586,39 @@ export class CandidateService {
 
   // Application management methods
   async createApplication(candidateId: string, applicationData: any): Promise<any> {
-    try {
-      this.logger.log(`[CandidateService] Creating application for candidate: ${candidateId}`);
+    return withPerformanceLogging(
+      'createApplication',
+      async () => {
+        return withDatabaseLogging(
+          'INSERT',
+          'applications',
+          async () => {
+            const [application] = await db('applications')
+              .insert({
+                candidate_id: candidateId,
+                session: applicationData.session,
+                programme_code: applicationData.programmeCode,
+                department_code: applicationData.departmentCode,
+                status: 'pending', // Use valid enum value from decision_status
+                submitted_at: new Date(),
+                created_at: new Date(),
+                updated_at: new Date(),
+              })
+              .returning('*');
 
-      const [application] = await db('applications')
-        .insert({
-          candidate_id: candidateId,
-          session: applicationData.session,
-          programme_code: applicationData.programmeCode,
-          department_code: applicationData.departmentCode,
-          status: 'pending', // Use valid enum value from decision_status
-          submitted_at: new Date(),
-          created_at: new Date(),
-          updated_at: new Date(),
-        })
-        .returning('*');
+            logger.info('Application created successfully', {
+              module: 'candidates',
+              operation: 'createApplication',
+              metadata: { candidateId, applicationId: application.id },
+            });
 
-      this.logger.log(`[CandidateService] Application created successfully: ${application.id}`);
-      return application;
-    } catch (error) {
-      this.logger.error('[CandidateService] Error creating application:', error);
-      throw new Error('Failed to create application');
-    }
+            return application;
+          },
+          { metadata: { candidateId, session: applicationData.session } }
+        );
+      },
+      { metadata: { candidateId } }
+    );
   }
 
   async getApplication(candidateId: string): Promise<any> {

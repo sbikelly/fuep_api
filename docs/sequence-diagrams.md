@@ -585,6 +585,130 @@ sequenceDiagram
 
 ---
 
+---
+
+## Admin Module — System Monitoring & Observability
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant ADM as Admin (FE)
+  participant API as Backend API
+  participant METRICS as Metrics Store
+  participant CACHE as Cache Instances
+  participant RATE_LIMIT as Rate Limiter
+  participant DB as Postgres
+
+  Note over ADM,DB: Real-time system monitoring and performance tracking
+  ADM->>API: GET /api/admin/metrics
+  API->>API: Verify permissions (monitoring:read)
+  API->>METRICS: Collect system metrics (counters, gauges, histograms)
+  METRICS-->>API: Current metrics data
+  API->>API: Format metrics for display
+  API-->>ADM: System performance metrics
+
+  ADM->>API: GET /api/admin/cache-stats
+  API->>API: Verify permissions (monitoring:read)
+  API->>CACHE: Get cache performance statistics
+  CACHE-->>API: Cache hit rates, sizes, evictions
+  API->>API: Calculate global cache performance
+  API-->>ADM: Cache performance statistics
+
+  ADM->>API: GET /api/admin/rate-limit-stats
+  API->>API: Verify permissions (monitoring:read)
+  API->>RATE_LIMIT: Get rate limiting violations
+  RATE_LIMIT-->>API: Violation counts by IP and endpoint
+  API->>API: Aggregate violation statistics
+  API-->>ADM: Rate limiting statistics
+
+  ADM->>API: GET /api/health/detailed
+  API->>API: Collect detailed system health
+  API->>METRICS: Get memory usage, CPU, uptime
+  METRICS-->>API: System resource metrics
+  API->>DB: Check database connectivity
+  DB-->>API: Database status
+  API->>API: Compile comprehensive health report
+  API-->>ADM: Detailed system health status
+```
+
+---
+
+## Enhanced Health Check & Monitoring
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant LB as Load Balancer
+  participant API as Backend API
+  participant METRICS as Metrics Store
+  participant CACHE as Cache Instances
+  participant DB as Postgres
+  participant LOGGER as Structured Logger
+
+  Note over LB,LOGGER: Automated health monitoring and alerting
+  LB->>API: GET /api/health (Docker health check)
+  API->>API: Basic health validation
+  API->>DB: SELECT 1 (connection test)
+  DB-->>API: Connection OK
+  API-->>LB: 200 OK (healthy)
+
+  LB->>API: GET /api/health/detailed (monitoring)
+  API->>METRICS: Collect performance metrics
+  METRICS-->>API: Request counts, response times, error rates
+  API->>CACHE: Get cache health status
+  CACHE-->>API: Cache performance data
+  API->>LOGGER: Log health check with correlation ID
+  LOGGER->>API: Log entry created
+  API->>API: Compile detailed health report
+  API-->>LB: Comprehensive health status
+
+  Note over LB,LOGGER: Performance monitoring and alerting
+  loop Every 15 seconds
+    API->>METRICS: Collect system metrics
+    METRICS-->>API: Memory, CPU, uptime data
+    API->>LOGGER: Log performance metrics
+    LOGGER->>API: Metrics logged
+  end
+```
+
+---
+
+## Structured Logging & Correlation
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User (FE)
+  participant API as Backend API
+  participant LOGGER as Structured Logger
+  participant METRICS as Metrics Store
+  participant DB as Postgres
+
+  Note over U,DB: Request correlation and performance tracking
+  U->>API: Any API request
+  API->>API: Generate correlation ID (requestId)
+  API->>LOGGER: Log request start with correlation ID
+  LOGGER->>API: Request logged
+  API->>METRICS: Start performance timer
+  METRICS-->>API: Timer started
+
+  API->>DB: Database operation
+  DB-->>API: Query result
+  API->>LOGGER: Log database operation with correlation ID
+  LOGGER->>API: Database log entry
+  API->>METRICS: Record database performance
+  METRICS-->>API: Performance recorded
+
+  API->>API: Process response
+  API->>LOGGER: Log response with correlation ID
+  LOGGER->>API: Response logged
+  API->>METRICS: Stop performance timer
+  METRICS-->>API: Final performance metrics
+  API-->>U: Response with correlation ID header
+```
+
+---
+
 Render notes:
 
 - GitHub and many Markdown engines render Mermaid automatically. If not, paste each block into a Mermaid-capable viewer (e.g., https://mermaid.live) or enable Mermaid in your docs site.

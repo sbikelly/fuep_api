@@ -2253,6 +2253,146 @@ paths:
         '403':
           description: Insufficient permissions
 
+  # Monitoring and Observability Endpoints
+  /api/admin/metrics:
+    get:
+      summary: Get system performance metrics
+      description: Retrieve comprehensive system metrics including HTTP requests, database operations, and performance data
+      tags: [Admin Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      counters: { type: object }
+                      gauges: { type: object }
+                      histograms: { type: object }
+                      uptime: { type: number }
+                      timestamp: { type: string, format: date-time }
+                  timestamp: { type: string, format: date-time }
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+
+  /api/admin/cache-stats:
+    get:
+      summary: Get cache performance statistics
+      description: Retrieve cache performance metrics including hit rates, sizes, and eviction statistics
+      tags: [Admin Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cache statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      caches: { type: object }
+                      globalStats:
+                        type: object
+                        properties:
+                          totalHits: { type: number }
+                          totalMisses: { type: number }
+                          totalSets: { type: number }
+                          totalEvictions: { type: number }
+                          hitRate: { type: number }
+                  timestamp: { type: string, format: date-time }
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+
+  /api/admin/rate-limit-stats:
+    get:
+      summary: Get rate limiting statistics
+      description: Retrieve current rate limiting violations and statistics
+      tags: [Admin Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rate limit statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      totalViolations: { type: number }
+                      violationsByIP: { type: object }
+                      timestamp: { type: string, format: date-time }
+                  timestamp: { type: string, format: date-time }
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+
+  /api/health/detailed:
+    get:
+      summary: Get detailed system health status
+      description: Retrieve comprehensive system health including memory usage, request statistics, and performance metrics
+      tags: [Health]
+      responses:
+        '200':
+          description: Detailed health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      status: { type: string }
+                      uptime: { type: number }
+                      memory:
+                        type: object
+                        properties:
+                          heapUsed: { type: string }
+                          heapTotal: { type: string }
+                          external: { type: string }
+                          rss: { type: string }
+                      requests:
+                        type: object
+                        properties:
+                          total: { type: number }
+                          active: { type: number }
+                          errors: { type: number }
+                      database:
+                        type: object
+                        properties:
+                          queries: { type: number }
+                          errors: { type: number }
+                      payments:
+                        type: object
+                        properties:
+                          events: { type: number }
+                          errors: { type: number }
+                      timestamp: { type: string, format: date-time }
+                  timestamp: { type: string, format: date-time }
+        '500':
+          description: Internal server error
+
 components:
   securitySchemes:
     bearerAuth:

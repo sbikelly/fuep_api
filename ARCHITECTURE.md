@@ -85,8 +85,11 @@
 - **Field-level encryption**: For sensitive PII
 - **Webhook signature verification**: Remita & others
 - **RBAC**: Admin roles (SuperAdmin, Admissions, Finance, Registrar)
-- **Rate limiting**: On auth, uploads, and payment init
+- **Rate limiting**: Multi-tier rate limiting with configurable limits per endpoint type
 - **File security**: Strict MIME + size limits; ClamAV scanning; content-disposition headers
+- **Enhanced Security Headers**: CSP, HSTS, XSS Protection, CORS hardening
+- **Request Monitoring**: Suspicious pattern detection and security logging
+- **IP Whitelisting**: Configurable IP restrictions for sensitive endpoints
 
 ### 1.4 State Machines
 
@@ -105,7 +108,42 @@ matric_assigned → migrated_to_main_portal
 initiated → (provider_pending) → success|failed → reconciled → receipted
 ```
 
-## 2. Data Architecture (Key Tables)
+## 2. Performance & Observability Architecture
+
+### **2.1 Caching Strategy**
+
+- **Multi-Tier Caching System**:
+  - **Fast Cache** (30s TTL, 500 entries): Health checks, metrics, frequently accessed data
+  - **Standard Cache** (5min TTL, 1000 entries): API responses, user sessions
+  - **Slow Cache** (30min TTL, 200 entries): Expensive operations, reports
+  - **Static Cache** (1h TTL, 100 entries): Configuration, reference data
+- **Cache Features**: LRU eviction, TTL management, pattern invalidation
+- **HTTP Response Caching**: Automatic caching for GET endpoints with cache headers
+- **Cache Warming**: Pre-populated frequently accessed data on startup
+
+### **2.2 Monitoring & Metrics**
+
+- **Structured Logging**: JSON logging with sanitization and correlation IDs
+- **Performance Metrics**: Request duration, database query times, cache hit rates
+- **System Metrics**: Memory usage, CPU, uptime, active connections
+- **Security Metrics**: Rate limit violations, suspicious patterns, IP tracking
+- **Business Metrics**: Payment success rates, candidate completion rates
+
+### **2.3 Observability Endpoints**
+
+- **`/api/admin/metrics`**: Real-time performance metrics and system statistics
+- **`/api/admin/cache-stats`**: Cache performance and hit rate statistics
+- **`/api/admin/rate-limit-stats`**: Rate limiting violations and IP tracking
+- **`/api/health/detailed`**: Enhanced health with memory and performance data
+
+### **2.4 Distributed Tracing**
+
+- **Request Correlation**: Unique request IDs for tracking across services
+- **Performance Tracking**: Request duration, database operations, external calls
+- **Error Correlation**: Linking errors to specific requests and user sessions
+- **Span Management**: Tracking complex operations across multiple endpoints
+
+## 3. Data Architecture (Key Tables)
 
 ### **Core Tables Structure**
 
