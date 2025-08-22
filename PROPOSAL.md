@@ -293,11 +293,12 @@ These artifacts are normative and must be strictly adhered to during design, imp
 - Create payment record linked to `jamb_reg_no`
 - Call Remita API with orderId, amount, purpose
 - Save `remita_rrr` & status=initiated
-- Webhook verification success → update status=paid,
+- Webhook verification success → update status=paid/success,
 
 #### 5. Admission Letter Generation Flow
 
-- If 
+- If candidates's admission status=Admitted and post-utme and acceptance fee payments=paid/success, activate the admission letter printing button to preview and subsequent printing of the admission letter
+
 
 #### 6. Matric Number Generation (Post-Admit)
 
@@ -319,6 +320,11 @@ These artifacts are normative and must be strictly adhered to during design, imp
 8. **Reconciliation**: Queues job to reconcile and send receipt
 9. **Final Validation**: Worker validates payment with provider's verify API
 10. **Process Completion**: Updates Application status or triggers downstream processes
+
+#### Payment Access
+
+- Acceptance fee can only be paid if candidate's Post-utme fee=paid/success and admission status/decision=admitted
+- School Fee and only be paid if candidate's Post-utme fee=paid/success, admission status/decision=admitted and acceptance fee=paid/success
 
 #### Resilience & UX Improvements
 

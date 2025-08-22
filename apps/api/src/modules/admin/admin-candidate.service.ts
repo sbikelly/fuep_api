@@ -620,6 +620,92 @@ export class AdminCandidateService {
     }
   }
 
+  // Enhanced Analytics Methods
+  async getCompletedProfilesCount(): Promise<number> {
+    try {
+      const result = await db('profiles')
+        .whereNotNull('surname')
+        .whereNotNull('firstname')
+        .whereNotNull('gender')
+        .whereNotNull('state')
+        .count('* as count')
+        .first();
+      
+      return result ? parseInt(result.count as string) : 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get completed profiles count: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getSubmittedApplicationsCount(): Promise<number> {
+    try {
+      const result = await db('applications')
+        .whereIn('status', ['pending', 'admitted', 'rejected'])
+        .count('* as count')
+        .first();
+      
+      return result ? parseInt(result.count as string) : 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get submitted applications count: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getJambScores(): Promise<number[]> {
+    try {
+      const results = await db('candidates')
+        .whereNotNull('jamb_score')
+        .select('jamb_score');
+      
+      return results.map(row => parseInt(row.jamb_score as string));
+    } catch (error) {
+      throw new Error(
+        `Failed to get JAMB scores: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getGenderDistribution(): Promise<{ [gender: string]: number }> {
+    try {
+      const results = await db('candidates')
+        .join('profiles', 'candidates.id', 'profiles.candidate_id')
+        .select('profiles.gender')
+        .count('* as count')
+        .groupBy('profiles.gender');
+      
+      return results.reduce((acc: { [gender: string]: number }, row) => {
+        acc[row.gender as string] = parseInt(row.count as string);
+        return acc;
+      }, {});
+    } catch (error) {
+      throw new Error(
+        `Failed to get gender distribution: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getStateDistribution(): Promise<{ [state: string]: number }> {
+    try {
+      const results = await db('candidates')
+        .join('profiles', 'candidates.id', 'profiles.candidate_id')
+        .select('profiles.state')
+        .count('* as count')
+        .groupBy('profiles.state');
+      
+      return results.reduce((acc: { [state: string]: number }, row) => {
+        acc[row.state as string] = parseInt(row.count as string);
+        return acc;
+      }, {});
+    } catch (error) {
+      throw new Error(
+        `Failed to get state distribution: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
   // Export and Reporting
   async exportCandidates(
     filters?: CandidateFilters,
