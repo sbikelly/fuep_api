@@ -23,12 +23,20 @@ sequenceDiagram
   U->>API: POST /auth/check-jamb { jambRegNo }
   API->>DB: SELECT * FROM jamb_prelist WHERE jamb_reg_no=?
   DB-->>API: exists / not exists + minimal biodata
-  API-->>U: { exists: true/false, biodata }
+  alt JAMB Number Found
+    API->>U: { exists: true, biodata, requiresEmail: boolean, requiresPhone: boolean }
+    opt Missing Email/Phone
+      U->>API: POST /auth/complete-contact { email, phone }
+      API->>DB: UPDATE jamb_prelist SET email=?, phone=?
+    end
+  else JAMB Number Not Found
+    API->>U: { exists: false, error: "Contact admissions office" }
+  end
 ```
 
 ---
 
-## Step 2 — Initiate Post-UTME Payment
+## Step 2 — Initiate Post-UTME Payment & Account Creation
 
 ```mermaid
 sequenceDiagram
@@ -37,6 +45,7 @@ sequenceDiagram
   participant API as Backend API
   participant DB as Postgres
   participant REM as Remita
+  participant EMAIL as Email Service
 
   U->>API: POST /payments/init { purpose=post_utme, jambRegNo, email, phone }
   API->>DB: UPSERT candidates(email, phone, jambRegNo)
@@ -45,11 +54,17 @@ sequenceDiagram
   REM-->>API: { rrr, providerRef }
   API-->>DB: UPDATE payments SET provider=remita, provider_ref, status=pending
   API-->>U: { redirectUrl / token, paymentId }
+  
+  Note over API,EMAIL: Account Creation with Temporary Password
+  API->>API: Generate temporary password (6-12 chars)
+  API->>DB: INSERT candidates(username=jambRegNo, password_hash, temp_password_flag=true)
+  API->>EMAIL: Send email with login credentials
+  EMAIL->>U: Email: JAMB Reg No + Temporary Password + Login Instructions
 ```
 
 ---
 
-## Step 3 — Payment Confirmation & Account Creation
+## Step 3 — Payment Confirmation & Account Activation
 
 ```mermaid
 sequenceDiagram
@@ -63,8 +78,13 @@ sequenceDiagram
   API->>API: Verify signature, map payload
   API->>DB: UPDATE payments SET status=success/failed
   alt success
-    API->>DB: UPSERT candidates (username=jambRegNo, password_hash, temp_password_flag=true)
+    API->>DB: UPDATE candidates SET payment_status=paid, post_utme_paid=true
+    API->>DB: UPDATE payments SET status=success, verified_at=NOW()
     API->>Q: Enqueue payment.verify, receipt.generate, notify.email
+    Note over API: Account already created in Step 2
+  else failed
+    API->>DB: UPDATE payments SET status=failed, failure_reason=?
+    API->>Q: Enqueue notify.candidate.payment_failed
   end
   API-->>REM: 200 OK
 ```
@@ -93,7 +113,50 @@ sequenceDiagram
 
 ---
 
-## Step 5 — Biodata Form
+## Step 5 — Complete Candidate Registration Flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Candidate (FE)
+  participant API as Backend API
+  participant DB as Postgres
+  participant EMAIL as Email Service
+
+  Note over U,EMAIL: After successful payment and login with temporary password
+  
+  U->>API: POST /auth/change-password { oldPassword, newPassword }
+  API->>DB: UPDATE candidates SET password_hash=?, temp_password_flag=false
+  API-->>U: { success: true, message: "Password changed successfully" }
+  
+  U->>API: GET /candidates/registration-form
+  API->>DB: SELECT candidate data + JAMB prelist data
+  API-->>U: { registrationForm: { biodata, education, nextOfKin, sponsor } }
+  
+  U->>API: POST /candidates/biodata { formData }
+  API->>DB: UPDATE candidates SET biodata=?, profile_completion=25%
+  API-->>U: { success: true, nextStep: "education" }
+  
+  U->>API: POST /candidates/education { educationData, documents }
+  API->>DB: INSERT education_records, uploads
+  API->>DB: UPDATE candidates SET profile_completion=50%
+  API-->>U: { success: true, nextStep: "nextOfKin" }
+  
+  U->>API: POST /candidates/next-of-kin { nextOfKinData }
+  API->>DB: INSERT next_of_kin
+  API->>DB: UPDATE candidates SET profile_completion=75%
+  API-->>U: { success: true, nextStep: "sponsor" }
+  
+  U->>API: POST /candidates/sponsor { sponsorData }
+  API->>DB: INSERT sponsors
+  API->>DB: UPDATE candidates SET profile_completion=100%, registration_complete=true
+  API-->>U: { success: true, message: "Registration complete! Redirecting to dashboard" }
+  
+  API->>EMAIL: Send registration completion email
+  EMAIL->>U: Email: Registration confirmation + next steps
+```
+
+## Step 6 — Biodata Form (Legacy - Updated to Step 5 above)
 
 ```mermaid
 sequenceDiagram
@@ -157,6 +220,43 @@ sequenceDiagram
   U->>API: POST /sponsors { ... }
   API->>DB: INSERT sponsors
   API-->>U: 201 Created
+```
+
+---
+
+## Step 7.5 — Email Service & Temporary Password Flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant API as Backend API
+  participant EMAIL as Email Service (MailHog)
+  participant Q as Queue (Redis)
+  participant U as Candidate
+
+  Note over API,U: Account Creation & Temporary Password Generation
+  
+  API->>API: Generate secure random password (6-12 chars)
+  API->>API: Hash password with bcrypt
+  API->>Q: Enqueue email.send_temporary_password
+  
+  Q->>EMAIL: Process email queue
+  EMAIL->>EMAIL: Render email template
+  EMAIL->>U: Send email with:
+  Note over EMAIL: - JAMB Registration Number
+  Note over EMAIL: - Temporary Password
+  Note over EMAIL: - Login Instructions
+  Note over EMAIL: - Security Warning
+  Note over EMAIL: - Support Contact
+  
+  U->>API: Login with temporary password
+  API->>API: Verify temp_password_flag=true
+  API-->>U: { success: true, forcePasswordChange: true }
+  
+  U->>API: POST /auth/change-password
+  API->>API: Validate new password strength
+  API->>API: Update password_hash, temp_password_flag=false
+  API-->>U: { success: true, message: "Password changed successfully" }
 ```
 
 ---

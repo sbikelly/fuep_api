@@ -425,6 +425,37 @@ audit_logs(
 - `POST /payments/init` (acceptance, school_fee)
 - `GET /admission-letter.pdf` (if eligible)
 
+### **Candidate Registration Flow**
+
+The candidate registration process follows a structured, step-by-step approach aligned with the PROPOSAL.md specifications:
+
+#### **Phase 1: JAMB Verification & Account Creation**
+- **JAMB Number Verification**: System checks against pre-uploaded JAMB dataset
+- **Contact Information Collection**: Gathers missing email/phone if required
+- **Account Creation**: Creates candidate account with JAMB number as username
+- **Temporary Password Generation**: Generates secure 6-12 character password
+- **Email Notification**: Sends login credentials with security instructions
+
+#### **Phase 2: Payment & Authentication**
+- **Post-UTME Payment**: Initializes payment through Remita gateway
+- **Account Activation**: Links payment to candidate account
+- **First Login**: Candidate logs in with temporary password
+- **Password Change Enforcement**: System forces password change on first login
+- **Security Validation**: Ensures new password meets strength requirements
+
+#### **Phase 3: Progressive Profile Completion**
+- **Biodata Form (25%)**: Personal information, contact details, passport upload
+- **Education Records (50%)**: SSCE results, additional qualifications, document uploads
+- **Next-of-Kin (75%)**: Emergency contact and relationship information
+- **Sponsor Details (100%)**: Financial sponsor information and commitments
+
+#### **Phase 4: Registration Finalization**
+- **Data Validation**: Ensures all required fields and documents are complete
+- **Profile Completion Tracking**: Updates completion percentage throughout process
+- **Registration Marking**: Sets registration_complete flag when finished
+- **Confirmation Email**: Sends completion notification with next steps
+- **Dashboard Access**: Redirects to fully functional candidate dashboard
+
 ### **Admin Endpoints**
 
 - `POST /admin/prelist/upload`
