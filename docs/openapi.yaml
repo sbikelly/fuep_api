@@ -614,6 +614,111 @@ paths:
                   timestamp: { type: string, format: date-time }
         '404': { description: Candidate not found }
 
+  # New Candidate Registration Flow Endpoints
+  /api/candidates/check-jamb:
+    post:
+      summary: Check JAMB registration number and initiate registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jambRegNo
+              properties:
+                jambRegNo:
+                  type: string
+                  description: JAMB registration number
+                  example: "JAMB001"
+                email:
+                  type: string
+                  format: email
+                  description: Candidate email address (if not in JAMB data)
+                  example: "candidate@example.com"
+                phone:
+                  type: string
+                  description: Candidate phone number (if not in JAMB data)
+                  example: "+2348012345678"
+      responses:
+        '200':
+          description: JAMB verification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/JambVerificationResponse' }
+                  timestamp: { type: string, format: date-time }
+        '400': { description: Invalid JAMB number }
+        '404': { description: JAMB number not found }
+        '500': { description: Internal server error }
+
+  /api/candidates/complete-contact:
+    post:
+      summary: Complete missing contact information for JAMB verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jambRegNo
+                - email
+                - phone
+              properties:
+                jambRegNo:
+                  type: string
+                  description: JAMB registration number
+                  example: "JAMB001"
+                email:
+                  type: string
+                  format: email
+                  description: Candidate email address
+                  example: "candidate@example.com"
+                phone:
+                  type: string
+                  description: Candidate phone number
+                  example: "+2348012345678"
+      responses:
+        '200':
+          description: Contact information updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/ContactUpdateResponse' }
+                  timestamp: { type: string, format: date-time }
+        '400': { description: Invalid contact information }
+        '404': { description: JAMB number not found }
+        '500': { description: Internal server error }
+
+  /api/candidates/{candidateId}/next-step:
+    get:
+      summary: Get next step in registration process
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Next step information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/NextStepResponse' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+        '500': { description: Internal server error }
+
   # -------- Admin --------
 
   /admin/prelist/upload:
@@ -3062,6 +3167,36 @@ components:
       properties:
         id: { type: string, format: uuid }
         candidateId: { type: string, format: uuid }
+
+    # New Candidate Registration Flow Schemas
+    JambVerificationResponse:
+      type: object
+      properties:
+        exists: { type: boolean }
+        biodata: { $ref: '#/components/schemas/JambPrelistRecord' }
+        requiresEmail: { type: boolean }
+        requiresPhone: { type: boolean }
+        message: { type: string }
+
+    ContactUpdateResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        updatedFields: 
+          type: array
+          items: { type: string }
+
+    NextStepResponse:
+      type: object
+      properties:
+        currentStep: { type: string, enum: ['biodata', 'education', 'nextOfKin', 'sponsor', 'complete'] }
+        completionPercentage: { type: integer, minimum: 0, maximum: 100 }
+        nextStep: { type: string }
+        requiredFields: 
+          type: array
+          items: { type: string }
+        message: { type: string }
         purpose: { $ref: '#/components/schemas/PaymentPurpose' }
         provider: { $ref: '#/components/schemas/PaymentProvider' }
         amount: { type: number }
