@@ -323,6 +323,297 @@ paths:
                 format: binary
         '403': { description: Not eligible }
 
+  # -------- Candidate Module --------
+
+  /api/candidates/jamb/{jambRegNo}:
+    get:
+      summary: Get candidate by JAMB registration number
+      parameters:
+        - in: path
+          name: jambRegNo
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Candidate details with program choices and related data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/status:
+    get:
+      summary: Get comprehensive candidate status
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Candidate status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/CandidateStatus' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/application:
+    get:
+      summary: Get candidate application
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Application details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Application' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Application not found }
+    post:
+      summary: Create new application
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session]
+              properties:
+                session: { type: string }
+                programmeCode: { type: string }
+                departmentCode: { type: string }
+      responses:
+        '201':
+          description: Application created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Application' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400': { description: Invalid input }
+        '409': { description: Application already exists }
+    put:
+      summary: Update application
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                programChoice1: { type: string }
+                programChoice2: { type: string }
+                programChoice3: { type: string }
+                jambScore: { type: number }
+      responses:
+        '200':
+          description: Application updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Application' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400': { description: Invalid input }
+        '404': { description: Application not found }
+
+  /api/candidates/{candidateId}/registration-form:
+    get:
+      summary: Get registration form data
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Registration form data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/RegistrationFormData' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/registration-form.pdf:
+    get:
+      summary: Generate registration form PDF
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/admission-status:
+    get:
+      summary: Get admission status
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Admission status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/AdmissionStatus' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/admission-letter.pdf:
+    get:
+      summary: Generate admission letter PDF
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/matric-number:
+    get:
+      summary: Get matriculation number
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Matriculation details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/MatriculationDetails' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Not matriculated }
+
+  /api/candidates/{candidateId}/migration-status:
+    get:
+      summary: Get migration status
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Migration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/MigrationStatus' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/dashboard:
+    get:
+      summary: Get candidate dashboard data
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/CandidateDashboard' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/completion-status:
+    get:
+      summary: Get profile completion status
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Completion status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/ProfileCompletionStatus' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
   # -------- Admin --------
 
   /admin/prelist/upload:
@@ -1760,7 +2051,14 @@ paths:
               properties:
                 type:
                   type: string
-                  enum: ['daily-summary', 'candidate-summary', 'payment-summary', 'admission-summary', 'audit-summary']
+                  enum:
+                    [
+                      'daily-summary',
+                      'candidate-summary',
+                      'payment-summary',
+                      'admission-summary',
+                      'audit-summary',
+                    ]
                 startDate: { type: string, format: date }
                 endDate: { type: string, format: date }
                 format: { type: string, enum: ['pdf', 'excel', 'csv'], default: 'pdf' }
@@ -1963,6 +2261,230 @@ components:
       bearerFormat: JWT
 
   schemas:
+    # Candidate Module Schemas
+    Candidate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jambRegNo: { type: string }
+        username: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        programChoice1: { type: string }
+        programChoice2: { type: string }
+        programChoice3: { type: string }
+        jambScore: { type: number }
+        stateOfOrigin: { type: string }
+        applicationStatus: { type: string }
+        paymentStatus: { type: string }
+        admissionStatus: { type: string }
+        profile:
+          $ref: '#/components/schemas/CandidateProfile'
+        application:
+          $ref: '#/components/schemas/CandidateApplication'
+        admission:
+          $ref: '#/components/schemas/CandidateAdmission'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CandidateProfile:
+      type: object
+      properties:
+        surname: { type: string }
+        firstname: { type: string }
+        othernames: { type: string }
+        gender: { type: string }
+        dateOfBirth: { type: string, format: date }
+        address: { type: string }
+        state: { type: string }
+        lga: { type: string }
+        city: { type: string }
+        nationality: { type: string }
+        maritalStatus: { type: string }
+
+    CandidateApplication:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        session: { type: string }
+        programmeCode: { type: string }
+        departmentCode: { type: string }
+        status: { type: string }
+
+    CandidateAdmission:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        decision: { type: string }
+        decidedAt: { type: string, format: date-time }
+        notes: { type: string }
+
+    CandidateStatus:
+      type: object
+      properties:
+        candidateId: { type: string, format: uuid }
+        jambRegNo: { type: string }
+        username: { type: string }
+        email: { type: string }
+        programChoice1: { type: string }
+        programChoice2: { type: string }
+        programChoice3: { type: string }
+        jambScore: { type: number }
+        stateOfOrigin: { type: string }
+        applicationStatus: { type: string }
+        paymentStatus: { type: string }
+        admissionStatus: { type: string }
+        payments:
+          type: array
+          items:
+            type: object
+            properties:
+              purpose: { type: string }
+              amount: { type: number }
+              status: { type: string }
+              date: { type: string, format: date-time }
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              status: { type: string }
+              uploadedAt: { type: string, format: date-time }
+        education:
+          type: array
+          items:
+            type: object
+            properties:
+              level: { type: string }
+              examType: { type: string }
+              year: { type: string }
+              school: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    RegistrationFormData:
+      type: object
+      properties:
+        candidate: { $ref: '#/components/schemas/Candidate' }
+        profile: { $ref: '#/components/schemas/CandidateProfile' }
+        nextOfKin:
+          type: object
+          properties:
+            name: { type: string }
+            relation: { type: string }
+            phone: { type: string }
+            email: { type: string }
+            address: { type: string }
+        sponsor:
+          type: object
+          properties:
+            name: { type: string }
+            phone: { type: string }
+            email: { type: string }
+            address: { type: string }
+        education:
+          type: array
+          items:
+            type: object
+            properties:
+              level: { type: string }
+              examType: { type: string }
+              year: { type: string }
+              school: { type: string }
+        application: { $ref: '#/components/schemas/CandidateApplication' }
+
+    AdmissionStatus:
+      type: object
+      properties:
+        status: { type: string }
+        decisionDate: { type: string, format: date-time }
+        remarks: { type: string }
+        applicationId: { type: string, format: uuid }
+
+    MatriculationDetails:
+      type: object
+      properties:
+        matricNo: { type: string }
+        departmentCode: { type: string }
+        session: { type: string }
+        matriculatedAt: { type: string, format: date-time }
+
+    MigrationStatus:
+      type: object
+      properties:
+        status: { type: string }
+        attempts: { type: number }
+        lastError: { type: string }
+        pushedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    CandidateDashboard:
+      type: object
+      properties:
+        profile: { $ref: '#/components/schemas/CandidateProfile' }
+        nextOfKin:
+          type: object
+          properties:
+            name: { type: string }
+            relation: { type: string }
+            phone: { type: string }
+            email: { type: string }
+            address: { type: string }
+        sponsor:
+          type: object
+          properties:
+            name: { type: string }
+            phone: { type: string }
+            email: { type: string }
+            address: { type: string }
+        educationRecords:
+          type: array
+          items:
+            type: object
+            properties:
+              level: { type: string }
+              examType: { type: string }
+              year: { type: string }
+              school: { type: string }
+        uploads:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              s3Url: { type: string }
+              scanStatus: { type: string }
+        application: { $ref: '#/components/schemas/CandidateApplication' }
+        payments:
+          type: array
+          items:
+            type: object
+            properties:
+              purpose: { type: string }
+              amount: { type: number }
+              status: { type: string }
+              createdAt: { type: string, format: date-time }
+        completionStatus:
+          type: object
+          properties:
+            candidate: { type: boolean }
+            nextOfKin: { type: boolean }
+            sponsor: { type: boolean }
+            education: { type: boolean }
+            documents: { type: boolean }
+            overall: { type: number }
+
+    ProfileCompletionStatus:
+      type: object
+      properties:
+        candidate: { type: boolean }
+        nextOfKin: { type: boolean }
+        sponsor: { type: boolean }
+        education: { type: boolean }
+        documents: { type: boolean }
+        overall: { type: number }
+
+    # Existing Schemas
     PaymentPurpose:
       type: string
       enum: [post_utme, acceptance, school_fee]
@@ -2017,16 +2539,6 @@ components:
             education: { type: boolean }
             nokSponsor: { type: boolean }
             printedForm: { type: boolean }
-
-    Candidate:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        jambRegNo: { type: string }
-        username: { type: string }
-        email: { type: string }
-        phone: { type: string }
-        tempPasswordFlag: { type: boolean }
 
     Profile:
       type: object
@@ -2314,22 +2826,7 @@ components:
         error: { type: string }
         createdAt: { type: string, format: date-time }
 
-    CandidateAdminView:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        jambRegNo: { type: string }
-        username: { type: string }
-        email: { type: string }
-        phone: { type: string }
-        programChoice1: { type: string }
-        jambScore: { type: integer }
-        stateOfOrigin: { type: string }
-        applicationStatus: { type: string }
-        paymentStatus: { type: string }
-        admissionStatus: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+    # CandidateAdminView schema is defined above at line 2157
 
     CandidateNote:
       type: object

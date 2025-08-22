@@ -36,6 +36,7 @@ export function createCandidateModule(deps: CandidateModuleDependencies = {}): C
     // Profile management
     router.get('/profile/:jambRegNo', controller.getCandidateProfile.bind(controller));
     router.put('/profile/:candidateId', controller.updateCandidateProfile.bind(controller));
+    router.get('/jamb/:jambRegNo', controller.getCandidateByJambRegNo.bind(controller));
 
     // Next of Kin
     router.get('/:candidateId/next-of-kin', controller.getNextOfKin.bind(controller));
@@ -57,6 +58,24 @@ export function createCandidateModule(deps: CandidateModuleDependencies = {}): C
       controller.getProfileCompletionStatus.bind(controller)
     );
     router.get('/:candidateId/dashboard', controller.getCandidateDashboard.bind(controller));
+    router.get('/:candidateId/status', controller.getCandidateStatus.bind(controller));
+
+    // New endpoints aligned with sequence diagrams
+    router.post('/:candidateId/application', controller.createApplication.bind(controller));
+    router.get('/:candidateId/application', controller.getApplication.bind(controller));
+    router.put('/:candidateId/application', controller.updateApplication.bind(controller));
+    router.get('/:candidateId/registration-form', controller.getRegistrationForm.bind(controller));
+    router.get(
+      '/:candidateId/registration-form.pdf',
+      controller.getRegistrationFormPDF.bind(controller)
+    );
+    router.get('/:candidateId/admission-status', controller.getAdmissionStatus.bind(controller));
+    router.get(
+      '/:candidateId/admission-letter.pdf',
+      controller.getAdmissionLetterPDF.bind(controller)
+    );
+    router.get('/:candidateId/matric-number', controller.getMatricNumber.bind(controller));
+    router.get('/:candidateId/migration-status', controller.getMigrationStatus.bind(controller));
 
     logger.log('[CandidateModule] Router created and routes bound successfully');
 

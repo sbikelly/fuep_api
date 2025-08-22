@@ -20,6 +20,47 @@ export class CandidateController {
   }
 
   /**
+   * Get candidate by JAMB registration number
+   */
+  async getCandidateByJambRegNo(req: Request, res: Response): Promise<void> {
+    try {
+      const { jambRegNo } = req.params;
+
+      this.logger.log(`[CandidateController] Getting candidate by JAMB: ${jambRegNo}`);
+
+      if (!jambRegNo) {
+        res.status(400).json({
+          success: false,
+          error: 'JAMB registration number is required',
+        });
+        return;
+      }
+
+      const candidate = await this.candidateService.getCandidateByJambRegNo(jambRegNo);
+
+      if (!candidate) {
+        res.status(404).json({
+          success: false,
+          error: 'Candidate not found',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: candidate,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting candidate by JAMB:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get candidate',
+      });
+    }
+  }
+
+  /**
    * Get candidate profile with JAMB prefill
    */
   async getCandidateProfile(req: Request, res: Response): Promise<void> {
@@ -435,6 +476,262 @@ export class CandidateController {
       res.status(500).json({
         success: false,
         error: 'Failed to get candidate dashboard',
+      });
+    }
+  }
+
+  // Application management endpoints
+  async createApplication(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+      const applicationData = req.body;
+
+      this.logger.log(`[CandidateController] Creating application for candidate: ${candidateId}`);
+
+      const application = await this.candidateService.createApplication(
+        candidateId,
+        applicationData
+      );
+
+      res.status(201).json({
+        success: true,
+        data: application,
+        message: 'Application created successfully',
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error creating application:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create application',
+      });
+    }
+  }
+
+  async getApplication(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(`[CandidateController] Getting application for candidate: ${candidateId}`);
+
+      const application = await this.candidateService.getApplication(candidateId);
+
+      if (!application) {
+        res.status(404).json({
+          success: false,
+          error: 'Application not found',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: application,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting application:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get application',
+      });
+    }
+  }
+
+  async updateApplication(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+      const updateData = req.body;
+
+      this.logger.log(`[CandidateController] Updating application for candidate: ${candidateId}`);
+
+      const application = await this.candidateService.updateApplication(candidateId, updateData);
+
+      res.json({
+        success: true,
+        data: application,
+        message: 'Application updated successfully',
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error updating application:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update application',
+      });
+    }
+  }
+
+  // Registration form endpoints
+  async getRegistrationForm(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(
+        `[CandidateController] Getting registration form for candidate: ${candidateId}`
+      );
+
+      const formData = await this.candidateService.getRegistrationFormData(candidateId);
+
+      res.json({
+        success: true,
+        data: formData,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting registration form:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get registration form data',
+      });
+    }
+  }
+
+  async getRegistrationFormPDF(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(`[CandidateController] Generating PDF for candidate: ${candidateId}`);
+
+      const pdfBuffer = await this.candidateService.generateRegistrationFormPDF(candidateId);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="registration-form-${candidateId}.pdf"`
+      );
+      res.send(pdfBuffer);
+    } catch (error) {
+      this.logger.error('[CandidateController] Error generating PDF:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate PDF',
+      });
+    }
+  }
+
+  // Admission and matriculation endpoints
+  async getAdmissionStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(
+        `[CandidateController] Getting admission status for candidate: ${candidateId}`
+      );
+
+      const admissionStatus = await this.candidateService.getAdmissionStatus(candidateId);
+
+      res.json({
+        success: true,
+        data: admissionStatus,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting admission status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get admission status',
+      });
+    }
+  }
+
+  async getAdmissionLetterPDF(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(
+        `[CandidateController] Generating admission letter for candidate: ${candidateId}`
+      );
+
+      const pdfBuffer = await this.candidateService.generateAdmissionLetterPDF(candidateId);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="admission-letter-${candidateId}.pdf"`
+      );
+      res.send(pdfBuffer);
+    } catch (error) {
+      this.logger.error('[CandidateController] Error generating admission letter:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate admission letter',
+      });
+    }
+  }
+
+  async getMatricNumber(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(`[CandidateController] Getting matric number for candidate: ${candidateId}`);
+
+      const matricData = await this.candidateService.getMatricNumber(candidateId);
+
+      if (!matricData) {
+        res.status(404).json({
+          success: false,
+          error: 'Matric number not found',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: matricData,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting matric number:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get matric number',
+      });
+    }
+  }
+
+  async getMigrationStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(
+        `[CandidateController] Getting migration status for candidate: ${candidateId}`
+      );
+
+      const migrationStatus = await this.candidateService.getMigrationStatus(candidateId);
+
+      res.json({
+        success: true,
+        data: migrationStatus,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting migration status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get migration status',
+      });
+    }
+  }
+
+  async getCandidateStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      this.logger.log(`[CandidateController] Getting status for candidate: ${candidateId}`);
+
+      const status = await this.candidateService.getCandidateStatus(candidateId);
+
+      res.json({
+        success: true,
+        data: status,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting candidate status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get candidate status',
       });
     }
   }

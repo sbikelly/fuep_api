@@ -43,21 +43,23 @@ export function createPaymentsModule(deps: PaymentsModuleDependencies = {}): Pay
     // Payment initiation
     router.post('/init', controller.initiatePayment.bind(controller));
 
-    // Payment status and details
-    router.get('/:paymentId', controller.getPaymentStatus.bind(controller));
-
-    // Payment verification
-    router.post('/:paymentId/verify', controller.verifyPayment.bind(controller));
-
-    // Payment receipt
-    router.get('/:paymentId/receipt', controller.getPaymentReceipt.bind(controller));
+    // Static routes (must come before parameterized routes)
+    router.get('/types', controller.getPaymentTypes.bind(controller));
+    router.get('/providers/status', controller.getProviderStatus.bind(controller));
+    router.get('/statistics', controller.getPaymentStatistics.bind(controller));
+    router.get(
+      '/candidate/:candidateId/history',
+      controller.getCandidatePaymentHistory.bind(controller)
+    );
 
     // Webhook endpoints
     router.post('/webhook/remita', controller.processRemitaWebhook.bind(controller));
     router.post('/webhook/flutterwave', controller.processFlutterwaveWebhook.bind(controller));
 
-    // Provider status (for health checks)
-    router.get('/providers/status', controller.getProviderStatus.bind(controller));
+    // Parameterized routes (must come after static routes)
+    router.get('/:paymentId', controller.getPaymentStatus.bind(controller));
+    router.post('/:paymentId/verify', controller.verifyPayment.bind(controller));
+    router.get('/:paymentId/receipt', controller.getPaymentReceipt.bind(controller));
 
     logger.log('[PaymentsModule] Router created and routes bound successfully');
 
