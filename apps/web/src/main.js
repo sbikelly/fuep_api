@@ -52,6 +52,14 @@ const router = createBrowserRouter([
         element: _jsx(ProtectedRoute, { children: _jsx(Dashboard, {}) }),
       },
       {
+        path: 'profile',
+        element: _jsx(ProtectedRoute, { children: _jsx(Profile, {}) }),
+      },
+      {
+        path: 'payment',
+        element: _jsx(ProtectedRoute, { children: _jsx(Payment, {}) }),
+      },
+      {
         path: 'candidate/:candidateId',
         element: _jsx(ProtectedRoute, { children: _jsx(CandidateDashboard, {}) }),
       },

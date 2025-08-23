@@ -152,6 +152,7 @@ export interface PaymentInitiationRequest {
   email?: string;
   phone?: string;
   preferredProvider?: string;
+  jambRegNo?: string; // JAMB registration number for candidate lookup
 }
 
 export const PaymentInitiationRequestSchema = z.object({
@@ -165,6 +166,7 @@ export const PaymentInitiationRequestSchema = z.object({
     .regex(/^\+?[1-9]\d{1,14}$/)
     .optional(),
   preferredProvider: z.string().optional(),
+  jambRegNo: z.string().min(7).max(10).optional(), // JAMB registration number for candidate lookup (7-10 chars for testing)
 });
 
 // Simplified PaymentTransaction interface for backward compatibility

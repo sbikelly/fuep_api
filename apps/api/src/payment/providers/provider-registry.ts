@@ -1,6 +1,7 @@
 import { IPaymentProvider, IPaymentProviderRegistry, PaymentProvider } from '@fuep/types';
 
 import { FlutterwavePaymentProvider } from './flutterwave.provider.js';
+import { MockPaymentProvider } from './mock.provider.js';
 import { RemitaPaymentProvider } from './remita.provider.js';
 
 export class PaymentProviderRegistry implements IPaymentProviderRegistry {
@@ -84,6 +85,17 @@ export class PaymentProviderRegistry implements IPaymentProviderRegistry {
         `[PaymentProviderRegistry] Payment providers initialized: ${Array.from(this.providers.keys()).join(', ')}`
       );
       console.log(`[PaymentProviderRegistry] Primary provider: ${this.primaryProvider}`);
+
+      // If no real providers are available, add mock provider for testing
+      if (this.providers.size === 0) {
+        console.log(
+          '[PaymentProviderRegistry] No real providers available, adding mock provider for testing'
+        );
+        const mockProvider = new MockPaymentProvider();
+        this.registerProvider(mockProvider);
+        this.primaryProvider = 'remita'; // Use the provider type from MockPaymentProvider
+        console.log('[PaymentProviderRegistry] Mock provider set as primary provider');
+      }
     } catch (error) {
       console.error('[PaymentProviderRegistry] Error in initializeProviders:', error);
       throw error;

@@ -39,9 +39,9 @@ export class PaymentController {
 
       const requestData = validationResult.data;
 
-      // TODO: Get candidate ID from authenticated user or JAMB verification
-      // For now, implement basic candidate lookup by JAMB registration number
-      let candidateId = 'mock-candidate-id';
+      // Get candidate ID from JAMB verification (email or JAMB registration number)
+      // TODO: In the future, implement candidate authentication middleware for secure sessions
+      let candidateId: string | null = null;
 
       // Try to get candidate ID from JAMB verification if email is provided
       if (requestData.email) {
@@ -50,23 +50,62 @@ export class PaymentController {
           const candidate = await this.paymentService.getCandidateByEmail(requestData.email);
           if (candidate) {
             candidateId = candidate.id;
+          } else {
+            res.status(404).json({
+              success: false,
+              error: 'Candidate not found with the provided email address',
+              timestamp: new Date(),
+            });
+            return;
           }
         } catch (error) {
-          console.log('Could not find candidate by email, using mock ID');
+          console.error('Error looking up candidate by email:', error);
+          res.status(500).json({
+            success: false,
+            error: 'Failed to verify candidate',
+            timestamp: new Date(),
+          });
+          return;
         }
       }
 
-      // TODO: Also implement lookup by JAMB registration number from request body
-      // if (requestData.jambRegNo) {
-      //   try {
-      //     const candidate = await this.paymentService.getCandidateByJambRegNo(requestData.jambRegNo);
-      //     if (candidate) {
-      //       candidateId = candidate.id;
-      //     }
-      //   } catch (error) {
-      //     console.log('Could not find candidate by JAMB registration number, using mock ID');
-      //   }
-      // }
+      // Look up candidate by JAMB registration number if provided
+      if (requestData.jambRegNo) {
+        try {
+          const candidate = await this.paymentService.getCandidateByJambRegNo(
+            requestData.jambRegNo
+          );
+          if (candidate) {
+            candidateId = candidate.id;
+          } else {
+            res.status(404).json({
+              success: false,
+              error: 'Candidate not found with the provided JAMB registration number',
+              timestamp: new Date(),
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error looking up candidate by JAMB registration number:', error);
+          res.status(500).json({
+            success: false,
+            error: 'Failed to verify candidate',
+            timestamp: new Date(),
+          });
+          return;
+        }
+      }
+
+      // Validate that we have a candidate ID
+      if (!candidateId) {
+        res.status(400).json({
+          success: false,
+          error:
+            'Candidate ID is required. Please provide either email or JAMB registration number.',
+          timestamp: new Date(),
+        });
+        return;
+      }
 
       // Initialize payment
       const paymentResponse = await this.paymentService.initializePayment({
