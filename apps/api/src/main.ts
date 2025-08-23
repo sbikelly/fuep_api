@@ -31,6 +31,8 @@ import { createAdminModule } from './modules/admin/admin.module.js';
 import { createCandidateModule } from './modules/candidates/index.js';
 // Import payments module initializer
 import { createPaymentsModule } from './payment/index.js';
+// Import authentication service
+import { AuthService } from './services/auth.service.js';
 
 const envPath = join(process.cwd(), '.env');
 console.log('Current working directory:', process.cwd());
@@ -66,34 +68,23 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Import security middleware
-import { 
-  helmetConfig, 
-  corsConfig, 
-  customSecurityHeaders, 
-  securityLogger 
-} from './middleware/security.js';
-
-// Import logging middleware
-import { 
-  logger, 
-  httpLoggingMiddleware, 
-  errorLoggingMiddleware 
-} from './middleware/logging.js';
-
-// Import metrics and tracing middleware
-import { 
-  httpMetricsMiddleware, 
-  tracingMiddleware, 
-  metricsStore 
-} from './middleware/metrics.js';
-
 // Import caching middleware
-import { 
-  createCacheMiddleware, 
-  cacheInstances, 
+import {
+  cacheInstances,
+  createCacheMiddleware,
   generateCacheKey,
-  getCacheHealth 
+  getCacheHealth,
 } from './middleware/caching.js';
+// Import logging middleware
+import { errorLoggingMiddleware, httpLoggingMiddleware, logger } from './middleware/logging.js';
+// Import metrics and tracing middleware
+import { httpMetricsMiddleware, metricsStore, tracingMiddleware } from './middleware/metrics.js';
+import {
+  corsConfig,
+  customSecurityHeaders,
+  helmetConfig,
+  securityLogger,
+} from './middleware/security.js';
 
 // Apply security middleware
 app.use(helmetConfig);
@@ -109,14 +100,14 @@ app.use(httpLoggingMiddleware);
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 
-  // Import rate limiting middleware
-import { 
-  generalRateLimit, 
-  authRateLimit, 
+// Import rate limiting middleware
+import {
+  authRateLimit,
+  generalRateLimit,
+  getRateLimitStats,
   healthCheckRateLimit,
   speedLimiter,
   uploadRateLimit,
-  getRateLimitStats 
 } from './middleware/rateLimiting.js';
 
 // Apply general rate limiting and speed limiting to all routes
@@ -157,18 +148,23 @@ if (openApiSpec) {
 }
 
 // Health check endpoint (with fast caching)
-app.get('/api/health', healthCheckRateLimit, createCacheMiddleware(cacheInstances.fast, 10000), (req, res) => {
-  const response: ApiResponse = {
-    success: true,
-    data: {
-      status: 'healthy',
-      uptime: process.uptime(),
+app.get(
+  '/api/health',
+  healthCheckRateLimit,
+  createCacheMiddleware(cacheInstances.fast, 10000),
+  (req, res) => {
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        status: 'healthy',
+        uptime: process.uptime(),
+        timestamp: new Date(),
+      },
       timestamp: new Date(),
-    },
-    timestamp: new Date(),
-  };
-  res.json(response);
-});
+    };
+    res.json(response);
+  }
+);
 
 // Database connectivity check
 app.get('/api/health/db', healthCheckRateLimit, async (req, res) => {
@@ -258,7 +254,7 @@ app.get('/api/health/detailed', createCacheMiddleware(cacheInstances.fast, 30000
   try {
     const memUsage = process.memoryUsage();
     const metrics = metricsStore.getAllMetrics();
-    
+
     const response: ApiResponse = {
       success: true,
       data: {
@@ -268,22 +264,22 @@ app.get('/api/health/detailed', createCacheMiddleware(cacheInstances.fast, 30000
           heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)} MB`,
           heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)} MB`,
           external: `${Math.round(memUsage.external / 1024 / 1024)} MB`,
-          rss: `${Math.round(memUsage.rss / 1024 / 1024)} MB`
+          rss: `${Math.round(memUsage.rss / 1024 / 1024)} MB`,
         },
         requests: {
           total: metrics.counters['http_requests_total'] || 0,
           active: metrics.gauges['http_requests_active'] || 0,
-          errors: metrics.counters['http_errors_total'] || 0
+          errors: metrics.counters['http_errors_total'] || 0,
         },
         database: {
           queries: metrics.counters['database_queries_total'] || 0,
-          errors: metrics.counters['database_errors_total'] || 0
+          errors: metrics.counters['database_errors_total'] || 0,
         },
         payments: {
           events: metrics.counters['payment_events_total'] || 0,
-          errors: metrics.counters['payment_errors_total'] || 0
+          errors: metrics.counters['payment_errors_total'] || 0,
         },
-        timestamp: new Date()
+        timestamp: new Date(),
       },
       timestamp: new Date(),
     };
@@ -381,42 +377,21 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
 
     const loginData = validationResult.data;
 
-    // TODO: Implement actual login logic with JWT
-    // For now, implement basic candidate lookup
+    // Implement actual login logic with JWT using AuthService
     try {
-      // Look up candidate by JAMB registration number
-      const candidate = await db('candidates').where({ jamb_reg_no: loginData.username }).first();
+      const loginResponse = await AuthService.authenticateCandidate(
+        loginData.username,
+        loginData.password
+      );
 
-      if (!candidate) {
+      if (!loginResponse) {
         const response: ApiResponse = {
           success: false,
-          error: 'Invalid JAMB registration number',
+          error: 'Invalid JAMB registration number or password',
           timestamp: new Date(),
         };
         return res.status(401).json(response);
       }
-
-      // TODO: Implement proper password verification when password system is added
-      // For now, allow any password for testing
-
-      const loginResponse: LoginResponse = {
-        success: true,
-        data: {
-          accessToken: 'mock-access-token-' + Date.now(),
-          refreshToken: 'mock-refresh-token-' + Date.now(),
-          expiresIn: 3600,
-          tokenType: 'Bearer',
-        },
-        user: {
-          id: candidate.id,
-          jambRegNo: candidate.jamb_reg_no,
-          email: candidate.email || 'candidate@fuep.edu.ng',
-          phone: candidate.phone || '08000000000',
-          isActive: true,
-          tempPasswordFlag: false,
-        },
-        timestamp: new Date(),
-      };
 
       return res.json(loginResponse);
     } catch (dbError: any) {
@@ -455,21 +430,36 @@ app.post('/api/auth/change-password', authRateLimit, async (req, res) => {
 
     const passwordData = validationResult.data;
 
-    // TODO: Implement actual password change logic
-    // For now, implement basic password change
+    // Implement actual password change logic using AuthService
     try {
-      // TODO: Get candidate ID from authenticated user session
-      // TODO: Verify current password
-      // TODO: Hash and store new password
+      // For now, we'll use a real candidate ID - in production this would come from JWT token
+      // TODO: Extract candidate ID from JWT token when authentication middleware is implemented
+      const candidateId = '0009c312-3e0d-415b-8d7d-65f4d9124518';
 
-      const mockChangePasswordResponse: ChangePasswordResponse = {
+      // Verify current password and change to new password
+      const passwordChanged = await AuthService.changePassword(
+        candidateId,
+        passwordData.currentPassword,
+        passwordData.newPassword
+      );
+
+      if (!passwordChanged) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Invalid current password or candidate not found',
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
+
+      const changePasswordResponse: ChangePasswordResponse = {
         success: true,
         data: null,
         message: 'Password changed successfully',
         timestamp: new Date(),
       };
 
-      return res.json(mockChangePasswordResponse);
+      return res.json(changePasswordResponse);
     } catch (dbError: any) {
       console.error('[auth-change-password] database error:', dbError?.message || dbError);
       const response: ApiResponse = {
@@ -506,36 +496,77 @@ app.put('/api/profile', async (req, res) => {
 
     const profileData = validationResult.data;
 
-    // TODO: Implement profile update logic
-    // For now, implement basic profile update
+    // Implement profile update logic using existing candidate module
     try {
-      // TODO: Get candidate ID from authenticated user session
-      // For now, we'll use a mock candidate ID
-      const candidateId = 'mock-candidate-id';
+      // TODO: Get candidate ID from authenticated user session when JWT middleware is implemented
+      // For now, we'll use a real candidate ID
+      const candidateId = '0009c312-3e0d-415b-8d7d-65f4d9124518';
 
-      // TODO: Update candidate profile in database
-      // For now, return mock profile data
-      const mockProfile: SimpleProfile = {
-        id: 'mock-profile-id',
-        candidateId: candidateId,
+      // Update candidate profile in database using the profiles table
+      const updateData = {
         surname: profileData.surname,
         firstname: profileData.firstname,
         othernames: profileData.othernames,
         gender: profileData.gender,
-        dob: profileData.dob ? new Date(profileData.dob) : undefined,
+        dob: profileData.dob ? new Date(profileData.dob) : null,
         address: profileData.address,
         state: profileData.state,
         lga: profileData.lga,
         city: profileData.city,
         nationality: profileData.nationality,
-        maritalStatus: profileData.maritalStatus,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        marital_status: profileData.maritalStatus,
+        updated_at: new Date(),
+      };
+
+      // Check if profile exists, if not create it
+      const existingProfile = await db('profiles').where({ candidate_id: candidateId }).first();
+
+      if (existingProfile) {
+        // Update existing profile
+        await db('profiles').where({ candidate_id: candidateId }).update(updateData);
+      } else {
+        // Create new profile
+        await db('profiles').insert({
+          candidate_id: candidateId,
+          ...updateData,
+          created_at: new Date(),
+        });
+      }
+
+      // Get updated profile
+      const updatedProfile = await db('profiles').where({ candidate_id: candidateId }).first();
+
+      if (!updatedProfile) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Profile not found after update',
+          timestamp: new Date(),
+        };
+        return res.status(404).json(response);
+      }
+
+      // Return updated profile
+      const profile: SimpleProfile = {
+        id: updatedProfile.candidate_id,
+        candidateId: updatedProfile.candidate_id,
+        surname: updatedProfile.surname,
+        firstname: updatedProfile.firstname,
+        othernames: updatedProfile.othernames,
+        gender: updatedProfile.gender,
+        dob: updatedProfile.dob ? new Date(updatedProfile.dob) : undefined,
+        address: updatedProfile.address,
+        state: updatedProfile.state,
+        lga: updatedProfile.lga,
+        city: updatedProfile.city,
+        nationality: updatedProfile.nationality,
+        maritalStatus: updatedProfile.marital_status,
+        createdAt: updatedProfile.created_at,
+        updatedAt: updatedProfile.updated_at,
       };
 
       const response: ProfileUpdateResponse = {
         success: true,
-        data: mockProfile,
+        data: profile,
         message: 'Profile updated successfully',
         timestamp: new Date(),
       };
@@ -577,30 +608,76 @@ app.post('/api/applications', async (req, res) => {
 
     const appData = validationResult.data;
 
-    // TODO: Implement application creation logic
-    // For now, implement basic application creation
+    // Implement application creation logic using direct database operations
     try {
-      // TODO: Get candidate ID from authenticated user session
-      // For now, we'll use a mock candidate ID
-      const candidateId = 'mock-candidate-id';
+      // TODO: Get candidate ID from authenticated user session when JWT middleware is implemented
+      // For now, we'll use a real candidate ID
+      const candidateId = '0009c312-3e0d-415b-8d7d-65f4d9124518';
 
-      // TODO: Create application in database
-      // For now, return mock application data
-      const mockApplication: SimpleApplication = {
-        id: 'mock-application-id',
-        candidateId: candidateId,
-        session: appData.session,
-        programmeCode: appData.programmeCode,
-        departmentCode: appData.departmentCode,
-        status: 'pending',
-        submittedAt: undefined,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      // Check if candidate already has an application for this session
+      const existingApplication = await db('applications')
+        .where({
+          candidate_id: candidateId,
+          session: appData.session,
+        })
+        .first();
+
+      if (existingApplication) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Candidate already has an application for this session',
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
+
+      // TODO: Add programme and department validation when those tables are created
+      // For now, we'll accept any programme and department codes
+
+      // Create application in database
+      const [applicationId] = await db('applications')
+        .insert({
+          candidate_id: candidateId,
+          session: appData.session,
+          programme_code: appData.programmeCode,
+          department_code: appData.departmentCode,
+          status: 'pending',
+          submitted_at: null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .returning('id');
+
+      // Get created application
+      const createdApplication = await db('applications').where({ id: applicationId }).first();
+
+      if (!createdApplication) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Failed to create application',
+          timestamp: new Date(),
+        };
+        return res.status(500).json(response);
+      }
+
+      // Return created application
+      const application: SimpleApplication = {
+        id: createdApplication.id,
+        candidateId: createdApplication.candidate_id,
+        session: createdApplication.session,
+        programmeCode: createdApplication.programme_code,
+        departmentCode: createdApplication.department_code,
+        status: createdApplication.status,
+        submittedAt: createdApplication.submitted_at
+          ? new Date(createdApplication.submitted_at)
+          : undefined,
+        createdAt: createdApplication.created_at,
+        updatedAt: createdApplication.updated_at,
       };
 
       const response: ApplicationCreateResponse = {
         success: true,
-        data: mockApplication,
+        data: application,
         message: 'Application created successfully',
         timestamp: new Date(),
       };
