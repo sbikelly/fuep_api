@@ -735,4 +735,311 @@ export class CandidateController {
       });
     }
   }
+
+  /**
+   * Check JAMB registration number and initiate registration
+   */
+  async checkJambAndInitiateRegistration(req: Request, res: Response) {
+    try {
+      const { jambRegNo, email, phone } = req.body;
+
+      if (!jambRegNo || !email || !phone) {
+        return res.status(400).json({
+          success: false,
+          error: 'JAMB registration number, email, and phone are required',
+        });
+      }
+
+      const result = await this.candidateService.checkJambAndInitiateRegistration(jambRegNo, {
+        email,
+        phone,
+      });
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: {
+          candidateId: result.candidateId,
+          nextStep: result.nextStep,
+          requiresContactUpdate: result.requiresContactUpdate,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error checking JAMB:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to check JAMB registration',
+      });
+    }
+  }
+
+  /**
+   * Complete contact information for existing candidate
+   */
+  async completeContactInfo(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+      const { email, phone } = req.body;
+
+      if (!email || !phone) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email and phone are required',
+        });
+      }
+
+      const result = await this.candidateService.completeContactInfo(candidateId, { email, phone });
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: {
+          nextStep: result.nextStep,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error completing contact info:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to complete contact information',
+      });
+    }
+  }
+
+  /**
+   * Get next step in registration process
+   */
+  async getNextStep(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+
+      const result = await this.candidateService.getNextStep(candidateId);
+
+      if (!result.success) {
+        return res.status(404).json({
+          success: false,
+          error: result.message,
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          nextStep: result.nextStep,
+          message: result.message,
+          completedSteps: result.completedSteps,
+          remainingSteps: result.remainingSteps,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting next step:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to get next step',
+      });
+    }
+  }
+
+  /**
+   * Complete biodata information
+   */
+  async completeBiodata(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+      const biodata = req.body;
+
+      // Validate required fields
+      const requiredFields = [
+        'first_name',
+        'last_name',
+        'date_of_birth',
+        'gender',
+        'state',
+        'lga',
+        'address',
+        'nationality',
+      ];
+      for (const field of requiredFields) {
+        if (!biodata[field]) {
+          return res.status(400).json({
+            success: false,
+            error: `${field} is required`,
+          });
+        }
+      }
+
+      const result = await this.candidateService.completeBiodata(candidateId, biodata);
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: {
+          nextStep: result.nextStep,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error completing biodata:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to complete biodata information',
+      });
+    }
+  }
+
+  /**
+   * Complete education information
+   */
+  async completeEducation(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+      const education = req.body;
+
+      // Validate required fields
+      const requiredFields = [
+        'secondary_school',
+        'secondary_school_year',
+        'secondary_school_certificate',
+        'jamb_subject_1',
+        'jamb_subject_2',
+        'jamb_subject_3',
+        'jamb_subject_4',
+        'jamb_score',
+      ];
+      for (const field of requiredFields) {
+        if (!education[field]) {
+          return res.status(400).json({
+            success: false,
+            error: `${field} is required`,
+          });
+        }
+      }
+
+      const result = await this.candidateService.completeEducation(candidateId, education);
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: {
+          nextStep: result.nextStep,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error completing education:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to complete education information',
+      });
+    }
+  }
+
+  /**
+   * Complete next of kin information
+   */
+  async completeNextOfKin(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+      const nextOfKin = req.body;
+
+      // Validate required fields
+      const requiredFields = [
+        'next_of_kin_name',
+        'next_of_kin_relationship',
+        'next_of_kin_phone',
+        'next_of_kin_address',
+      ];
+      for (const field of requiredFields) {
+        if (!nextOfKin[field]) {
+          return res.status(400).json({
+            success: false,
+            error: `${field} is required`,
+          });
+        }
+      }
+
+      const result = await this.candidateService.completeNextOfKin(candidateId, nextOfKin);
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: {
+          nextStep: result.nextStep,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error completing next of kin:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to complete next of kin information',
+      });
+    }
+  }
+
+  /**
+   * Complete sponsor information
+   */
+  async completeSponsor(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+      const sponsor = req.body;
+
+      // Validate required fields
+      const requiredFields = [
+        'sponsor_name',
+        'sponsor_relationship',
+        'sponsor_phone',
+        'sponsor_address',
+        'sponsor_occupation',
+        'sponsor_income_range',
+      ];
+      for (const field of requiredFields) {
+        if (!sponsor[field]) {
+          return res.status(400).json({
+            success: false,
+            error: `${field} is required`,
+          });
+        }
+      }
+
+      const result = await this.candidateService.completeSponsor(candidateId, sponsor);
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: {
+          nextStep: result.nextStep,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error completing sponsor:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to complete sponsor information',
+      });
+    }
+  }
+
+  /**
+   * Finalize registration
+   */
+  async finalizeRegistration(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+
+      const result = await this.candidateService.finalizeRegistration(candidateId);
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: {
+          applicationId: result.applicationId,
+        },
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error finalizing registration:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to finalize registration',
+      });
+    }
+  }
 }

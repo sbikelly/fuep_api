@@ -2,6 +2,8 @@ import { Education, NextOfKin, Profile, ProfileCompletionStatus, Sponsor } from 
 
 import { db } from '../../db/knex.js';
 import { logger, withDatabaseLogging, withPerformanceLogging } from '../../middleware/logging.js';
+import { EmailService } from '../../services/email.service.js';
+import { PasswordUtils } from '../../utils/password.utils.js';
 
 // Additional interfaces for candidate module
 export interface Candidate {
@@ -95,9 +97,11 @@ export interface CandidateStatus {
 
 export class CandidateService {
   private logger: Console;
+  private emailService: EmailService;
 
   constructor(logger: Console = console) {
     this.logger = logger;
+    this.emailService = new EmailService();
   }
 
   /**
@@ -199,86 +203,101 @@ export class CandidateService {
    * Get candidate profile with JAMB prefill data
    */
   async getCandidateProfile(jambRegNo: string): Promise<Profile | null> {
-    return withPerformanceLogging('getCandidateProfile', async () => {
-      return withDatabaseLogging('SELECT', 'candidates,profiles,jamb_prelist', async () => {
-        try {
-          logger.info('Getting candidate profile', {
-            module: 'candidates',
-            operation: 'getCandidateProfile',
-            metadata: { jambRegNo }
-          });
+    return withPerformanceLogging(
+      'getCandidateProfile',
+      async () => {
+        return withDatabaseLogging(
+          'SELECT',
+          'candidates,profiles,jamb_prelist',
+          async () => {
+            try {
+              logger.info('Getting candidate profile', {
+                module: 'candidates',
+                operation: 'getCandidateProfile',
+                metadata: { jambRegNo },
+              });
 
-          // First check if candidate exists
-          const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
+              // First check if candidate exists
+              const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
 
-          if (!candidate) {
-            logger.info('Candidate not found for profile', {
-              module: 'candidates',
-              operation: 'getCandidateProfile',
-              metadata: { jambRegNo, found: false }
-            });
-            return null;
-          }
+              if (!candidate) {
+                logger.info('Candidate not found for profile', {
+                  module: 'candidates',
+                  operation: 'getCandidateProfile',
+                  metadata: { jambRegNo, found: false },
+                });
+                return null;
+              }
 
-          // Get profile data
-          const profile = await db('profiles').where('candidate_id', candidate.id).first();
+              // Get profile data
+              const profile = await db('profiles').where('candidate_id', candidate.id).first();
 
-          // Get JAMB prelist data for prefill
-          const jambData = await db('jamb_prelist').where('jamb_reg_no', jambRegNo).first();
+              // Get JAMB prelist data for prefill
+              const jambData = await db('jamb_prelist').where('jamb_reg_no', jambRegNo).first();
 
-          if (profile) {
-            // Merge with JAMB data for prefill
-            const result = {
-              ...profile,
-              candidateId: candidate.id,
-              surname: profile.surname || jambData?.surname,
-              firstname: profile.firstname || jambData?.firstname,
-              othernames: profile.othernames || jambData?.othernames,
-              gender: profile.gender || jambData?.gender,
-              state: profile.state || jambData?.state_of_origin,
-              lga: profile.lga || jambData?.lga_of_origin,
-            };
+              if (profile) {
+                // Merge with JAMB data for prefill
+                const result = {
+                  ...profile,
+                  candidateId: candidate.id,
+                  surname: profile.surname || jambData?.surname,
+                  firstname: profile.firstname || jambData?.firstname,
+                  othernames: profile.othernames || jambData?.othernames,
+                  gender: profile.gender || jambData?.gender,
+                  state: profile.state || jambData?.state_of_origin,
+                  lga: profile.lga || jambData?.lga_of_origin,
+                };
 
-            logger.info('Profile retrieved successfully', {
-              module: 'candidates',
-              operation: 'getCandidateProfile',
-              metadata: { jambRegNo, candidateId: candidate.id, found: true, hasProfile: true }
-            });
+                logger.info('Profile retrieved successfully', {
+                  module: 'candidates',
+                  operation: 'getCandidateProfile',
+                  metadata: { jambRegNo, candidateId: candidate.id, found: true, hasProfile: true },
+                });
 
-            return result;
-          } else {
-            // Create profile from JAMB data
-            const newProfile: Partial<Profile> = {
-              candidateId: candidate.id,
-              surname: jambData?.surname,
-              firstname: jambData?.firstname,
-              othernames: jambData?.othernames,
-              gender: jambData?.gender,
-              state: jambData?.state_of_origin,
-              lga: jambData?.lga_of_origin,
-            };
+                return result;
+              } else {
+                // Create profile from JAMB data
+                const newProfile: Partial<Profile> = {
+                  candidateId: candidate.id,
+                  surname: jambData?.surname,
+                  firstname: jambData?.firstname,
+                  othernames: jambData?.othernames,
+                  gender: jambData?.gender,
+                  state: jambData?.state_of_origin,
+                  lga: jambData?.lga_of_origin,
+                };
 
-            const [insertedProfile] = await db('profiles').insert(newProfile).returning('*');
+                const [insertedProfile] = await db('profiles').insert(newProfile).returning('*');
 
-            logger.info('New profile created from JAMB data', {
-              module: 'candidates',
-              operation: 'getCandidateProfile',
-              metadata: { jambRegNo, candidateId: candidate.id, found: true, hasProfile: false, created: true }
-            });
+                logger.info('New profile created from JAMB data', {
+                  module: 'candidates',
+                  operation: 'getCandidateProfile',
+                  metadata: {
+                    jambRegNo,
+                    candidateId: candidate.id,
+                    found: true,
+                    hasProfile: false,
+                    created: true,
+                  },
+                });
 
-            return insertedProfile as Profile;
-          }
-        } catch (error) {
-          logger.error('Failed to get candidate profile', {
-            module: 'candidates',
-            operation: 'getCandidateProfile',
-            metadata: { jambRegNo },
-            error: error instanceof Error ? error.message : String(error)
-          });
-          throw new Error('Failed to get candidate profile');
-        }
-      }, { metadata: { jambRegNo } });
-    }, { metadata: { jambRegNo } });
+                return insertedProfile as Profile;
+              }
+            } catch (error) {
+              logger.error('Failed to get candidate profile', {
+                module: 'candidates',
+                operation: 'getCandidateProfile',
+                metadata: { jambRegNo },
+                error: error instanceof Error ? error.message : String(error),
+              });
+              throw new Error('Failed to get candidate profile');
+            }
+          },
+          { metadata: { jambRegNo } }
+        );
+      },
+      { metadata: { jambRegNo } }
+    );
   }
 
   /**
@@ -652,46 +671,55 @@ export class CandidateService {
   }
 
   async getApplication(candidateId: string): Promise<any> {
-    return withPerformanceLogging('getApplication', async () => {
-      return withDatabaseLogging('SELECT', 'applications', async () => {
-        try {
-          logger.info('Getting application for candidate', {
-            module: 'candidates',
-            operation: 'getApplication',
-            metadata: { candidateId }
-          });
+    return withPerformanceLogging(
+      'getApplication',
+      async () => {
+        return withDatabaseLogging(
+          'SELECT',
+          'applications',
+          async () => {
+            try {
+              logger.info('Getting application for candidate', {
+                module: 'candidates',
+                operation: 'getApplication',
+                metadata: { candidateId },
+              });
 
-          const application = await db('applications')
-            .where('candidate_id', candidateId)
-            .orderBy('created_at', 'desc')
-            .first();
+              const application = await db('applications')
+                .where('candidate_id', candidateId)
+                .orderBy('created_at', 'desc')
+                .first();
 
-          if (application) {
-            logger.info('Application retrieved successfully', {
-              module: 'candidates',
-              operation: 'getApplication',
-              metadata: { candidateId, applicationId: application.id, found: true }
-            });
-          } else {
-            logger.info('No application found for candidate', {
-              module: 'candidates',
-              operation: 'getApplication',
-              metadata: { candidateId, found: false }
-            });
-          }
+              if (application) {
+                logger.info('Application retrieved successfully', {
+                  module: 'candidates',
+                  operation: 'getApplication',
+                  metadata: { candidateId, applicationId: application.id, found: true },
+                });
+              } else {
+                logger.info('No application found for candidate', {
+                  module: 'candidates',
+                  operation: 'getApplication',
+                  metadata: { candidateId, found: false },
+                });
+              }
 
-          return application;
-        } catch (error) {
-          logger.error('Failed to get application', {
-            module: 'candidates',
-            operation: 'getApplication',
-            metadata: { candidateId },
-            error: error instanceof Error ? error.message : String(error)
-          });
-          throw new Error('Failed to get application');
-        }
-      }, { metadata: { candidateId } });
-    }, { metadata: { candidateId } });
+              return application;
+            } catch (error) {
+              logger.error('Failed to get application', {
+                module: 'candidates',
+                operation: 'getApplication',
+                metadata: { candidateId },
+                error: error instanceof Error ? error.message : String(error),
+              });
+              throw new Error('Failed to get application');
+            }
+          },
+          { metadata: { candidateId } }
+        );
+      },
+      { metadata: { candidateId } }
+    );
   }
 
   async updateApplication(
@@ -703,67 +731,78 @@ export class CandidateService {
       jambScore?: number;
     }
   ): Promise<any> {
-    return withPerformanceLogging('updateApplication', async () => {
-      return withDatabaseLogging('UPDATE', 'candidates,applications', async () => {
-        try {
-          logger.info('Updating application for candidate', {
-            module: 'candidates',
-            operation: 'updateApplication',
-            metadata: { candidateId, updates: updateData }
-          });
+    return withPerformanceLogging(
+      'updateApplication',
+      async () => {
+        return withDatabaseLogging(
+          'UPDATE',
+          'candidates,applications',
+          async () => {
+            try {
+              logger.info('Updating application for candidate', {
+                module: 'candidates',
+                operation: 'updateApplication',
+                metadata: { candidateId, updates: updateData },
+              });
 
-          // Update the candidate's program choices and JAMB score
-          if (
-            updateData.programChoice1 ||
-            updateData.programChoice2 ||
-            updateData.programChoice3 ||
-            updateData.jambScore
-          ) {
-            const candidateUpdates: any = {};
+              // Update the candidate's program choices and JAMB score
+              if (
+                updateData.programChoice1 ||
+                updateData.programChoice2 ||
+                updateData.programChoice3 ||
+                updateData.jambScore
+              ) {
+                const candidateUpdates: any = {};
 
-            if (updateData.programChoice1)
-              candidateUpdates.program_choice_1 = updateData.programChoice1;
-            if (updateData.programChoice2)
-              candidateUpdates.program_choice_2 = updateData.programChoice2;
-            if (updateData.programChoice3)
-              candidateUpdates.program_choice_3 = updateData.programChoice3;
-            if (updateData.jambScore) candidateUpdates.jamb_score = updateData.jambScore;
+                if (updateData.programChoice1)
+                  candidateUpdates.program_choice_1 = updateData.programChoice1;
+                if (updateData.programChoice2)
+                  candidateUpdates.program_choice_2 = updateData.programChoice2;
+                if (updateData.programChoice3)
+                  candidateUpdates.program_choice_3 = updateData.programChoice3;
+                if (updateData.jambScore) candidateUpdates.jamb_score = updateData.jambScore;
 
-            await db('candidates').where('id', candidateId).update(candidateUpdates);
-          }
+                await db('candidates').where('id', candidateId).update(candidateUpdates);
+              }
 
-          // Update the application's programme and department codes
-          const applicationUpdates: any = {};
-          if (updateData.programChoice1) {
-            applicationUpdates.programme_code = updateData.programChoice1;
-          }
-          if (updateData.programChoice2) {
-            applicationUpdates.department_code = updateData.programChoice2;
-          }
+              // Update the application's programme and department codes
+              const applicationUpdates: any = {};
+              if (updateData.programChoice1) {
+                applicationUpdates.programme_code = updateData.programChoice1;
+              }
+              if (updateData.programChoice2) {
+                applicationUpdates.department_code = updateData.programChoice2;
+              }
 
-          if (Object.keys(applicationUpdates).length > 0) {
-            await db('applications').where('candidate_id', candidateId).update(applicationUpdates);
-          }
+              if (Object.keys(applicationUpdates).length > 0) {
+                await db('applications')
+                  .where('candidate_id', candidateId)
+                  .update(applicationUpdates);
+              }
 
-          logger.info('Application updated successfully', {
-            module: 'candidates',
-            operation: 'updateApplication',
-            metadata: { candidateId, updates: updateData }
-          });
+              logger.info('Application updated successfully', {
+                module: 'candidates',
+                operation: 'updateApplication',
+                metadata: { candidateId, updates: updateData },
+              });
 
-          // Return the updated application
-          return this.getApplication(candidateId);
-        } catch (error) {
-          logger.error('Failed to update application', {
-            module: 'candidates',
-            operation: 'updateApplication',
-            metadata: { candidateId, updates: updateData },
-            error: error instanceof Error ? error.message : String(error)
-          });
-          throw new Error('Failed to update application');
-        }
-      }, { metadata: { candidateId, updates: updateData } });
-    }, { metadata: { candidateId } });
+              // Return the updated application
+              return this.getApplication(candidateId);
+            } catch (error) {
+              logger.error('Failed to update application', {
+                module: 'candidates',
+                operation: 'updateApplication',
+                metadata: { candidateId, updates: updateData },
+                error: error instanceof Error ? error.message : String(error),
+              });
+              throw new Error('Failed to update application');
+            }
+          },
+          { metadata: { candidateId, updates: updateData } }
+        );
+      },
+      { metadata: { candidateId } }
+    );
   }
 
   // Registration form methods
@@ -956,5 +995,618 @@ export class CandidateService {
       this.logger.error('[CandidateService] Error getting candidate status:', error);
       throw new Error('Failed to get candidate status');
     }
+  }
+
+  /**
+   * Check JAMB registration number and initiate registration
+   */
+  async checkJambAndInitiateRegistration(
+    jambRegNo: string,
+    contactInfo: {
+      email: string;
+      phone: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    candidateId?: string;
+    nextStep?: string;
+    requiresContactUpdate?: boolean;
+  }> {
+    return await withDatabaseLogging('checkJambAndInitiateRegistration', 'candidates', async () => {
+      try {
+        // Check if candidate already exists
+        const existingCandidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
+
+        if (existingCandidate) {
+          // Check if candidate has completed registration
+          if (existingCandidate.registration_completed) {
+            return {
+              success: false,
+              message: 'Candidate has already completed registration',
+              nextStep: 'login',
+            };
+          }
+
+          // Check if contact info needs update
+          const profile = await db('profiles').where('candidate_id', existingCandidate.id).first();
+
+          if (!profile?.email || !profile?.phone) {
+            return {
+              success: false,
+              message: 'Contact information required',
+              candidateId: existingCandidate.id,
+              nextStep: 'complete_contact',
+              requiresContactUpdate: true,
+            };
+          }
+
+          return {
+            success: true,
+            message: 'Candidate found, proceed with registration',
+            candidateId: existingCandidate.id,
+            nextStep: 'payment',
+          };
+        }
+
+        // Create new candidate account with temporary password
+        const temporaryPassword = PasswordUtils.generateTemporaryPassword();
+        const hashedPassword = await PasswordUtils.hashPassword(temporaryPassword);
+
+        const [candidateId] = await db('candidates')
+          .insert({
+            jamb_reg_no: jambRegNo,
+            username: jambRegNo,
+            email: contactInfo.email,
+            phone: contactInfo.phone,
+            password_hash: hashedPassword,
+            temp_password_flag: true,
+            created_at: new Date(),
+            updated_at: new Date(),
+          })
+          .returning('id');
+
+        // Send temporary password email
+        const emailSent = await this.emailService.sendTemporaryPassword(
+          contactInfo.email,
+          jambRegNo,
+          temporaryPassword,
+          'Candidate' // Will be updated when biodata is provided
+        );
+
+        if (!emailSent) {
+          logger.warn('Failed to send temporary password email', {
+            module: 'candidate',
+            operation: 'checkJambAndInitiateRegistration',
+            metadata: { candidateId, email: contactInfo.email },
+          });
+        }
+
+        logger.info('New candidate account created successfully', {
+          module: 'candidate',
+          operation: 'checkJambAndInitiateRegistration',
+          metadata: { candidateId, jambRegNo, email: contactInfo.email },
+        });
+
+        return {
+          success: true,
+          message: 'Account created successfully. Check your email for login credentials.',
+          candidateId,
+          nextStep: 'payment',
+        };
+      } catch (error) {
+        logger.error('Failed to check JAMB and initiate registration', {
+          module: 'candidate',
+          operation: 'checkJambAndInitiateRegistration',
+          metadata: { jambRegNo, contactInfo },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Complete contact information for existing candidate
+   */
+  async completeContactInfo(
+    candidateId: string,
+    contactInfo: {
+      email: string;
+      phone: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeContactInfo', 'profiles', async () => {
+      try {
+        // Check if candidate exists
+        const candidate = await db('candidates').where('id', candidateId).first();
+
+        if (!candidate) {
+          return {
+            success: false,
+            message: 'Candidate not found',
+          };
+        }
+
+        // Update candidate contact information
+        await db('candidates').where('id', candidateId).update({
+          email: contactInfo.email,
+          phone: contactInfo.phone,
+          updated_at: new Date(),
+        });
+
+        // If candidate has temp password, send email
+        if (candidate.temp_password_flag) {
+          const tempPassword = PasswordUtils.generateTemporaryPassword();
+          const hashedPassword = await PasswordUtils.hashPassword(tempPassword);
+
+          // Update password
+          await db('candidates').where('id', candidateId).update({
+            password_hash: hashedPassword,
+            updated_at: new Date(),
+          });
+
+          // Send email
+          await this.emailService.sendTemporaryPassword(
+            contactInfo.email,
+            candidate.jamb_reg_no,
+            tempPassword,
+            'Candidate'
+          );
+        }
+
+        logger.info('Contact information completed successfully', {
+          module: 'candidate',
+          operation: 'completeContactInfo',
+          metadata: { candidateId, contactInfo },
+        });
+
+        return {
+          success: true,
+          message: 'Contact information updated successfully',
+          nextStep: 'payment',
+        };
+      } catch (error) {
+        logger.error('Failed to complete contact information', {
+          module: 'candidate',
+          operation: 'completeContactInfo',
+          metadata: { candidateId, contactInfo },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Get next step in registration process
+   */
+  async getNextStep(candidateId: string): Promise<{
+    success: boolean;
+    nextStep: string;
+    message: string;
+    completedSteps: string[];
+    remainingSteps: string[];
+  }> {
+    return await withDatabaseLogging('getNextStep', 'candidates', async () => {
+      try {
+        const candidate = await db('candidates').where('id', candidateId).first();
+
+        if (!candidate) {
+          return {
+            success: false,
+            nextStep: 'error',
+            message: 'Candidate not found',
+            completedSteps: [],
+            remainingSteps: [],
+          };
+        }
+
+        const profile = await db('profiles').where('candidate_id', candidateId).first();
+
+        const application = await db('applications').where('candidate_id', candidateId).first();
+
+        const completedSteps: string[] = [];
+        const remainingSteps: string[] = [];
+
+        // Check completed steps
+        if (candidate.email && candidate.phone) {
+          completedSteps.push('contact_info');
+        } else {
+          remainingSteps.push('contact_info');
+        }
+
+        if (candidate.post_utme_paid) {
+          completedSteps.push('post_utme_payment');
+        } else {
+          remainingSteps.push('post_utme_payment');
+        }
+
+        if (profile?.biodata_completed) {
+          completedSteps.push('biodata');
+        } else {
+          remainingSteps.push('biodata');
+        }
+
+        if (profile?.education_completed) {
+          completedSteps.push('education');
+        } else {
+          remainingSteps.push('education');
+        }
+
+        if (profile?.next_of_kin_completed) {
+          completedSteps.push('next_of_kin');
+        } else {
+          remainingSteps.push('next_of_kin');
+        }
+
+        if (profile?.sponsor_completed) {
+          completedSteps.push('sponsor');
+        } else {
+          remainingSteps.push('sponsor');
+        }
+
+        if (application?.status === 'pending') {
+          completedSteps.push('application_submission');
+        } else {
+          remainingSteps.push('application_submission');
+        }
+
+        // Determine next step
+        let nextStep = 'contact_info';
+        let message = 'Please provide your contact information';
+
+        if (completedSteps.includes('contact_info')) {
+          if (!candidate.post_utme_paid) {
+            nextStep = 'post_utme_payment';
+            message = 'Please complete Post-UTME payment';
+          } else if (!profile?.biodata_completed) {
+            nextStep = 'biodata';
+            message = 'Please complete your biodata information';
+          } else if (!profile?.education_completed) {
+            nextStep = 'education';
+            message = 'Please provide your educational background';
+          } else if (!profile?.next_of_kin_completed) {
+            nextStep = 'next_of_kin';
+            message = 'Please provide next of kin information';
+          } else if (!profile?.sponsor_completed) {
+            nextStep = 'sponsor';
+            message = 'Please provide sponsor information';
+          } else if (!application) {
+            nextStep = 'application_submission';
+            message = 'Please submit your application';
+          } else {
+            nextStep = 'registration_complete';
+            message = 'Registration completed successfully';
+          }
+        }
+
+        logger.info('Next step retrieved successfully', {
+          module: 'candidate',
+          operation: 'getNextStep',
+          metadata: { candidateId, nextStep, completedSteps: completedSteps.length },
+        });
+
+        return {
+          success: true,
+          nextStep,
+          message,
+          completedSteps,
+          remainingSteps,
+        };
+      } catch (error) {
+        logger.error('Failed to get next step', {
+          module: 'candidate',
+          operation: 'getNextStep',
+          metadata: { candidateId },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Complete biodata information
+   */
+  async completeBiodata(
+    candidateId: string,
+    biodata: {
+      first_name: string;
+      last_name: string;
+      middle_name?: string;
+      date_of_birth: Date;
+      gender: 'male' | 'female';
+      state: string;
+      lga: string;
+      address: string;
+      nationality: string;
+      religion?: string;
+      marital_status: 'single' | 'married' | 'divorced' | 'widowed';
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeBiodata', 'profiles', async () => {
+      try {
+        // Update profile with biodata
+        await db('profiles')
+          .where('candidate_id', candidateId)
+          .update({
+            ...biodata,
+            biodata_completed: true,
+            updated_at: new Date(),
+          });
+
+        // Update candidate name
+        const fullName = `${biodata.first_name} ${biodata.middle_name ? biodata.middle_name + ' ' : ''}${biodata.last_name}`;
+        await db('candidates').where('id', candidateId).update({
+          name: fullName,
+          updated_at: new Date(),
+        });
+
+        logger.info('Biodata completed successfully', {
+          module: 'candidate',
+          operation: 'completeBiodata',
+          metadata: { candidateId, fullName },
+        });
+
+        return {
+          success: true,
+          message: 'Biodata information completed successfully',
+          nextStep: 'education',
+        };
+      } catch (error) {
+        logger.error('Failed to complete biodata', {
+          module: 'candidate',
+          operation: 'completeBiodata',
+          metadata: { candidateId, biodata },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Complete education information
+   */
+  async completeEducation(
+    candidateId: string,
+    education: {
+      secondary_school: string;
+      secondary_school_year: number;
+      secondary_school_certificate: string;
+      jamb_subject_1: string;
+      jamb_subject_2: string;
+      jamb_subject_3: string;
+      jamb_subject_4: string;
+      jamb_score: number;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeEducation', 'profiles', async () => {
+      try {
+        // Update profile with education info
+        await db('profiles')
+          .where('candidate_id', candidateId)
+          .update({
+            ...education,
+            education_completed: true,
+            updated_at: new Date(),
+          });
+
+        // Update candidate JAMB score
+        await db('candidates').where('id', candidateId).update({
+          jamb_score: education.jamb_score,
+          updated_at: new Date(),
+        });
+
+        logger.info('Education information completed successfully', {
+          module: 'candidate',
+          operation: 'completeEducation',
+          metadata: { candidateId, jambScore: education.jamb_score },
+        });
+
+        return {
+          success: true,
+          message: 'Education information completed successfully',
+          nextStep: 'next_of_kin',
+        };
+      } catch (error) {
+        logger.error('Failed to complete education information', {
+          module: 'candidate',
+          operation: 'completeEducation',
+          metadata: { candidateId, education },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Complete next of kin information
+   */
+  async completeNextOfKin(
+    candidateId: string,
+    nextOfKin: {
+      next_of_kin_name: string;
+      next_of_kin_relationship: string;
+      next_of_kin_phone: string;
+      next_of_kin_address: string;
+      next_of_kin_occupation?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeNextOfKin', 'profiles', async () => {
+      try {
+        await db('profiles')
+          .where('candidate_id', candidateId)
+          .update({
+            ...nextOfKin,
+            next_of_kin_completed: true,
+            updated_at: new Date(),
+          });
+
+        logger.info('Next of kin information completed successfully', {
+          module: 'candidate',
+          operation: 'completeNextOfKin',
+          metadata: { candidateId, nextOfKinName: nextOfKin.next_of_kin_name },
+        });
+
+        return {
+          success: true,
+          message: 'Next of kin information completed successfully',
+          nextStep: 'sponsor',
+        };
+      } catch (error) {
+        logger.error('Failed to complete next of kin information', {
+          module: 'candidate',
+          operation: 'completeNextOfKin',
+          metadata: { candidateId, nextOfKin },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Complete sponsor information
+   */
+  async completeSponsor(
+    candidateId: string,
+    sponsor: {
+      sponsor_name: string;
+      sponsor_relationship: string;
+      sponsor_phone: string;
+      sponsor_address: string;
+      sponsor_occupation: string;
+      sponsor_income_range: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeSponsor', 'profiles', async () => {
+      try {
+        await db('profiles')
+          .where('candidate_id', candidateId)
+          .update({
+            ...sponsor,
+            sponsor_completed: true,
+            updated_at: new Date(),
+          });
+
+        logger.info('Sponsor information completed successfully', {
+          module: 'candidate',
+          operation: 'completeSponsor',
+          metadata: { candidateId, sponsorName: sponsor.sponsor_name },
+        });
+
+        return {
+          success: true,
+          message: 'Sponsor information completed successfully',
+          nextStep: 'application_submission',
+        };
+      } catch (error) {
+        logger.error('Failed to complete sponsor information', {
+          module: 'candidate',
+          operation: 'completeSponsor',
+          metadata: { candidateId, sponsor },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Finalize registration and send completion email
+   */
+  async finalizeRegistration(candidateId: string): Promise<{
+    success: boolean;
+    message: string;
+    applicationId?: string;
+  }> {
+    return await withDatabaseLogging('finalizeRegistration', 'candidates', async () => {
+      try {
+        // Check if all required information is complete
+        const profile = await db('profiles').where('candidate_id', candidateId).first();
+
+        if (
+          !profile?.biodata_completed ||
+          !profile?.education_completed ||
+          !profile?.next_of_kin_completed ||
+          !profile?.sponsor_completed
+        ) {
+          return {
+            success: false,
+            message: 'All profile sections must be completed before finalizing registration',
+          };
+        }
+
+        // Create application
+        const [applicationId] = await db('applications')
+          .insert({
+            candidate_id: candidateId,
+            status: 'pending',
+            created_at: new Date(),
+            updated_at: new Date(),
+          })
+          .returning('id');
+
+        // Mark registration as complete
+        await db('candidates').where('id', candidateId).update({
+          registration_completed: true,
+          updated_at: new Date(),
+        });
+
+        // Send completion email
+        const candidate = await db('candidates').where('id', candidateId).first();
+
+        if (candidate && profile.email) {
+          await this.emailService.sendRegistrationCompletion(
+            profile.email,
+            candidate.name || 'Candidate',
+            candidate.jamb_reg_no
+          );
+        }
+
+        logger.info('Registration finalized successfully', {
+          module: 'candidate',
+          operation: 'finalizeRegistration',
+          metadata: { candidateId, applicationId },
+        });
+
+        return {
+          success: true,
+          message: 'Registration completed successfully. Check your email for confirmation.',
+          applicationId,
+        };
+      } catch (error) {
+        logger.error('Failed to finalize registration', {
+          module: 'candidate',
+          operation: 'finalizeRegistration',
+          metadata: { candidateId },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
   }
 }

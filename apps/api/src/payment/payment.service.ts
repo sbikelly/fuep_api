@@ -12,16 +12,19 @@ import {
 } from '@fuep/types';
 import { createHash, randomUUID } from 'crypto';
 
+import { db } from '../db/knex.js';
+import { logger } from '../middleware/logging.js';
+import { EmailService } from '../services/email.service.js';
 import { PaymentProviderRegistry } from './providers/provider-registry.js';
-// TODO: Import database connection when implementing actual database operations
-// import { db } from '../db/knex.js';
 
 export class PaymentService {
   private providerRegistry: PaymentProviderRegistry;
+  private emailService: EmailService;
 
   constructor(providerRegistry: PaymentProviderRegistry) {
     console.log('[PaymentService] Constructor called');
     this.providerRegistry = providerRegistry;
+    this.emailService = new EmailService();
     console.log('[PaymentService] Initialized with provided registry');
   }
 
@@ -599,6 +602,226 @@ export class PaymentService {
     } catch (error) {
       console.error('Error getting payment types:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Create a new payment with email confirmation
+   */
+  async createPayment(paymentData: {
+    candidateId: string;
+    amount: number;
+    purpose: string;
+    session: string;
+    provider: string;
+  }): Promise<{
+    success: boolean;
+    paymentId?: string;
+    message: string;
+    error?: string;
+  }> {
+    try {
+      // Validate payment amount
+      const paymentType = await this.getPaymentTypeByPurpose(paymentData.purpose);
+      if (!paymentType) {
+        return {
+          success: false,
+          message: 'Invalid payment purpose',
+          error: 'Payment purpose not found',
+        };
+      }
+
+      if (paymentData.amount !== paymentType.amount) {
+        return {
+          success: false,
+          message: `Invalid payment amount. Expected: ₦${paymentType.amount}, Received: ₦${paymentData.amount}`,
+          error: 'Amount mismatch',
+        };
+      }
+
+      // Get candidate information for email
+      const candidate = await db('candidates').where('id', paymentData.candidateId).first();
+
+      const profile = await db('profiles').where('candidate_id', paymentData.candidateId).first();
+
+      if (!candidate || !profile?.email) {
+        return {
+          success: false,
+          message: 'Candidate not found or email not available',
+          error: 'Candidate lookup failed',
+        };
+      }
+
+      // Create payment record
+      const [paymentId] = await db('payments')
+        .insert({
+          candidate_id: paymentData.candidateId,
+          amount: paymentData.amount,
+          purpose: paymentData.purpose,
+          status: 'pending',
+          provider: paymentData.provider,
+          session: paymentData.session,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .returning('id');
+
+      // Update candidate payment status based on purpose
+      if (paymentData.purpose === 'post_utme') {
+        await db('candidates').where('id', paymentData.candidateId).update({
+          post_utme_paid: true,
+          updated_at: new Date(),
+        });
+      } else if (paymentData.purpose === 'acceptance') {
+        await db('candidates').where('id', paymentData.candidateId).update({
+          acceptance_paid: true,
+          updated_at: new Date(),
+        });
+      } else if (paymentData.purpose === 'school_fees') {
+        await db('candidates').where('id', paymentData.candidateId).update({
+          school_fees_paid: true,
+          updated_at: new Date(),
+        });
+      }
+
+      // Send payment confirmation email
+      if (profile.email) {
+        await this.emailService.sendPaymentConfirmation(
+          profile.email,
+          candidate.name || 'Candidate',
+          {
+            amount: paymentData.amount,
+            purpose: paymentData.purpose,
+            reference: paymentId,
+            date: new Date(),
+          }
+        );
+      }
+
+      logger.info('Payment created successfully', {
+        module: 'payment',
+        operation: 'createPayment',
+        metadata: { paymentId, candidateId: paymentData.candidateId, amount: paymentData.amount },
+      });
+
+      return {
+        success: true,
+        paymentId,
+        message: 'Payment created successfully',
+      };
+    } catch (error) {
+      logger.error('Failed to create payment', {
+        module: 'payment',
+        operation: 'createPayment',
+        metadata: { paymentData },
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return {
+        success: false,
+        message: 'Failed to create payment',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get payment type by purpose
+   */
+  async getPaymentTypeByPurpose(purpose: string): Promise<{
+    id: string;
+    name: string;
+    amount: number;
+    description: string;
+  } | null> {
+    try {
+      const paymentType = await db('payment_types').where('code', purpose).first();
+
+      return paymentType || null;
+    } catch (error) {
+      logger.error('Failed to get payment type by purpose', {
+        module: 'payment',
+        operation: 'getPaymentTypeByPurpose',
+        metadata: { purpose },
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Confirm payment and send confirmation email
+   */
+  async confirmPayment(
+    paymentId: string,
+    providerResponse: any
+  ): Promise<{
+    success: boolean;
+    message: string;
+    error?: string;
+  }> {
+    try {
+      // Update payment status
+      await db('payments')
+        .where('id', paymentId)
+        .update({
+          status: 'success',
+          provider_response: JSON.stringify(providerResponse),
+          updated_at: new Date(),
+        });
+
+      // Get payment and candidate information for email
+      const payment = await db('payments').where('id', paymentId).first();
+
+      if (!payment) {
+        return {
+          success: false,
+          message: 'Payment not found',
+          error: 'Payment lookup failed',
+        };
+      }
+
+      const candidate = await db('candidates').where('id', payment.candidate_id).first();
+
+      const profile = await db('profiles').where('candidate_id', payment.candidate_id).first();
+
+      // Send payment confirmation email
+      if (profile?.email) {
+        await this.emailService.sendPaymentConfirmation(
+          profile.email,
+          candidate?.name || 'Candidate',
+          {
+            amount: payment.amount,
+            purpose: payment.purpose,
+            reference: paymentId,
+            date: new Date(),
+          }
+        );
+      }
+
+      logger.info('Payment confirmed successfully', {
+        module: 'payment',
+        operation: 'confirmPayment',
+        metadata: { paymentId, candidateId: payment.candidate_id },
+      });
+
+      return {
+        success: true,
+        message: 'Payment confirmed successfully',
+      };
+    } catch (error) {
+      logger.error('Failed to confirm payment', {
+        module: 'payment',
+        operation: 'confirmPayment',
+        metadata: { paymentId, providerResponse },
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return {
+        success: false,
+        message: 'Failed to confirm payment',
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 }
