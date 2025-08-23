@@ -630,16 +630,16 @@ paths:
                 jambRegNo:
                   type: string
                   description: JAMB registration number
-                  example: "JAMB001"
+                  example: 'JAMB001'
                 email:
                   type: string
                   format: email
                   description: Candidate email address (if not in JAMB data)
-                  example: "candidate@example.com"
+                  example: 'candidate@example.com'
                 phone:
                   type: string
                   description: Candidate phone number (if not in JAMB data)
-                  example: "+2348012345678"
+                  example: '+2348012345678'
       responses:
         '200':
           description: JAMB verification successful
@@ -672,16 +672,16 @@ paths:
                 jambRegNo:
                   type: string
                   description: JAMB registration number
-                  example: "JAMB001"
+                  example: 'JAMB001'
                 email:
                   type: string
                   format: email
                   description: Candidate email address
-                  example: "candidate@example.com"
+                  example: 'candidate@example.com'
                 phone:
                   type: string
                   description: Candidate phone number
-                  example: "+2348012345678"
+                  example: '+2348012345678'
       responses:
         '200':
           description: Contact information updated successfully
@@ -953,7 +953,7 @@ paths:
         '401':
           description: Invalid refresh token
 
-  /api/admin/health:
+  /api/health:
     get:
       summary: Admin module health check
       tags: [Admin Health]
@@ -3183,17 +3183,18 @@ components:
       properties:
         success: { type: boolean }
         message: { type: string }
-        updatedFields: 
+        updatedFields:
           type: array
           items: { type: string }
 
     NextStepResponse:
       type: object
       properties:
-        currentStep: { type: string, enum: ['biodata', 'education', 'nextOfKin', 'sponsor', 'complete'] }
+        currentStep:
+          { type: string, enum: ['biodata', 'education', 'nextOfKin', 'sponsor', 'complete'] }
         completionPercentage: { type: integer, minimum: 0, maximum: 100 }
         nextStep: { type: string }
-        requiredFields: 
+        requiredFields:
           type: array
           items: { type: string }
         message: { type: string }

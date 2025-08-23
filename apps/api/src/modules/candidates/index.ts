@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
+import { candidateRateLimit } from '../../middleware/rateLimiting.js';
 import { CandidateController } from './candidate.controller.js';
 import { CandidateService } from './candidate.service.js';
-import { candidateRateLimit } from '../../middleware/rateLimiting.js';
 
 export interface CandidateModuleDependencies {
   logger?: Console;
@@ -33,9 +33,59 @@ export function createCandidateModule(deps: CandidateModuleDependencies = {}): C
     // 3. Create router and bind routes
     logger.log('[CandidateModule] Creating router and binding routes...');
     const router = Router();
-    
+
     // Apply candidate-specific rate limiting to all routes
     router.use(candidateRateLimit);
+
+    // JAMB verification and registration initiation (specific routes first)
+    router.post(
+      '/check-jamb',
+      candidateRateLimit,
+      controller.checkJambAndInitiateRegistration.bind(controller)
+    );
+
+    // Contact information completion
+    router.post(
+      '/:candidateId/complete-contact',
+      candidateRateLimit,
+      controller.completeContactInfo.bind(controller)
+    );
+
+    // Get next step in registration process
+    router.get(
+      '/:candidateId/next-step',
+      candidateRateLimit,
+      controller.getNextStep.bind(controller)
+    );
+
+    // Progressive profile completion
+    router.post(
+      '/:candidateId/biodata',
+      candidateRateLimit,
+      controller.completeBiodata.bind(controller)
+    );
+    router.post(
+      '/:candidateId/education',
+      candidateRateLimit,
+      controller.completeEducation.bind(controller)
+    );
+    router.post(
+      '/:candidateId/next-of-kin',
+      candidateRateLimit,
+      controller.completeNextOfKin.bind(controller)
+    );
+    router.post(
+      '/:candidateId/sponsor',
+      candidateRateLimit,
+      controller.completeSponsor.bind(controller)
+    );
+
+    // Registration finalization
+    router.post(
+      '/:candidateId/finalize',
+      candidateRateLimit,
+      controller.finalizeRegistration.bind(controller)
+    );
 
     // Profile management
     router.get('/profile/:jambRegNo', controller.getCandidateProfile.bind(controller));
