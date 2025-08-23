@@ -96,7 +96,13 @@ export class PaymentService {
         status: 'initiated' as PaymentStatus,
         paymentLevel: request.paymentLevel, // Include payment level
         session: request.session, // Include session
-        requestHash: '', // Will be removed in future durable implementation
+        idempotencyKey: `${request.candidateId}_${request.purpose}_${request.session}_${Date.now()}`, // Generate unique idempotency key
+        requestHash: createHash('sha256')
+          .update(
+            `${request.candidateId}${request.purpose}${request.amount}${request.session}${Date.now()}`
+          )
+          .digest('hex')
+          .substring(0, 64), // Generate request hash
         responseSnapshot: providerResponse,
         statusCode: 201,
         externalReference: providerResponse.providerReference,
@@ -284,9 +290,35 @@ export class PaymentService {
   // Database operations (these would be implemented with actual database calls)
   private async getPaymentByProviderRef(providerRef: string): Promise<PaymentTransaction | null> {
     try {
-      // TODO: Implement actual database query using Knex
-      // For now, return null to simulate no payment found
-      return null;
+      const payment = await db('payments').where({ provider_ref: providerRef }).first();
+
+      if (!payment) return null;
+
+      return {
+        id: payment.id,
+        candidateId: payment.candidate_id,
+        purpose: payment.purpose,
+        provider: payment.provider,
+        providerRef: payment.provider_ref,
+        amount: parseFloat(payment.amount),
+        currency: payment.currency,
+        status: payment.status,
+        paymentLevel: payment.payment_level,
+        session: payment.session,
+        idempotencyKey: payment.idempotency_key,
+        requestHash: payment.request_hash,
+        responseSnapshot: payment.response_snapshot,
+        statusCode: payment.status_code,
+        firstRequestAt: new Date(payment.first_request_at),
+        lastRequestAt: new Date(payment.last_request_at),
+        replayCount: payment.replay_count,
+        externalReference: payment.external_reference,
+        metadata: payment.metadata,
+        expiresAt: payment.expires_at ? new Date(payment.expires_at) : undefined,
+        rawPayload: payment.raw_payload,
+        createdAt: new Date(payment.created_at),
+        updatedAt: new Date(payment.updated_at),
+      };
     } catch (error) {
       console.error('Error getting payment by provider reference:', error);
       throw error;
@@ -295,9 +327,35 @@ export class PaymentService {
 
   private async getPaymentById(paymentId: string): Promise<PaymentTransaction | null> {
     try {
-      // TODO: Implement actual database query using Knex
-      // For now, return null to simulate no payment found
-      return null;
+      const payment = await db('payments').where({ id: paymentId }).first();
+
+      if (!payment) return null;
+
+      return {
+        id: payment.id,
+        candidateId: payment.candidate_id,
+        purpose: payment.purpose,
+        provider: payment.provider,
+        providerRef: payment.provider_ref,
+        amount: parseFloat(payment.amount),
+        currency: payment.currency,
+        status: payment.status,
+        paymentLevel: payment.payment_level,
+        session: payment.session,
+        idempotencyKey: payment.idempotency_key,
+        requestHash: payment.request_hash,
+        responseSnapshot: payment.response_snapshot,
+        statusCode: payment.status_code,
+        firstRequestAt: new Date(payment.first_request_at),
+        lastRequestAt: new Date(payment.last_request_at),
+        replayCount: payment.replay_count,
+        externalReference: payment.external_reference,
+        metadata: payment.metadata,
+        expiresAt: payment.expires_at ? new Date(payment.expires_at) : undefined,
+        rawPayload: payment.raw_payload,
+        createdAt: new Date(payment.created_at),
+        updatedAt: new Date(payment.updated_at),
+      };
     } catch (error) {
       console.error('Error getting payment by ID:', error);
       throw error;
@@ -306,39 +364,56 @@ export class PaymentService {
 
   private async createPaymentRecord(data: any): Promise<PaymentTransaction> {
     try {
-      // TODO: Implement actual database insert using Knex
-      // For now, create a mock payment record
-      const payment = {
-        id: randomUUID(),
-        candidateId: data.candidateId,
+      const paymentData = {
+        candidate_id: data.candidateId,
         purpose: data.purpose,
         provider: data.provider,
-        providerRef: data.providerRef,
+        provider_ref: data.providerRef,
         amount: data.amount,
         currency: data.currency,
         status: data.status,
-        paymentLevel: data.paymentLevel, // Include payment level
-        session: data.session, // Include session
-        idempotencyKey: data.idempotencyKey,
-        requestHash: data.requestHash,
-        responseSnapshot: data.responseSnapshot,
-        statusCode: data.statusCode || 201,
-        firstRequestAt: new Date(),
-        lastRequestAt: new Date(),
-        replayCount: 1,
-        externalReference: data.externalReference,
+        payment_level: data.paymentLevel,
+        session: data.session,
+        idempotency_key: data.idempotencyKey,
+        request_hash: data.requestHash,
+        response_snapshot: data.responseSnapshot,
+        status_code: data.statusCode || 201,
+        first_request_at: new Date(),
+        last_request_at: new Date(),
+        replay_count: 1,
+        external_reference: data.externalReference,
         metadata: data.metadata,
-        expiresAt: data.expiresAt,
-        rawPayload: data.rawPayload,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as PaymentTransaction;
+        expires_at: data.expiresAt,
+        raw_payload: data.rawPayload,
+      };
 
-      // TODO: Insert into database
-      // const [insertedPayment] = await db('payments').insert(payment).returning('*');
-      // return insertedPayment;
+      const [insertedPayment] = await db('payments').insert(paymentData).returning('*');
 
-      return payment;
+      return {
+        id: insertedPayment.id,
+        candidateId: insertedPayment.candidate_id,
+        purpose: insertedPayment.purpose,
+        provider: insertedPayment.provider,
+        providerRef: insertedPayment.provider_ref,
+        amount: parseFloat(insertedPayment.amount),
+        currency: insertedPayment.currency,
+        status: insertedPayment.status,
+        paymentLevel: insertedPayment.payment_level,
+        session: insertedPayment.session,
+        idempotencyKey: insertedPayment.idempotency_key,
+        requestHash: insertedPayment.request_hash,
+        responseSnapshot: insertedPayment.response_snapshot,
+        statusCode: insertedPayment.status_code,
+        firstRequestAt: new Date(insertedPayment.first_request_at),
+        lastRequestAt: new Date(insertedPayment.last_request_at),
+        replayCount: insertedPayment.replay_count,
+        externalReference: insertedPayment.external_reference,
+        metadata: insertedPayment.metadata,
+        expiresAt: insertedPayment.expires_at ? new Date(insertedPayment.expires_at) : undefined,
+        rawPayload: insertedPayment.raw_payload,
+        createdAt: new Date(insertedPayment.created_at),
+        updatedAt: new Date(insertedPayment.updated_at),
+      };
     } catch (error) {
       console.error('Error creating payment record:', error);
       throw error;
@@ -351,18 +426,30 @@ export class PaymentService {
     data: any
   ): Promise<void> {
     try {
-      // TODO: Implement actual database update using Knex
-      // For now, just log the update
-      console.log(`Updating payment ${paymentId} status to ${status}`);
+      const updateData: any = {
+        status,
+        updated_at: new Date(),
+        last_request_at: new Date(),
+      };
 
-      // TODO: Update payment in database
-      // await db('payments')
-      //   .where({ id: paymentId })
-      //   .update({
-      //     status,
-      //     updated_at: new Date(),
-      //     ...data
-      //   });
+      // Add additional fields if provided
+      if (data.webhookReceivedAt) {
+        updateData.webhook_received_at = data.webhookReceivedAt;
+      }
+      if (data.verifiedAt) {
+        updateData.verified_at = data.verifiedAt;
+      }
+      if (data.receiptUrl) {
+        updateData.receipt_url = data.receiptUrl;
+      }
+      if (data.rawPayload) {
+        updateData.raw_payload = data.rawPayload;
+      }
+      if (data.metadata) {
+        updateData.metadata = data.metadata;
+      }
+
+      await db('payments').where({ id: paymentId }).update(updateData);
     } catch (error) {
       console.error('Error updating payment status:', error);
       throw error;
@@ -371,17 +458,10 @@ export class PaymentService {
 
   private async updatePaymentReceipt(paymentId: string, receiptUrl: string): Promise<void> {
     try {
-      // TODO: Implement actual database update using Knex
-      // For now, just log the update
-      console.log(`Updating payment ${paymentId} receipt URL to ${receiptUrl}`);
-
-      // TODO: Update payment receipt URL in database
-      // await db('payments')
-      //   .where({ id: paymentId })
-      //   .update({
-      //     receipt_url: receiptUrl,
-      //     updated_at: new Date()
-      //   });
+      await db('payments').where({ id: paymentId }).update({
+        receipt_url: receiptUrl,
+        updated_at: new Date(),
+      });
     } catch (error) {
       console.error('Error updating payment receipt:', error);
       throw error;
@@ -396,16 +476,10 @@ export class PaymentService {
 
   private async getPaymentEventByProviderEventId(providerEventId: string): Promise<any> {
     try {
-      // TODO: Implement actual database query for provider event deduplication
-      // For now, return null to simulate no existing event
-
-      // TODO: Query payment_events table
-      // const event = await db('payment_events')
-      //   .where({ provider_event_id: providerEventId })
-      //   .first();
-      // return event;
-
-      return null;
+      const event = await db('payment_events')
+        .where({ provider_event_id: providerEventId })
+        .first();
+      return event;
     } catch (error) {
       console.error('Error getting payment event by provider event ID:', error);
       throw error;
@@ -414,22 +488,17 @@ export class PaymentService {
 
   private async createPaymentEvent(data: any): Promise<void> {
     try {
-      // TODO: Implement actual database insert using Knex
-      // For now, just log the event creation
-      console.log(`Creating payment event: ${data.eventType}`);
-
-      // TODO: Insert into payment_events table
-      // await db('payment_events').insert({
-      //   payment_id: data.paymentId,
-      //   event_type: data.eventType,
-      //   from_status: data.fromStatus,
-      //   to_status: data.toStatus,
-      //   provider_event_id: data.providerEventId,
-      //   signature_hash: data.signatureHash,
-      //   provider_data: data.providerData,
-      //   metadata: data.metadata,
-      //   created_at: new Date()
-      // });
+      await db('payment_events').insert({
+        payment_id: data.paymentId,
+        event_type: data.eventType,
+        from_status: data.fromStatus,
+        to_status: data.toStatus,
+        provider_event_id: data.providerEventId,
+        signature_hash: data.signatureHash,
+        provider_data: data.providerData,
+        metadata: data.metadata,
+        created_at: new Date(),
+      });
     } catch (error) {
       console.error('Error creating payment event:', error);
       throw error;
@@ -444,16 +513,8 @@ export class PaymentService {
   // Helper method to get candidate by email
   async getCandidateByEmail(email: string): Promise<any> {
     try {
-      // TODO: Implement actual database query using Knex
-      // For now, return null to indicate candidate not found
-
-      // TODO: Query candidates table
-      // const candidate = await db('candidates')
-      //   .where({ email: email })
-      //   .first();
-      // return candidate;
-
-      return null;
+      const candidate = await db('candidates').where({ email: email }).first();
+      return candidate;
     } catch (error) {
       console.error('Error getting candidate by email:', error);
       throw error;
@@ -463,16 +524,8 @@ export class PaymentService {
   // Helper method to get candidate by JAMB registration number
   async getCandidateByJambRegNo(jambRegNo: string): Promise<any> {
     try {
-      // TODO: Implement actual database query using Knex
-      // For now, return null to indicate candidate not found
-
-      // TODO: Query candidates table
-      // const candidate = await db('candidates')
-      //   .where({ jamb_reg_no: jambRegNo })
-      //   .first();
-      // return candidate;
-
-      return null;
+      const candidate = await db('candidates').where({ jamb_reg_no: jambRegNo }).first();
+      return candidate;
     } catch (error) {
       console.error('Error getting candidate by JAMB registration number:', error);
       throw error;
@@ -482,34 +535,29 @@ export class PaymentService {
   // Helper method to get payment statistics for admin purposes
   async getPaymentStatistics(session?: string): Promise<any> {
     try {
-      // TODO: Implement actual database query using Knex
-      // For now, return mock statistics
+      let query = db('payments');
+      if (session) {
+        query = query.where({ session: session });
+      }
 
-      // TODO: Query payments table for statistics
-      // let query = db('payments');
-      // if (session) {
-      //   query = query.where({ session: session });
-      // }
-      //
-      // const stats = await query
-      //   .select(
-      //     db.raw('COUNT(*) as total_payments'),
-      //     db.raw('COUNT(CASE WHEN status = ? THEN 1 END) as successful_payments', ['success']),
-      //     db.raw('COUNT(CASE WHEN status = ? THEN 1 END) as pending_payments', ['pending']),
-      //     db.raw('COUNT(CASE WHEN status = ? THEN 1 END) as failed_payments', ['failed']),
-      //     db.raw('COALESCE(SUM(CASE WHEN status = ? THEN amount ELSE 0 END), 0) as total_revenue', ['success'])
-      //   )
-      //   .first();
-      //
-      // return stats;
+      const stats = await query
+        .select(
+          db.raw('COUNT(*) as total_payments'),
+          db.raw('COUNT(CASE WHEN status = ? THEN 1 END) as successful_payments', ['success']),
+          db.raw('COUNT(CASE WHEN status = ? THEN 1 END) as pending_payments', ['pending']),
+          db.raw('COUNT(CASE WHEN status = ? THEN 1 END) as failed_payments', ['failed']),
+          db.raw('COALESCE(SUM(CASE WHEN status = ? THEN amount ELSE 0 END), 0) as total_revenue', [
+            'success',
+          ])
+        )
+        .first();
 
-      // Mock statistics for testing
       return {
-        totalPayments: 150,
-        successfulPayments: 120,
-        pendingPayments: 20,
-        failedPayments: 10,
-        totalRevenue: 2500000, // 2.5M NGN
+        totalPayments: parseInt(stats.total_payments as string) || 0,
+        successfulPayments: parseInt(stats.successful_payments as string) || 0,
+        pendingPayments: parseInt(stats.pending_payments as string) || 0,
+        failedPayments: parseInt(stats.failed_payments as string) || 0,
+        totalRevenue: parseFloat(stats.total_revenue as string) || 0,
         session: session || '2024/2025',
       };
     } catch (error) {
@@ -521,36 +569,34 @@ export class PaymentService {
   // Helper method to get payment history for a candidate
   async getCandidatePaymentHistory(candidateId: string, session?: string): Promise<any[]> {
     try {
-      // TODO: Implement actual database query using Knex
-      // For now, return mock payment history
+      let query = db('payments').where({ candidate_id: candidateId });
+      if (session) {
+        query = query.where({ session: session });
+      }
 
-      // TODO: Query payments table
-      // let query = db('payments').where({ candidate_id: candidateId });
-      // if (session) {
-      //   query = query.where({ session: session });
-      // }
-      // const payments = await query.orderBy('created_at', 'desc');
-      // return payments;
+      const payments = await query
+        .select(
+          'id',
+          'purpose',
+          'amount',
+          'status',
+          'session',
+          'created_at',
+          'provider',
+          'currency'
+        )
+        .orderBy('created_at', 'desc');
 
-      // Mock payment history for testing
-      return [
-        {
-          id: 'mock-payment-1',
-          purpose: 'post_utme',
-          amount: 2000,
-          status: 'success',
-          session: session || '2024/2025',
-          createdAt: new Date(Date.now() - 86400000), // 1 day ago
-        },
-        {
-          id: 'mock-payment-2',
-          purpose: 'acceptance',
-          amount: 50000,
-          status: 'pending',
-          session: session || '2024/2025',
-          createdAt: new Date(),
-        },
-      ];
+      return payments.map((payment) => ({
+        id: payment.id,
+        purpose: payment.purpose,
+        amount: parseFloat(payment.amount),
+        status: payment.status,
+        session: payment.session,
+        provider: payment.provider,
+        currency: payment.currency,
+        createdAt: new Date(payment.created_at),
+      }));
     } catch (error) {
       console.error('Error getting candidate payment history:', error);
       throw error;
@@ -560,45 +606,21 @@ export class PaymentService {
   // Helper method to get payment types for a session
   async getPaymentTypes(session: string): Promise<any[]> {
     try {
-      // TODO: Implement actual database query using Knex
-      // For now, return mock payment types
+      const paymentTypes = await db('payment_types')
+        .where({ session: session, is_active: true })
+        .orderBy('name');
 
-      // TODO: Query payment_types table
-      // const paymentTypes = await db('payment_types')
-      //   .where({ session: session, is_active: true })
-      //   .orderBy('name');
-      // return paymentTypes;
-
-      // Mock payment types for testing
-      return [
-        {
-          id: 'mock-pt-1',
-          name: 'Post-UTME Registration Fee',
-          code: 'post_utme',
-          amount: 2000,
-          currency: 'NGN',
-          session: session,
-          isActive: true,
-        },
-        {
-          id: 'mock-pt-2',
-          name: 'Acceptance Fee',
-          code: 'acceptance',
-          amount: 50000,
-          currency: 'NGN',
-          session: session,
-          isActive: true,
-        },
-        {
-          id: 'mock-pt-3',
-          name: 'School Fee',
-          code: 'school_fee',
-          amount: 150000,
-          currency: 'NGN',
-          session: session,
-          isActive: true,
-        },
-      ];
+      return paymentTypes.map((pt) => ({
+        id: pt.id,
+        name: pt.name,
+        code: pt.code,
+        amount: parseFloat(pt.amount),
+        currency: pt.currency,
+        session: pt.session,
+        isActive: pt.is_active,
+        description: pt.description,
+        dueDate: pt.due_date ? new Date(pt.due_date) : undefined,
+      }));
     } catch (error) {
       console.error('Error getting payment types:', error);
       throw error;
