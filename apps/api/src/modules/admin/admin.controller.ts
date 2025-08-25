@@ -1,10 +1,14 @@
 import express from 'express';
 
+import {
+  adminRateLimit,
+  authRateLimit,
+  healthCheckRateLimit,
+} from '../../middleware/rateLimiting.js';
 import { AdminService } from './admin.service.js';
 import { createAdminAuthMiddleware } from './admin-auth.middleware.js';
 import { AdminAuthService } from './admin-auth.service.js';
 import { AdminPermissionService } from './admin-permission.service.js';
-import { adminRateLimit, authRateLimit, healthCheckRateLimit } from '../../middleware/rateLimiting.js';
 
 export class AdminController {
   public router: express.Router;
@@ -21,7 +25,7 @@ export class AdminController {
   private setupRoutes(): void {
     // Apply admin rate limiting to all routes
     this.router.use(adminRateLimit);
-    
+
     // Public admin authentication routes (with auth-specific rate limiting)
     this.router.post('/auth/login', authRateLimit, this.login.bind(this));
     this.router.post('/auth/refresh', authRateLimit, this.refreshToken.bind(this));
@@ -163,24 +167,24 @@ export class AdminController {
     // Payment management
     this.router.get('/payments', authMiddleware(['payments', 'read']), this.getPayments.bind(this));
     this.router.get(
-      '/payments/types',
-      authMiddleware(['payment_types', 'read']),
-      this.getPaymentTypes.bind(this)
+      '/payment-purposes',
+      authMiddleware(['payment_purposes', 'read']),
+      this.getPaymentPurposes.bind(this)
     );
     this.router.post(
-      '/payments/types',
-      authMiddleware(['payment_types', 'create']),
-      this.createPaymentType.bind(this)
+      '/payment-purposes',
+      authMiddleware(['payment_purposes', 'create']),
+      this.createPaymentPurpose.bind(this)
     );
     this.router.put(
-      '/payments/types/:id',
-      authMiddleware(['payment_types', 'update']),
-      this.updatePaymentType.bind(this)
+      '/payment-purposes/:id',
+      authMiddleware(['payment_purposes', 'update']),
+      this.updatePaymentPurpose.bind(this)
     );
     this.router.delete(
-      '/payments/types/:id',
-      authMiddleware(['payment_types', 'delete']),
-      this.deletePaymentType.bind(this)
+      '/payment-purposes/:id',
+      authMiddleware(['payment_purposes', 'delete']),
+      this.deletePaymentPurpose.bind(this)
     );
     this.router.get(
       '/payments/disputes',
@@ -426,16 +430,19 @@ export class AdminController {
       const deletedBy = (req as any).user.sub;
 
       await this.adminAuthService.deleteAdminUser(id, deletedBy);
-      
+
       res.json({
         success: true,
         message: 'Admin user deleted successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
-      const statusCode = error.message.includes('not found') ? 404 : 
-                        error.message.includes('Cannot delete') ? 400 : 500;
-      
+      const statusCode = error.message.includes('not found')
+        ? 404
+        : error.message.includes('Cannot delete')
+          ? 400
+          : 500;
+
       res.status(statusCode).json({
         success: false,
         error: error.message,
@@ -903,12 +910,12 @@ export class AdminController {
   }
 
   // Payment types management
-  private async getPaymentTypes(req: express.Request, res: express.Response): Promise<void> {
+  private async getPaymentPurposes(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const paymentTypes = await this.adminService.getPaymentTypes();
+      const paymentPurposes = await this.adminService.getPaymentPurposes();
       res.json({
         success: true,
-        data: paymentTypes,
+        data: paymentPurposes,
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -920,16 +927,19 @@ export class AdminController {
     }
   }
 
-  private async createPaymentType(req: express.Request, res: express.Response): Promise<void> {
+  private async createPaymentPurpose(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const paymentTypeData = req.body;
+      const paymentPurposeData = req.body;
       const createdBy = (req as any).user.sub;
 
-      const paymentType = await this.adminService.createPaymentType(paymentTypeData, createdBy);
+      const paymentPurpose = await this.adminService.createPaymentPurpose(
+        paymentPurposeData,
+        createdBy
+      );
       res.status(201).json({
         success: true,
-        data: paymentType,
-        message: 'Payment type created successfully',
+        data: paymentPurpose,
+        message: 'Payment purpose created successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -941,17 +951,21 @@ export class AdminController {
     }
   }
 
-  private async updatePaymentType(req: express.Request, res: express.Response): Promise<void> {
+  private async updatePaymentPurpose(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { id } = req.params;
       const updateData = req.body;
       const updatedBy = (req as any).user.sub;
 
-      const paymentType = await this.adminService.updatePaymentType(id, updateData, updatedBy);
+      const paymentPurpose = await this.adminService.updatePaymentPurpose(
+        id,
+        updateData,
+        updatedBy
+      );
       res.json({
         success: true,
-        data: paymentType,
-        message: 'Payment type updated successfully',
+        data: paymentPurpose,
+        message: 'Payment purpose updated successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -963,15 +977,15 @@ export class AdminController {
     }
   }
 
-  private async deletePaymentType(req: express.Request, res: express.Response): Promise<void> {
+  private async deletePaymentPurpose(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { id } = req.params;
       const deletedBy = (req as any).user.sub;
 
-      await this.adminService.deletePaymentType(id, deletedBy);
+      await this.adminService.deletePaymentPurpose(id, deletedBy);
       res.json({
         success: true,
-        message: 'Payment type deleted successfully',
+        message: 'Payment purpose deleted successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -1328,7 +1342,7 @@ export class AdminController {
     try {
       const timeRange = (req.query.timeRange as '7d' | '30d' | '90d' | '1y') || '30d';
       const auditAnalytics = await this.adminService.getAuditAnalytics(timeRange);
-      
+
       res.json({
         success: true,
         data: auditAnalytics,
@@ -1344,10 +1358,13 @@ export class AdminController {
     }
   }
 
-  private async getSecurityRiskAssessment(req: express.Request, res: express.Response): Promise<void> {
+  private async getSecurityRiskAssessment(
+    req: express.Request,
+    res: express.Response
+  ): Promise<void> {
     try {
       const securityAssessment = await this.adminService.getSecurityRiskAssessment();
-      
+
       res.json({
         success: true,
         data: securityAssessment,

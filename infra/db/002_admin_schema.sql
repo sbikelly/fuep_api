@@ -32,35 +32,39 @@ CREATE TABLE IF NOT EXISTS admin_permissions (
   UNIQUE(role, resource, action)
 );
 
--- ---------- Payment Types & Configurations ----------
+-- ---------- Payment Purposes & Configurations ----------
 
--- Payment types table
-CREATE TABLE IF NOT EXISTS payment_types (
+-- Payment purposes table
+CREATE TABLE IF NOT EXISTS payment_purposes (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name                 varchar(100) NOT NULL,
-  code                 varchar(32) NOT NULL UNIQUE,
+  purpose              varchar(50) NOT NULL,
   description          text,
   amount               numeric(14,2) NOT NULL,
   currency             varchar(8) NOT NULL DEFAULT 'NGN',
+  category             varchar(32) DEFAULT 'academic',
+  requires_verification boolean DEFAULT false,
   is_active            boolean NOT NULL DEFAULT true,
   session              varchar(16) NOT NULL,
   due_date             date,
   created_by           uuid REFERENCES admin_users(id),
   created_at           timestamptz NOT NULL DEFAULT NOW(),
-  updated_at           timestamptz NOT NULL DEFAULT NOW()
+  updated_at           timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE(purpose, session)
 );
 
--- Payment type amounts by session
-CREATE TABLE IF NOT EXISTS payment_type_amounts (
+-- Payment purpose amounts by session
+CREATE TABLE IF NOT EXISTS payment_purpose_amounts (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_type_id      uuid NOT NULL REFERENCES payment_types(id) ON DELETE CASCADE,
+  payment_purpose_id   uuid NOT NULL REFERENCES payment_purposes(id) ON DELETE CASCADE,
   session              varchar(16) NOT NULL,
   amount               numeric(14,2) NOT NULL,
+  currency             varchar(8) DEFAULT 'NGN',
   effective_from       date NOT NULL,
   effective_to         date,
   created_by           uuid REFERENCES admin_users(id),
   created_at           timestamptz NOT NULL DEFAULT NOW(),
-  UNIQUE(payment_type_id, session, effective_from)
+  UNIQUE(payment_purpose_id, session, effective_from)
 );
 
 -- ---------- Enhanced Audit Logging ----------
@@ -210,12 +214,12 @@ CREATE INDEX IF NOT EXISTS idx_admin_users_role ON admin_users(role);
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);
 
-CREATE INDEX IF NOT EXISTS idx_payment_types_session ON payment_types(session);
-CREATE INDEX IF NOT EXISTS idx_payment_types_code ON payment_types(code);
-CREATE INDEX IF NOT EXISTS idx_payment_types_active ON payment_types(is_active);
+CREATE INDEX IF NOT EXISTS idx_payment_purposes_session ON payment_purposes(session);
+CREATE INDEX IF NOT EXISTS idx_payment_purposes_purpose ON payment_purposes(purpose);
+CREATE INDEX IF NOT EXISTS idx_payment_purposes_active ON payment_purposes(is_active);
 
-CREATE INDEX IF NOT EXISTS idx_payment_type_amounts_session ON payment_type_amounts(session);
-CREATE INDEX IF NOT EXISTS idx_payment_type_amounts_effective ON payment_type_amounts(effective_from, effective_to);
+CREATE INDEX IF NOT EXISTS idx_payment_purpose_amounts_session ON payment_purpose_amounts(session);
+CREATE INDEX IF NOT EXISTS idx_payment_purpose_amounts_effective ON payment_purpose_amounts(effective_from, effective_to);
 
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_admin ON admin_audit_logs(admin_user_id);
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_resource ON admin_audit_logs(resource, resource_id);
@@ -243,8 +247,8 @@ CREATE TRIGGER admin_users_set_updated_at
 BEFORE UPDATE ON admin_users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER payment_types_set_updated_at
-BEFORE UPDATE ON payment_types
+CREATE TRIGGER payment_purposes_set_updated_at
+BEFORE UPDATE ON payment_purposes
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER candidate_notes_set_updated_at
@@ -266,15 +270,15 @@ INSERT INTO admin_users (username, email, password_hash, role) VALUES
 ('admin', 'admin@fuep.edu.ng', crypt('admin123', gen_salt('bf')), 'super_admin')
 ON CONFLICT (username) DO NOTHING;
 
--- Insert default payment types
-INSERT INTO payment_types (name, code, description, amount, session, created_by) VALUES 
+-- Insert default payment purposes
+INSERT INTO payment_purposes (name, purpose, description, amount, session, created_by) VALUES 
 ('Post-UTME Application Fee', 'POST_UTME', 'Application fee for Post-UTME examination', 2500.00, '2025/2026', 
  (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1)),
 ('Acceptance Fee', 'ACCEPTANCE', 'Acceptance fee for admitted candidates', 50000.00, '2025/2026',
  (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1)),
 ('School Fees', 'SCHOOL_FEES', 'Annual school fees for admitted students', 150000.00, '2025/2026',
  (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1))
-ON CONFLICT (code, session) DO NOTHING;
+ON CONFLICT (purpose, session) DO NOTHING;
 
 -- Insert default admin permissions
 INSERT INTO admin_permissions (role, resource, action) VALUES
@@ -373,7 +377,7 @@ SELECT
   pd.description as dispute_description
 FROM payments p
 JOIN candidates c ON p.candidate_id = c.id
-LEFT JOIN payment_types pt ON p.purpose::text = pt.code
+LEFT JOIN payment_purposes pt ON p.purpose::text = pt.purpose
 LEFT JOIN payment_disputes pd ON p.id = pd.payment_id
 ORDER BY p.created_at DESC;
 
@@ -413,8 +417,8 @@ ORDER BY c.created_at DESC;
 
 COMMENT ON TABLE admin_users IS 'Administrative users with role-based access control';
 COMMENT ON TABLE admin_permissions IS 'Permissions matrix for different admin roles';
-COMMENT ON TABLE payment_types IS 'Configurable payment types and amounts by session';
-COMMENT ON TABLE payment_type_amounts IS 'Historical payment amounts with effective dates';
+COMMENT ON TABLE payment_purposes IS 'Configurable payment purposes and amounts by session';
+COMMENT ON TABLE payment_purpose_amounts IS 'Historical payment amounts with effective dates';
 COMMENT ON TABLE admin_audit_logs IS 'Audit trail for all administrative actions';
 COMMENT ON TABLE prelist_upload_batches IS 'Bulk JAMB prelist upload processing';
 COMMENT ON TABLE candidate_notes IS 'Internal notes and comments about candidates';

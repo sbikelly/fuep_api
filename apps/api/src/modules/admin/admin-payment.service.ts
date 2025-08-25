@@ -1,29 +1,57 @@
 import { db } from '../../db/knex.js';
 import { AdminAuditService } from './admin-audit.service.js';
 
-export interface PaymentType {
+export interface PaymentPurpose {
   id: string;
   name: string;
-  description: string;
+  purpose: string;
+  description?: string;
   amount: number;
   currency: string;
-  isActive: boolean;
-  category: 'Post-UTME' | 'Acceptance' | 'Admission' | 'School Fees' | 'Other';
+  category: 'academic' | 'administrative' | 'other';
   requiresVerification: boolean;
+  isActive: boolean;
+  session: string;
+  dueDate?: Date;
+  createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface PaymentTypeAmount {
+export interface PaymentPurposeAmount {
   id: string;
-  paymentTypeId: string;
+  paymentPurposeId: string;
+  session: string;
   amount: number;
-  currency: string;
   effectiveFrom: Date;
   effectiveTo?: Date;
-  reason: string;
-  changedBy: string;
+  createdBy?: string;
   createdAt: Date;
+}
+
+export interface PaymentPurposeCreate {
+  name: string;
+  purpose: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  category: 'academic' | 'administrative' | 'other';
+  requiresVerification: boolean;
+  session: string;
+  dueDate?: Date;
+}
+
+export interface PaymentPurposeUpdate {
+  name?: string;
+  purpose?: string;
+  description?: string;
+  amount?: number;
+  currency?: string;
+  category?: 'academic' | 'administrative' | 'other';
+  requiresVerification?: boolean;
+  session?: string;
+  dueDate?: Date;
+  isActive?: boolean;
 }
 
 export interface Payment {
@@ -91,193 +119,261 @@ export class AdminPaymentService {
   constructor(private auditService: AdminAuditService) {}
 
   // Payment Type Management
-  async createPaymentType(
-    paymentTypeData: {
+  async createPaymentPurpose(
+    paymentPurposeData: {
       name: string;
-      description: string;
+      purpose: string;
+      description?: string;
       amount: number;
       currency: string;
-      category: PaymentType['category'];
+      category: PaymentPurpose['category'];
       requiresVerification: boolean;
+      session: string;
+      dueDate?: Date;
     },
     adminUserId: string
-  ): Promise<PaymentType> {
+  ): Promise<PaymentPurpose> {
     try {
-      const [paymentTypeId] = await db('payment_types')
+      const [paymentPurposeId] = await db('payment_purposes')
         .insert({
-          name: paymentTypeData.name,
-          description: paymentTypeData.description,
-          amount: paymentTypeData.amount,
-          currency: paymentTypeData.currency,
-          category: paymentTypeData.category,
-          requires_verification: paymentTypeData.requiresVerification,
+          name: paymentPurposeData.name,
+          purpose: paymentPurposeData.purpose,
+          description: paymentPurposeData.description,
+          amount: paymentPurposeData.amount,
+          currency: paymentPurposeData.currency,
+          category: paymentPurposeData.category,
+          requires_verification: paymentPurposeData.requiresVerification,
+          session: paymentPurposeData.session,
+          due_date: paymentPurposeData.dueDate,
+          created_by: adminUserId,
         })
         .returning('id');
 
-      // Log amount change
-      await this.logAmountChange(
-        paymentTypeId,
-        paymentTypeData.amount,
-        paymentTypeData.currency,
-        'Initial creation',
-        adminUserId
-      );
+      // Extract the ID properly
+      const id = typeof paymentPurposeId === 'object' ? paymentPurposeId.id : paymentPurposeId;
 
-      // Log audit
-      await this.auditService.logAction({
-        adminUserId,
-        action: 'create_payment_type',
-        resource: 'payment_type',
-        resourceId: paymentTypeId,
-        details: paymentTypeData,
+      // Create initial amount record
+      await db('payment_purpose_amounts').insert({
+        payment_purpose_id: id,
+        amount: paymentPurposeData.amount,
+        currency: paymentPurposeData.currency,
+        session: paymentPurposeData.session,
+        effective_from: new Date(),
+        created_by: adminUserId,
       });
 
-      const createdPaymentType = await this.getPaymentTypeById(paymentTypeId);
-      if (!createdPaymentType) {
-        throw new Error('Failed to retrieve created payment type');
+      // Log the action
+      await this.auditService.logAction({
+        adminUserId,
+        action: 'create',
+        resource: 'payment_purposes',
+        resourceId: id,
+        details: paymentPurposeData,
+      });
+
+      const createdPaymentPurpose = await this.getPaymentPurposeById(id);
+      if (!createdPaymentPurpose) {
+        throw new Error('Failed to retrieve created payment purpose');
       }
-      return createdPaymentType;
+
+      return createdPaymentPurpose;
     } catch (error) {
-      throw new Error(
-        `Failed to create payment type: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('Error creating payment purpose:', error);
+      throw error;
     }
   }
 
-  async updatePaymentType(
+  async updatePaymentPurpose(
     id: string,
     updateData: Partial<
       Pick<
-        PaymentType,
+        PaymentPurpose,
         | 'name'
+        | 'purpose'
         | 'description'
         | 'amount'
         | 'currency'
         | 'category'
         | 'requiresVerification'
+        | 'session'
+        | 'dueDate'
         | 'isActive'
       >
     >,
     adminUserId: string
-  ): Promise<PaymentType> {
+  ): Promise<PaymentPurpose> {
     try {
-      const currentPaymentType = await this.getPaymentTypeById(id);
-      if (!currentPaymentType) {
-        throw new Error('Payment type not found');
+      const currentPaymentPurpose = await this.getPaymentPurposeById(id);
+      if (!currentPaymentPurpose) {
+        throw new Error('Payment purpose not found');
       }
 
-      // If amount is being changed, log the change
-      if (updateData.amount && updateData.amount !== currentPaymentType.amount) {
-        await this.logAmountChange(
-          id,
-          updateData.amount,
-          updateData.currency || currentPaymentType.currency,
-          'Amount update',
-          adminUserId
-        );
-      }
-
-      await db('payment_types')
-        .where('id', id)
-        .update({
-          ...updateData,
-          updated_at: new Date(),
-        });
-
-      // Log audit
-      await this.auditService.logAction({
-        adminUserId,
-        action: 'update_payment_type',
-        resource: 'payment_type',
-        resourceId: id,
-        details: {
-          previous: currentPaymentType,
-          updates: updateData,
-        },
+      // Update payment purpose
+      await db('payment_purposes').where('id', id).update({
+        name: updateData.name,
+        purpose: updateData.purpose,
+        description: updateData.description,
+        amount: updateData.amount,
+        currency: updateData.currency,
+        category: updateData.category,
+        requires_verification: updateData.requiresVerification,
+        session: updateData.session,
+        due_date: updateData.dueDate,
+        is_active: updateData.isActive,
+        updated_at: new Date(),
       });
 
-      const updatedPaymentType = await this.getPaymentTypeById(id);
-      if (!updatedPaymentType) {
-        throw new Error('Failed to retrieve updated payment type');
+      // If amount changed, create new amount record
+      if (updateData.amount && updateData.amount !== currentPaymentPurpose.amount) {
+        // First, set the effective_to date of the current active amount record
+        await db('payment_purpose_amounts')
+          .where({
+            payment_purpose_id: id,
+            session: updateData.session || currentPaymentPurpose.session,
+            effective_to: null,
+          })
+          .update({
+            effective_to: new Date(),
+          });
+
+        // Then create new amount record
+        await db('payment_purpose_amounts').insert({
+          payment_purpose_id: id,
+          amount: updateData.amount,
+          currency: updateData.currency || currentPaymentPurpose.currency,
+          session: updateData.session || currentPaymentPurpose.session,
+          effective_from: new Date(),
+          created_by: adminUserId,
+        });
       }
-      return updatedPaymentType;
+
+      // Log the action
+      await this.auditService.logAction({
+        adminUserId,
+        action: 'update',
+        resource: 'payment_purposes',
+        resourceId: id,
+        details: { previous: currentPaymentPurpose, updates: updateData },
+      });
+
+      const updatedPaymentPurpose = await this.getPaymentPurposeById(id);
+      if (!updatedPaymentPurpose) {
+        throw new Error('Failed to retrieve updated payment purpose');
+      }
+
+      return updatedPaymentPurpose;
     } catch (error) {
-      throw new Error(
-        `Failed to update payment type: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('Error updating payment purpose:', error);
+      throw error;
     }
   }
 
-  async getPaymentTypeById(id: string): Promise<PaymentType | null> {
+  async getPaymentPurposeById(id: string): Promise<PaymentPurpose | null> {
     try {
-      const paymentType = await db('payment_types').where('id', id).first();
+      const paymentPurpose = await db('payment_purposes').where('id', id).first();
 
-      if (!paymentType) return null;
+      if (!paymentPurpose) return null;
 
       return {
-        id: paymentType.id,
-        name: paymentType.name,
-        description: paymentType.description,
-        amount: paymentType.amount,
-        currency: paymentType.currency,
-        isActive: paymentType.is_active,
-        category: paymentType.category,
-        requiresVerification: paymentType.requires_verification,
-        createdAt: paymentType.created_at,
-        updatedAt: paymentType.updated_at,
+        id: paymentPurpose.id,
+        name: paymentPurpose.name,
+        purpose: paymentPurpose.purpose,
+        description: paymentPurpose.description,
+        amount: paymentPurpose.amount,
+        currency: paymentPurpose.currency,
+        category: paymentPurpose.category,
+        requiresVerification: paymentPurpose.requires_verification,
+        isActive: paymentPurpose.is_active,
+        session: paymentPurpose.session,
+        dueDate: paymentPurpose.due_date,
+        createdBy: paymentPurpose.created_by,
+        createdAt: paymentPurpose.created_at,
+        updatedAt: paymentPurpose.updated_at,
       };
     } catch (error) {
-      throw new Error(
-        `Failed to get payment type: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('Error getting payment purpose by ID:', error);
+      return null;
     }
   }
 
-  async getAllPaymentTypes(): Promise<PaymentType[]> {
+  async getAllPaymentPurposes(): Promise<PaymentPurpose[]> {
     try {
-      const paymentTypes = await db('payment_types').orderBy('name', 'asc');
+      const paymentPurposes = await db('payment_purposes').orderBy('name', 'asc');
 
-      return paymentTypes.map((paymentType) => ({
-        id: paymentType.id,
-        name: paymentType.name,
-        description: paymentType.description,
-        amount: paymentType.amount,
-        currency: paymentType.currency,
-        isActive: paymentType.is_active,
-        category: paymentType.category,
-        requiresVerification: paymentType.requires_verification,
-        createdAt: paymentType.created_at,
-        updatedAt: paymentType.updated_at,
+      return paymentPurposes.map((pp) => ({
+        id: pp.id,
+        name: pp.name,
+        purpose: pp.purpose,
+        description: pp.description,
+        amount: pp.amount,
+        currency: pp.currency,
+        category: pp.category,
+        requiresVerification: pp.requires_verification,
+        isActive: pp.is_active,
+        session: pp.session,
+        dueDate: pp.due_date,
+        createdBy: pp.created_by,
+        createdAt: pp.created_at,
+        updatedAt: pp.updated_at,
       }));
     } catch (error) {
-      throw new Error(
-        `Failed to get payment types: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('Error getting all payment purposes:', error);
+      return [];
     }
   }
 
-  async getActivePaymentTypes(): Promise<PaymentType[]> {
+  async getActivePaymentPurposes(): Promise<PaymentPurpose[]> {
     try {
-      const paymentTypes = await db('payment_types')
+      const paymentPurposes = await db('payment_purposes')
         .where('is_active', true)
         .orderBy('name', 'asc');
 
-      return paymentTypes.map((paymentType) => ({
-        id: paymentType.id,
-        name: paymentType.name,
-        description: paymentType.description,
-        amount: paymentType.amount,
-        currency: paymentType.currency,
-        isActive: paymentType.is_active,
-        category: paymentType.category,
-        requiresVerification: paymentType.requires_verification,
-        createdAt: paymentType.created_at,
-        updatedAt: paymentType.updated_at,
+      return paymentPurposes.map((pp) => ({
+        id: pp.id,
+        name: pp.name,
+        purpose: pp.purpose,
+        description: pp.description,
+        amount: pp.amount,
+        currency: pp.currency,
+        category: pp.category,
+        requiresVerification: pp.requires_verification,
+        isActive: pp.is_active,
+        session: pp.session,
+        dueDate: pp.due_date,
+        createdBy: pp.created_by,
+        createdAt: pp.created_at,
+        updatedAt: pp.updated_at,
       }));
     } catch (error) {
-      throw new Error(
-        `Failed to get active payment types: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('Error getting active payment purposes:', error);
+      return [];
+    }
+  }
+
+  async deletePaymentPurpose(id: string, adminUserId: string): Promise<void> {
+    try {
+      const currentPaymentPurpose = await this.getPaymentPurposeById(id);
+      if (!currentPaymentPurpose) {
+        throw new Error('Payment purpose not found');
+      }
+
+      // Soft delete by setting is_active to false
+      await db('payment_purposes').where('id', id).update({
+        is_active: false,
+        updated_at: new Date(),
+      });
+
+      // Log the action
+      await this.auditService.logAction({
+        adminUserId,
+        action: 'delete',
+        resource: 'payment_purposes',
+        resourceId: id,
+        details: { deleted: currentPaymentPurpose },
+      });
+    } catch (error) {
+      console.error('Error deleting payment purpose:', error);
+      throw error;
     }
   }
 
@@ -766,7 +862,7 @@ export class AdminPaymentService {
         .where('created_at', '>=', startDate)
         .sum('amount as total')
         .first();
-      
+
       return result ? parseFloat(result.total as string) : 0;
     } catch (error) {
       throw new Error(
@@ -777,11 +873,8 @@ export class AdminPaymentService {
 
   async getPendingPaymentsCount(): Promise<number> {
     try {
-      const result = await db('payments')
-        .where('status', 'pending')
-        .count('* as count')
-        .first();
-      
+      const result = await db('payments').where('status', 'pending').count('* as count').first();
+
       return result ? parseInt(result.count as string) : 0;
     } catch (error) {
       throw new Error(
@@ -792,11 +885,8 @@ export class AdminPaymentService {
 
   async getFailedPaymentsCount(): Promise<number> {
     try {
-      const result = await db('payments')
-        .where('status', 'failed')
-        .count('* as count')
-        .first();
-      
+      const result = await db('payments').where('status', 'failed').count('* as count').first();
+
       return result ? parseInt(result.count as string) : 0;
     } catch (error) {
       throw new Error(
@@ -807,11 +897,8 @@ export class AdminPaymentService {
 
   async getSuccessfulPaymentsCount(): Promise<number> {
     try {
-      const result = await db('payments')
-        .where('status', 'success')
-        .count('* as count')
-        .first();
-      
+      const result = await db('payments').where('status', 'success').count('* as count').first();
+
       return result ? parseInt(result.count as string) : 0;
     } catch (error) {
       throw new Error(

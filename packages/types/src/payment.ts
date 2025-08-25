@@ -29,16 +29,27 @@ export const PaymentStatusSchema = z.enum([
   'refunded',
 ]);
 
-// Payment types (these are the same as payment purposes for clarity)
-export type PaymentType = 'post_utme' | 'acceptance' | 'school_fee' | 'other';
+// Payment purpose types (these are the payment purposes for clarity)
+export type PaymentPurpose =
+  | 'POST_UTME'
+  | 'ACCEPTANCE'
+  | 'SCHOOL_FEES'
+  | 'LIBRARY_FEE'
+  | 'HOSTEL_FEE'
+  | 'MEDICAL_FEE'
+  | 'SPORTS_FEE'
+  | 'other';
 
-export const PaymentTypeSchema = z.enum(['post_utme', 'acceptance', 'school_fee', 'other']);
-
-// Payment purpose types (equals payment types for database schema alignment)
-// Note: paymentPurpose equals payment types for clarity
-export type PaymentPurpose = 'post_utme' | 'acceptance' | 'school_fee';
-
-export const PaymentPurposeSchema = z.enum(['post_utme', 'acceptance', 'school_fee']);
+export const PaymentPurposeSchema = z.enum([
+  'POST_UTME',
+  'ACCEPTANCE',
+  'SCHOOL_FEES',
+  'LIBRARY_FEE',
+  'HOSTEL_FEE',
+  'MEDICAL_FEE',
+  'SPORTS_FEE',
+  'other',
+]);
 
 // Enhanced Payment Transaction interface for Phase 7
 export interface PaymentTransaction extends BaseEntity {
