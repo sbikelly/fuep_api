@@ -16,7 +16,6 @@ import {
 } from '@fuep/types';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import express from 'express';
 import { readFileSync } from 'fs';
 import helmet from 'helmet';
@@ -24,7 +23,7 @@ import yaml from 'js-yaml';
 import { join } from 'path';
 import swaggerUi from 'swagger-ui-express';
 
-// Load environment variables from apps/api directory
+// Import database connection
 import { db } from './db/knex.js';
 // Import admin module initializer
 import { createAdminModule } from './modules/admin/admin.module.js';
@@ -34,10 +33,17 @@ import { createPaymentsModule } from './payment/index.js';
 // Import authentication service
 import { AuthService } from './services/auth.service.js';
 
-const envPath = join(process.cwd(), '.env');
-console.log('Current working directory:', process.cwd());
-console.log('Loading .env from:', envPath);
-dotenv.config({ path: envPath });
+// Load environment variables (Render auto-injects these in production)
+// Only load .env in development
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const envPath = join(process.cwd(), '.env');
+    console.log('Development mode: Loading .env from:', envPath);
+    require('dotenv').config({ path: envPath });
+  } catch (error) {
+    console.log('No .env file found, using system environment variables');
+  }
+}
 
 // Debug: Log environment variables
 console.log('Environment variables loaded:');
@@ -65,7 +71,7 @@ if (!process.env.FLUTTERWAVE_PUBLIC_KEY) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = parseInt(process.env.PORT || '4000', 10);
 
 // Import security middleware
 // Import caching middleware
@@ -856,6 +862,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Express API listening on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Express API listening on http://0.0.0.0:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

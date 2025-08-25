@@ -45,6 +45,10 @@ services:
         value: ${SMTP_USER}
       - key: SMTP_PASS
         value: ${SMTP_PASS}
+      - key: CORS_ORIGIN
+        value: '*'
+      - key: REDIS_URL
+        value: ${REDIS_URL}
     autoDeploy: true
 
 databases:
