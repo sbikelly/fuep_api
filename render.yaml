@@ -2,7 +2,7 @@ services:
   - type: web
     name: fuep-api
     env: node
-    plan: starter
+    plan: free
     buildCommand: cd apps/api && npm install && npm run build
     startCommand: cd apps/api && npm start
     healthCheckPath: /api/health
@@ -46,14 +46,9 @@ services:
       - key: SMTP_PASS
         value: ${SMTP_PASS}
     autoDeploy: true
-    scaling:
-      minInstances: 1
-      maxInstances: 3
-      targetCPUPercent: 70
-      targetMemoryPercent: 70
 
 databases:
   - name: fuep-postgres
     databaseName: fuep_portal
     user: fuep_user
-    plan: starter
+    plan: free
