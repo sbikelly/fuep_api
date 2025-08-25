@@ -8,13 +8,16 @@ A comprehensive Post-UTME application and management system for Federal Universi
 
 - **Core API Infrastructure** - Express.js with TypeScript, Docker containerization
 - **Database Management** - PostgreSQL with Knex.js, comprehensive schema design
-- **Authentication & Security** - JWT-based auth, rate limiting, security headers
-- **Payment Integration** - Remita and Flutterwave payment providers
+- **Authentication & Security** - JWT-based auth with refresh tokens, rate limiting, security headers
+- **Payment Integration** - Remita, Flutterwave, and Paystack payment providers with real database integration
 - **Document Management** - MinIO integration for file storage
 - **Advanced Analytics** - Comprehensive reporting and metrics
 - **Audit Logging** - Complete audit trail and security monitoring
 - **Email Service** - Automated email notifications with professional templates
 - **Advanced Candidate Management** - Progressive registration flow with email integration
+- **Academic Structure Management** - Faculty, Department, and Program management system
+- **Enhanced Application Validation** - Real-time validation against academic entities
+- **Token Management** - Secure logout and token invalidation
 
 ### 🔄 **In Progress**
 
@@ -66,8 +69,73 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **File Storage**: MinIO for document management
 - **Containerization**: Docker & Docker Compose
 - **Email**: Nodemailer with MailHog (dev) / SMTP (prod)
-- **Security**: JWT, bcrypt, helmet, rate limiting
+- **Security**: JWT with refresh tokens, bcrypt, helmet, rate limiting
 - **Monitoring**: Winston logging, metrics collection
+- **Validation**: Zod schemas for type-safe API requests
+
+## 🎓 **Academic Structure Management**
+
+### **Academic Entities**
+
+- **Faculties**: Top-level academic divisions (e.g., Faculty of Education, Faculty of Science)
+- **Departments**: Academic units within faculties (e.g., Computer Science, Mathematics)
+- **Programs**: Specific degree programs and courses
+- **Program-Department Links**: Flexible many-to-many relationships between programs and departments
+
+### **Management Features**
+
+- **CRUD Operations**: Full create, read, update, delete capabilities for all academic entities
+- **Validation System**: Ensures data integrity and prevents invalid relationships
+- **Active/Inactive Status**: Soft management of academic entities
+- **Relationship Management**: Flexible linking of programs to departments
+- **Admin Interface**: Comprehensive admin panel for academic structure management
+
+## 🔐 **Enhanced Security Features**
+
+### **Authentication & Authorization**
+
+- **JWT Authentication**: Secure token-based authentication with access and refresh tokens
+- **Token Refresh**: Automatic token renewal mechanism for seamless user experience
+- **Secure Logout**: Token invalidation and session cleanup
+- **Role-Based Access Control**: Admin, Candidate, and Staff role management
+- **Password Security**: bcrypt hashing with configurable salt rounds
+- **Session Management**: Redis-based session management
+
+### **Data Protection**
+
+- **Input Validation**: Comprehensive request validation using Zod schemas
+- **SQL Injection Prevention**: Parameterized queries with Knex.js
+- **XSS Protection**: Security headers and content sanitization
+- **CORS Configuration**: Controlled cross-origin resource sharing
+- **Data Encryption**: Encryption for sensitive information
+
+### **API Security**
+
+- **Request Rate Limiting**: Protection against abuse and brute force attacks
+- **API Key Validation**: Secure API access control
+- **Request Logging**: Comprehensive request monitoring and logging
+- **Suspicious Activity Detection**: Security event monitoring
+- **Audit Logging**: Complete audit trail for compliance
+
+## 💳 **Enhanced Payment System**
+
+### **Payment Providers**
+
+- **Remita**: Primary payment gateway with comprehensive integration
+- **Flutterwave**: Secondary payment option for additional flexibility
+- **Paystack**: Alternative payment gateway support
+- **Mock Provider**: Development and testing support
+
+### **Payment Features**
+
+- **Real Database Integration**: All payment data stored in PostgreSQL with proper relationships
+- **Transaction Tracking**: Comprehensive payment history, status, and audit trail
+- **Idempotency**: Prevents duplicate payment processing
+- **Webhook Support**: Real-time payment status updates from providers
+- **Payment Types**: Dynamic payment type management per academic session
+- **Receipt Management**: Digital receipt generation and storage
+- **Multi-Currency Support**: Flexible currency handling
+- **Payment Statistics**: Comprehensive analytics and reporting
 
 ## 📊 **Candidate Registration Flow**
 
@@ -83,7 +151,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 1. **Post-UTME Payment** - Complete required payment for application
 2. **Account Activation** - Enable full access to portal features
 3. **Password Management** - Enforce password change on first login
-4. **Session Management** - Establish secure user sessions
+4. **Session Management** - Establish secure user sessions with JWT tokens
 
 ### **Phase 3: Progressive Profile Completion**
 
@@ -96,35 +164,9 @@ A comprehensive Post-UTME application and management system for Federal Universi
 ### **Phase 4: Registration Finalization**
 
 1. **Profile Validation** - Verify all required information
-2. **Application Submission** - Submit completed application
+2. **Application Submission** - Submit completed application with academic validation
 3. **Confirmation Email** - Send registration completion notification
 4. **Status Tracking** - Monitor application review process
-
-## 🔐 **Security Features**
-
-### **Authentication & Authorization**
-
-- JWT-based token authentication
-- Role-based access control (Admin, Candidate, Staff)
-- Secure password hashing with bcrypt
-- Session management with Redis
-- Rate limiting and brute force protection
-
-### **Data Protection**
-
-- Input validation and sanitization
-- SQL injection prevention with parameterized queries
-- XSS protection with security headers
-- CORS configuration for cross-origin requests
-- Data encryption for sensitive information
-
-### **API Security**
-
-- Request rate limiting
-- API key validation
-- Request logging and monitoring
-- Suspicious activity detection
-- Comprehensive audit logging
 
 ## 📧 **Email Service**
 
@@ -154,6 +196,13 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - `documents` - File uploads and metadata
 - `audit_logs` - Comprehensive audit trail
 
+### **Academic Tables**
+
+- `faculties` - Academic faculty information
+- `departments` - Department details within faculties
+- `programs` - Academic program information
+- `program_departments` - Program-department relationships
+
 ### **Key Features**
 
 - UUID primary keys for security
@@ -161,6 +210,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - Indexed fields for performance
 - Enum types for status management
 - Timestamp tracking for all records
+- Academic hierarchy management
 
 ## 🚀 **Getting Started**
 
@@ -202,10 +252,20 @@ cp .env.example .env
 ### **Available Endpoints**
 
 - **Health Check**: `GET /api/health`
-- **Authentication**: `POST /api/auth/login`
+- **Authentication**:
+  - `POST /api/auth/login` - User login
+  - `POST /api/auth/refresh-token` - Token refresh
+  - `POST /api/auth/logout` - Secure logout
+  - `PUT /api/auth/change-password` - Password change
 - **Candidates**: `POST /api/candidates/check-jamb`
 - **Payments**: `POST /api/payments/initiate`
-- **Admin**: `GET /api/admin/dashboard`
+- **Admin Academic Management**:
+  - `GET /api/admin/faculties` - List faculties
+  - `POST /api/admin/faculties` - Create faculty
+  - `GET /api/admin/departments` - List departments
+  - `POST /api/admin/departments` - Create department
+  - `GET /api/admin/programs` - List programs
+  - `POST /api/admin/programs` - Create program
 - **Documents**: `POST /api/documents/upload`
 
 ### **OpenAPI Documentation**
@@ -225,6 +285,11 @@ curl http://localhost:4000/api/health
 curl -X POST http://localhost:4000/api/candidates/check-jamb \
   -H "Content-Type: application/json" \
   -d '{"jambRegNo":"JAMB123","email":"test@example.com","phone":"+2341234567890"}'
+
+# Test authentication
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"JAMB123","password":"temp123"}'
 ```
 
 ### **Email Testing**
@@ -248,6 +313,7 @@ curl -X POST http://localhost:4000/api/candidates/check-jamb \
 - Payment analytics
 - Candidate demographics
 - Document processing metrics
+- Academic structure analytics
 
 ### **Security Monitoring**
 

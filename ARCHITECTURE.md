@@ -79,15 +79,15 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
          ┌─────────────────────────────────────────────────┐
          │              Controller Layer                   │
          ├─────────────────────────────────────────────────┤
-         │  Auth Ctrl  │  Candidate Ctrl │  Payment Ctrl │
-         │             │                 │               │
+         │  Auth Ctrl  │  Candidate Ctrl │  Payment Ctrl │  Admin Ctrl │
+         │             │                 │               │             │
          └─────────────────────────────────────────────────┘
                                 │
          ┌─────────────────────────────────────────────────┐
          │              Service Layer                      │
          ├─────────────────────────────────────────────────┤
-         │  Auth Svc   │  Candidate Svc │  Payment Svc  │
-         │             │                 │               │
+         │  Auth Svc   │  Candidate Svc │  Payment Svc  │  Admin Svc  │
+         │             │                 │               │             │
          └─────────────────────────────────────────────────┘
                                 │
                     ┌─────────────────┐
@@ -123,13 +123,15 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 
 ### **Security Features**
 
-- **JWT Authentication**: Secure token-based authentication
+- **JWT Authentication**: Secure token-based authentication with access and refresh tokens
 - **Password Security**: bcrypt hashing with configurable salt rounds
 - **Rate Limiting**: Protection against brute force attacks
-- **Input Validation**: Comprehensive request validation and sanitization
+- **Input Validation**: Comprehensive request validation and sanitization using Zod schemas
 - **SQL Injection Prevention**: Parameterized queries with Knex.js
 - **XSS Protection**: Security headers and content sanitization
 - **CORS Configuration**: Controlled cross-origin resource sharing
+- **Token Refresh**: Secure token renewal mechanism
+- **Logout Security**: Token invalidation and session cleanup
 
 ## 📊 **Data Architecture**
 
@@ -142,6 +144,13 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 │  candidates  │  profiles    │  applications │  payments       │
 │  (accounts)  │  (details)   │  (status)     │  (transactions) │
 └─────────────────────────────────────────────────────────────────┘
+                                │
+         ┌─────────────────────────────────────────────────┐
+         │              Academic Structure                  │
+         ├─────────────────────────────────────────────────┤
+         │  faculties   │  departments │  programs        │  program_departments │
+         │  (schools)   │  (divisions) │  (courses)       │  (relationships)     │
+         └─────────────────────────────────────────────────┘
                                 │
          ┌─────────────────────────────────────────────────┐
          │              Supporting Entities                 │
@@ -159,6 +168,72 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Enum Types**: Structured status and type management
 - **Timestamp Tracking**: Comprehensive audit trail
 - **Soft Deletes**: Data preservation and recovery capabilities
+- **Academic Hierarchy**: Structured faculty → department → program relationships
+- **Many-to-Many Relationships**: Flexible program-department associations
+
+## 🎓 **Academic Structure Management**
+
+### **Academic Entity Relationships**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Faculties     │    │   Departments   │    │    Programs     │
+│   (Schools)     │    │   (Divisions)   │    │   (Courses)     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │ Program-Department │
+                    │   Junction Table   │
+                    └─────────────────┘
+```
+
+### **Academic Management Features**
+
+- **Faculty Management**: Create, read, update, delete faculty records
+- **Department Management**: Manage departments within faculties
+- **Program Management**: Handle academic programs and courses
+- **Relationship Management**: Link programs to departments with flexible associations
+- **Validation System**: Ensure data integrity across academic entities
+- **Active/Inactive Status**: Soft management of academic entities
+
+## 💳 **Payment System Architecture**
+
+### **Payment Provider Integration**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Payment Gateway Layer                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Remita        │  Flutterwave   │  Paystack      │  Mock       │
+│  (Primary)     │  (Secondary)   │  (Secondary)   │  (Testing)  │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+         ┌─────────────────────────────────────────────────┐
+         │              Payment Service Layer               │
+         ├─────────────────────────────────────────────────┤
+         │  Payment      │  Provider      │  Transaction   │
+         │  Initiation   │  Management    │  Processing    │
+         └─────────────────────────────────────────────────┘
+                                │
+                    ┌─────────────────┐
+                    │   Database      │
+                    │   Integration   │
+                    └─────────────────┘
+```
+
+### **Payment Features**
+
+- **Multi-Provider Support**: Remita, Flutterwave, and Paystack integration
+- **Real Database Integration**: All payment data stored in PostgreSQL
+- **Transaction Tracking**: Comprehensive payment history and status
+- **Idempotency**: Prevents duplicate payment processing
+- **Webhook Support**: Real-time payment status updates
+- **Mock Provider**: Testing and development support
+- **Payment Types**: Dynamic payment type management per session
+- **Receipt Management**: Digital receipt generation and storage
 
 ## 📧 **Email Service Architecture**
 
@@ -354,10 +429,10 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 
 ### **API Security Patterns**
 
-- **Authentication**: JWT-based token authentication
+- **Authentication**: JWT-based token authentication with refresh mechanism
 - **Authorization**: Role-based access control
 - **Rate Limiting**: Request throttling and abuse prevention
-- **Input Validation**: Comprehensive request validation
+- **Input Validation**: Comprehensive request validation using Zod schemas
 - **Output Sanitization**: Safe response data formatting
 
 ## 📱 **Frontend Architecture**
