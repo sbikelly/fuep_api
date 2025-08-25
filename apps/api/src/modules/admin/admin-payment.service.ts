@@ -225,18 +225,23 @@ export class AdminPaymentService {
 
       // If amount changed, create new amount record
       if (updateData.amount && updateData.amount !== currentPaymentPurpose.amount) {
-        // First, set the effective_to date of the current active amount record
-        await db('payment_purpose_amounts')
+        // Check if there's an existing amount record for this payment purpose and session
+        const existingAmountRecord = await db('payment_purpose_amounts')
           .where({
             payment_purpose_id: id,
             session: updateData.session || currentPaymentPurpose.session,
             effective_to: null,
           })
-          .update({
+          .first();
+
+        if (existingAmountRecord) {
+          // Set the effective_to date of the current active amount record
+          await db('payment_purpose_amounts').where('id', existingAmountRecord.id).update({
             effective_to: new Date(),
           });
+        }
 
-        // Then create new amount record
+        // Create new amount record
         await db('payment_purpose_amounts').insert({
           payment_purpose_id: id,
           amount: updateData.amount,
@@ -949,7 +954,6 @@ export class AdminPaymentService {
     paymentPurposeId: string,
     amount: number,
     currency: string,
-    reason: string,
     adminUserId: string
   ): Promise<void> {
     try {
@@ -958,7 +962,6 @@ export class AdminPaymentService {
         amount,
         currency,
         effective_from: new Date(),
-        reason,
         created_by: adminUserId,
       });
     } catch (error) {
