@@ -1,352 +1,231 @@
 # FUEP Post-UTME Portal
 
-A comprehensive Post-UTME application and management system for Federal University of Education, Pankshin (FUEP).
+A comprehensive, modern **API-only** portal designed to streamline the Post-UTME application process for Federal University of Education, Pankshin (FUEP). This system provides a complete digital solution for candidate registration, payment processing, and administrative management.
 
-## 🚀 Current Status
-
-### ✅ **Completed Features**
-
-- **Core API Infrastructure** - Express.js with TypeScript, Docker containerization
-- **Database Management** - PostgreSQL with Knex.js, comprehensive schema design
-- **Authentication & Security** - JWT-based auth with refresh tokens, rate limiting, security headers
-- **Payment Integration** - Remita, Flutterwave, and Paystack payment providers with real database integration
-- **Document Management** - MinIO integration for file storage
-- **Advanced Analytics** - Comprehensive reporting and metrics
-- **Audit Logging** - Complete audit trail and security monitoring
-- **Email Service** - Automated email notifications with professional templates
-- **Advanced Candidate Management** - Progressive registration flow with email integration
-- **Academic Structure Management** - Faculty, Department, and Program management system
-- **Enhanced Application Validation** - Real-time validation against academic entities
-- **Token Management** - Secure logout and token invalidation
-
-### 🔄 **In Progress**
-
-- Frontend web application development
-- Mobile application development
-- Advanced reporting dashboard
-
-### 📋 **Planned Features**
-
-- SMS notifications
-- Advanced document verification
-- Integration with external systems
-
-## 🏗️ Architecture Overview
-
-### **System Architecture**
+## 🏗️ **Architecture Overview**
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend Web  │    │   Mobile App   │    │   Admin Panel   │
-│   (React/Vue)   │    │   (React Native)│    │   (React)       │
+│   API Server    │    │   PostgreSQL    │    │     MinIO       │
+│   (Express.js)  │◄──►│   Database      │    │   File Storage  │
+│   Port: 4000    │    │   Port: 5432    │    │   Port: 9000    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │   API Gateway   │
-                    │   (Nginx)       │
-                    └─────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │   Core API      │
-                    │   (Node.js)     │
-                    └─────────────────┘
-                                 │
-         ┌─────────────────────────────────────────┐
-         │                                         │
+         │                       │                       │
+         ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   PostgreSQL    │    │     Redis       │    │     MinIO       │
-│   Database      │    │   Cache/Queue   │    │   File Storage  │
+│   Redis Cache   │    │   MailHog       │    │   Render.com    │
+│   Port: 6379    │    │   Port: 1025    │    │   Production    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### **Technology Stack**
+## 🚀 **Key Features**
 
-- **Backend**: Node.js, Express.js, TypeScript
-- **Database**: PostgreSQL with Knex.js ORM
-- **Cache**: Redis for session management and caching
-- **File Storage**: MinIO for document management
-- **Containerization**: Docker & Docker Compose
-- **Email**: Nodemailer with MailHog (dev) / SMTP (prod)
-- **Security**: JWT with refresh tokens, bcrypt, helmet, rate limiting
-- **Monitoring**: Winston logging, metrics collection
-- **Validation**: Zod schemas for type-safe API requests
+### **Core Functionality**
 
-## 🎓 **Academic Structure Management**
+- **Candidate Registration**: JAMB verification and profile creation
+- **Payment Processing**: Multi-provider payment gateway integration
+- **Document Management**: Secure file upload and storage
+- **Admin Dashboard**: Comprehensive administrative tools
+- **Real-time Notifications**: Email and SMS integration
 
-### **Academic Entities**
+### **Payment Integration**
 
-- **Faculties**: Top-level academic divisions (e.g., Faculty of Education, Faculty of Science)
-- **Departments**: Academic units within faculties (e.g., Computer Science, Mathematics)
-- **Programs**: Specific degree programs and courses
-- **Program-Department Links**: Flexible many-to-many relationships between programs and departments
-
-### **Management Features**
-
-- **CRUD Operations**: Full create, read, update, delete capabilities for all academic entities
-- **Validation System**: Ensures data integrity and prevents invalid relationships
-- **Active/Inactive Status**: Soft management of academic entities
-- **Relationship Management**: Flexible linking of programs to departments
-- **Admin Interface**: Comprehensive admin panel for academic structure management
-
-## 🔐 **Enhanced Security Features**
-
-### **Authentication & Authorization**
-
-- **JWT Authentication**: Secure token-based authentication with access and refresh tokens
-- **Token Refresh**: Automatic token renewal mechanism for seamless user experience
-- **Secure Logout**: Token invalidation and session cleanup
-- **Role-Based Access Control**: Admin, Candidate, and Staff role management
-- **Password Security**: bcrypt hashing with configurable salt rounds
-- **Session Management**: Redis-based session management
-
-### **Data Protection**
-
-- **Input Validation**: Comprehensive request validation using Zod schemas
-- **SQL Injection Prevention**: Parameterized queries with Knex.js
-- **XSS Protection**: Security headers and content sanitization
-- **CORS Configuration**: Controlled cross-origin resource sharing
-- **Data Encryption**: Encryption for sensitive information
-
-### **API Security**
-
-- **Request Rate Limiting**: Protection against abuse and brute force attacks
-- **API Key Validation**: Secure API access control
-- **Request Logging**: Comprehensive request monitoring and logging
-- **Suspicious Activity Detection**: Security event monitoring
-- **Audit Logging**: Complete audit trail for compliance
-
-## 💳 **Enhanced Payment System**
-
-### **Payment Providers**
-
-- **Remita**: Primary payment gateway with comprehensive integration
-- **Flutterwave**: Secondary payment option for additional flexibility
-- **Paystack**: Alternative payment gateway support
-- **Mock Provider**: Development and testing support
-
-### **Payment Features**
-
-- **Real Database Integration**: All payment data stored in PostgreSQL with proper relationships
-- **Transaction Tracking**: Comprehensive payment history, status, and audit trail
-- **Idempotency**: Prevents duplicate payment processing
+- **Remita**: Nigerian payment gateway
+- **Flutterwave**: International payment processing
 - **Webhook Support**: Real-time payment status updates from providers
-- **Payment Types**: Dynamic payment type management per academic session
-- **Receipt Management**: Digital receipt generation and storage
-- **Multi-Currency Support**: Flexible currency handling
-- **Payment Statistics**: Comprehensive analytics and reporting
+- **Multi-currency Support**: NGN, USD, EUR, GBP
 
-## 📊 **Candidate Registration Flow**
+### **Security & Compliance**
 
-### **Phase 1: JAMB Verification & Account Creation**
+- **JWT Authentication**: Secure token-based authentication
+- **Role-based Access Control**: Admin, candidate, and system roles
+- **Data Encryption**: End-to-end encryption for sensitive data
+- **Audit Logging**: Comprehensive action tracking
+- **Rate Limiting**: DDoS protection and abuse prevention
 
-1. **JAMB Number Verification** - Validate JAMB registration number
-2. **Account Creation** - Generate temporary account with secure credentials
-3. **Email Notification** - Send temporary password email to candidate
-4. **Database Setup** - Initialize candidate and profile records
+## 🛠️ **Technology Stack**
 
-### **Phase 2: Payment & Authentication**
+### **Backend**
 
-1. **Post-UTME Payment** - Complete required payment for application
-2. **Account Activation** - Enable full access to portal features
-3. **Password Management** - Enforce password change on first login
-4. **Session Management** - Establish secure user sessions with JWT tokens
+- **Runtime**: Node.js 20.13.1 LTS
+- **Framework**: Express.js with TypeScript
+- **Database**: PostgreSQL 16 with Knex.js ORM
+- **Cache**: Redis 7
+- **File Storage**: MinIO (S3-compatible)
+- **Authentication**: JWT with refresh tokens
 
-### **Phase 3: Progressive Profile Completion**
+### **Development Tools**
 
-1. **Biodata Completion** - Personal information and contact details
-2. **Educational Background** - Academic history and qualifications
-3. **Next of Kin Information** - Emergency contact and guardian details
-4. **Sponsor Information** - Financial sponsor and payment details
-5. **Document Upload** - Required certificates and identification
+- **Package Manager**: pnpm 10.14.0
+- **Build Tool**: TypeScript 5.5.4
+- **Linting**: ESLint 9.8.0
+- **Formatting**: Prettier 3.3.3
+- **Containerization**: Docker & Docker Compose
 
-### **Phase 4: Registration Finalization**
+## 📁 **Project Structure**
 
-1. **Profile Validation** - Verify all required information
-2. **Application Submission** - Submit completed application with academic validation
-3. **Confirmation Email** - Send registration completion notification
-4. **Status Tracking** - Monitor application review process
+```
+fuep-postutme/
+├── apps/
+│   └── api/                 # Express.js API server
+│       ├── src/
+│       │   ├── modules/     # Feature modules (admin, candidates, payments)
+│       │   ├── middleware/  # Express middleware
+│       │   ├── services/    # Business logic services
+│       │   └── db/          # Database configuration
+│       └── Dockerfile       # Production container
+├── packages/
+│   └── types/               # Shared TypeScript types
+├── infra/
+│   └── db/                  # Database migrations and schemas
+├── docs/                    # API documentation
+├── docker-compose.yml       # Local development stack
+└── render.yaml              # Render.com deployment blueprint
+```
 
-## 📧 **Email Service**
-
-### **Email Templates**
-
-- **Temporary Password** - Secure login credentials with security notices
-- **Registration Completion** - Confirmation of successful registration
-- **Payment Confirmation** - Payment receipt and next steps
-- **Status Updates** - Application progress notifications
-
-### **Email Features**
-
-- Professional HTML and plain text templates
-- Branded with FUEP colors and logo
-- Responsive design for mobile devices
-- Automated sending with error handling
-- Development testing with MailHog
-
-## 🗄️ **Database Schema**
-
-### **Core Tables**
-
-- `candidates` - Candidate account information
-- `profiles` - Detailed candidate profiles
-- `applications` - Application records and status
-- `payments` - Payment transactions and history
-- `documents` - File uploads and metadata
-- `audit_logs` - Comprehensive audit trail
-
-### **Academic Tables**
-
-- `faculties` - Academic faculty information
-- `departments` - Department details within faculties
-- `programs` - Academic program information
-- `program_departments` - Program-department relationships
-
-### **Key Features**
-
-- UUID primary keys for security
-- Proper foreign key relationships
-- Indexed fields for performance
-- Enum types for status management
-- Timestamp tracking for all records
-- Academic hierarchy management
-
-## 🚀 **Getting Started**
+## 🚀 **Quick Start**
 
 ### **Prerequisites**
 
-- Docker and Docker Compose
-- Node.js 18+ and pnpm
-- Git
+- Node.js 20.13.1+
+- pnpm 10.14.0+
+- Docker & Docker Compose
+- PostgreSQL 16
 
-### **Quick Start**
+### **Local Development**
 
-```bash
-# Clone the repository
-git clone https://github.com/sbikelly/fuep-postutme.git
-cd fuep-postutme
+1. **Clone and Setup**
 
-# Start all services
-docker compose up -d
+   ```bash
+   git clone https://github.com/sbikelly/fuep-postutme.git
+   cd fuep-postutme
+   pnpm install
+   ```
 
-# Access the application
-# API: http://localhost:4000
-# Web UI: http://localhost:5173
-# Admin Panel: http://localhost:5173/admin
-# MailHog: http://localhost:8025
-```
+2. **Environment Configuration**
 
-### **Environment Configuration**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-```bash
-# Copy environment template
-cp .env.example .env
+3. **Start Services**
 
-# Configure your environment variables
-# Database, payment providers, email settings, etc.
-```
+   ```bash
+   # Start all services (API, PostgreSQL, Redis, MinIO, MailHog)
+   pnpm docker:up
+
+   # Or start API only
+   pnpm dev:api
+   ```
+
+4. **Access Services**
+   - **API**: http://localhost:4000
+   - **API Health**: http://localhost:4000/api/health
+   - **API Docs**: http://localhost:4000/docs
+   - **PostgreSQL**: localhost:5432
+   - **Redis**: localhost:6379
+   - **MinIO**: localhost:9000
+   - **MailHog**: localhost:1025 (SMTP), localhost:8025 (Web UI)
+
+### **Production Deployment**
+
+The project includes a `render.yaml` blueprint for automated deployment to Render.com:
+
+1. **Connect Repository**: Link your GitHub repository to Render
+2. **Auto-deploy**: Render will automatically detect the blueprint
+3. **Environment Variables**: Configure required environment variables
+4. **Database**: Managed PostgreSQL database included
 
 ## 📚 **API Documentation**
 
-### **Available Endpoints**
+### **Core Endpoints**
 
 - **Health Check**: `GET /api/health`
-- **Authentication**:
-  - `POST /api/auth/login` - User login
-  - `POST /api/auth/refresh-token` - Token refresh
-  - `POST /api/auth/logout` - Secure logout
-  - `PUT /api/auth/change-password` - Password change
-- **Candidates**: `POST /api/candidates/check-jamb`
-- **Payments**: `POST /api/payments/initiate`
-- **Admin Academic Management**:
-  - `GET /api/admin/faculties` - List faculties
-  - `POST /api/admin/faculties` - Create faculty
-  - `GET /api/admin/departments` - List departments
-  - `POST /api/admin/departments` - Create department
-  - `GET /api/admin/programs` - List programs
-  - `POST /api/admin/programs` - Create program
-- **Documents**: `POST /api/documents/upload`
+- **Authentication**: `POST /api/admin/auth/login`
+- **Payment Purposes**: `GET /api/admin/payment-purposes`
+- **Candidates**: `GET /api/candidates`
+- **Payments**: `POST /api/payments/init`
 
-### **OpenAPI Documentation**
+### **OpenAPI Specification**
 
-- **Swagger UI**: `http://localhost:4000/docs`
-- **OpenAPI Spec**: `http://localhost:4000/api/openapi.json`
+- **Swagger UI**: `/docs`
+- **OpenAPI JSON**: `/openapi.json`
+- **YAML Spec**: `docs/openapi.yaml`
 
-## 🧪 **Testing**
-
-### **API Testing**
+## 🔧 **Development Commands**
 
 ```bash
-# Test health endpoint
-curl http://localhost:4000/api/health
+# Build all packages
+pnpm build
 
-# Test candidate registration
-curl -X POST http://localhost:4000/api/candidates/check-jamb \
-  -H "Content-Type: application/json" \
-  -d '{"jambRegNo":"JAMB123","email":"test@example.com","phone":"+2341234567890"}'
-
-# Test authentication
-curl -X POST http://localhost:4000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"JAMB123","password":"temp123"}'
-```
-
-### **Email Testing**
-
-- Access MailHog at `http://localhost:8025`
-- View all sent emails in development
-- Test email templates and delivery
-
-## 📈 **Monitoring & Analytics**
-
-### **Performance Metrics**
-
-- HTTP request/response times
-- Database query performance
-- Cache hit/miss ratios
-- System resource utilization
-
-### **Business Analytics**
-
-- Application statistics
-- Payment analytics
-- Candidate demographics
-- Document processing metrics
-- Academic structure analytics
-
-### **Security Monitoring**
-
-- Failed authentication attempts
-- Suspicious API usage
-- Data access patterns
-- Security event logging
-
-## 🤝 **Contributing**
-
-### **Development Setup**
-
-```bash
-# Install dependencies
-pnpm install
-
-# Run development server
-pnpm dev
+# Start API development server
+pnpm dev:api
 
 # Run tests
 pnpm test
 
-# Build for production
-pnpm build
+# Clean build artifacts
+pnpm clean
+
+# Docker operations
+pnpm docker:up      # Start services
+pnpm docker:down    # Stop services
+pnpm docker:logs    # View logs
+pnpm docker:ps      # Service status
 ```
 
-### **Code Standards**
+## 📊 **Database Schema**
 
-- TypeScript for type safety
-- ESLint for code quality
-- Prettier for formatting
-- Conventional commits
-- Comprehensive testing
+### **Core Tables**
+
+- **candidates**: Candidate registration and profiles
+- **payment_purposes**: Configurable payment types and amounts
+- **payments**: Payment transaction records
+- **admin_users**: Administrative user accounts
+- **documents**: File upload management
+- **audit_logs**: Comprehensive action tracking
+
+### **Key Relationships**
+
+- Candidates have multiple payment records
+- Payment purposes define fee structures by session
+- Documents are linked to candidates and payment purposes
+- All actions are logged in audit tables
+
+## 🔒 **Security Features**
+
+- **CORS Configuration**: Configurable cross-origin policies
+- **Rate Limiting**: Per-endpoint and global rate limiting
+- **Input Validation**: Zod schema validation
+- **SQL Injection Protection**: Parameterized queries with Knex.js
+- **XSS Protection**: Helmet.js security headers
+- **CSRF Protection**: Token-based CSRF prevention
+
+## 🚀 **Performance Optimizations**
+
+- **Database Indexing**: Optimized queries with proper indexes
+- **Caching Strategy**: Redis-based caching for frequently accessed data
+- **Connection Pooling**: Efficient database connection management
+- **Async Processing**: Non-blocking I/O operations
+- **Compression**: Response compression for large payloads
+
+## 🤝 **Contributing**
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+### **Development Guidelines**
+
+- Follow TypeScript best practices
+- Write comprehensive tests
+- Update documentation for new features
+- Follow conventional commit format
+- Ensure all tests pass before submitting
 
 ## 📄 **License**
 
@@ -354,19 +233,34 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 **Support**
 
-### **Contact Information**
+- **Documentation**: Check the `/docs` directory
+- **Issues**: Report bugs via GitHub Issues
+- **Discussions**: Use GitHub Discussions for questions
+- **Email**: Contact the development team
 
-- **Email**: admissions@fuep.edu.ng
-- **Technical Support**: tech-support@fuep.edu.ng
-- **Documentation**: [docs/](docs/)
+## 🎯 **Roadmap**
 
-### **Issue Reporting**
+### **Phase 1: Core API** ✅
 
-- GitHub Issues: [Report a Bug](https://github.com/sbikelly/fuep-postutme/issues)
-- Feature Requests: [Request Feature](https://github.com/sbikelly/fuep-postutme/issues/new)
+- [x] Basic API structure and authentication
+- [x] Candidate registration and management
+- [x] Payment processing integration
+- [x] Admin dashboard functionality
+
+### **Phase 2: Enhanced Features** 🚧
+
+- [ ] Advanced payment analytics
+- [ ] Bulk operations and data import
+- [ ] Enhanced security features
+- [ ] Performance optimizations
+
+### **Phase 3: Production Ready** 📋
+
+- [ ] Comprehensive testing suite
+- [ ] Monitoring and alerting
+- [ ] CI/CD pipeline optimization
+- [ ] Production deployment automation
 
 ---
 
-**Built with ❤️ for Federal University of Education, Pankshin**
-
-_Last updated: August 2025_
+**Built with ❤️ for FUEP by the Development Team**

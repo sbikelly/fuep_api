@@ -1,476 +1,303 @@
-# FUEP Post-UTME Portal - System Architecture
+# FUEP Post-UTME Portal - Architecture Documentation
 
-## 🏗️ **System Overview**
+## 🏗️ **System Architecture Overview**
 
-The FUEP Post-UTME Portal is a comprehensive, microservices-based application designed to handle the complete Post-UTME application lifecycle. The system is built with modern web technologies, emphasizing security, scalability, and user experience.
+The FUEP Post-UTME Portal is a **modern, API-first architecture** designed for scalability, security, and maintainability. The system is built with a microservices approach, focusing on a robust backend API that can serve multiple client applications.
 
 ## 🎯 **Architecture Principles**
 
-### **Core Design Principles**
+- **API-First Design**: RESTful API as the core, enabling multiple client applications
+- **Microservices Architecture**: Modular, independently deployable services
+- **Event-Driven Design**: Asynchronous processing for better performance
+- **Security by Design**: Comprehensive security measures at every layer
+- **Scalability**: Horizontal scaling capabilities for production workloads
+- **Observability**: Comprehensive logging, monitoring, and tracing
 
-- **Security First**: Comprehensive security measures at every layer
-- **Scalability**: Horizontal scaling capabilities with load balancing
-- **Maintainability**: Clean code architecture with clear separation of concerns
-- **Performance**: Optimized database queries and caching strategies
-- **Reliability**: Fault tolerance and error handling throughout the system
-- **Observability**: Comprehensive logging, monitoring, and analytics
-
-### **Technology Choices**
-
-- **Backend**: Node.js with Express.js for API development
-- **Language**: TypeScript for type safety and developer experience
-- **Database**: PostgreSQL for relational data with ACID compliance
-- **Cache**: Redis for session management and performance optimization
-- **Containerization**: Docker for consistent deployment environments
-- **Email**: Nodemailer with configurable SMTP providers
-
-## 🏛️ **System Architecture**
-
-### **High-Level Architecture**
+## 🏛️ **High-Level Architecture**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Client Layer                             │
-├─────────────────────────────────────────────────────────────────┤
-│  Web App (React)  │  Mobile App  │  Admin Panel  │  External   │
-│                   │               │               │  Systems    │
+│                        Client Applications                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│  │   Web App   │  │  Mobile App │  │ Admin Panel │            │
+│  │  (Future)   │  │  (Future)   │  │  (Future)   │            │
+│  └─────────────┘  └─────────────┘  └─────────────┘            │
 └─────────────────────────────────────────────────────────────────┘
                                 │
-                    ┌─────────────────┐
-                    │   Load Balancer │
-                    │   (Nginx)       │
-                    └─────────────────┘
-                                │
-                    ┌─────────────────┐
-                    │   API Gateway   │
-                    │   (Express.js)  │
-                    └─────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Service Layer                      │
-         ├─────────────────────────────────────────────────┤
-         │  Auth  │  Candidates  │  Payments  │  Admin     │
-         │  Service│  Service    │  Service   │  Service   │
-         └─────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Infrastructure Layer               │
-         ├─────────────────────────────────────────────────┤
-         │  PostgreSQL  │  Redis  │  MinIO   │  Email     │
-         │  Database    │  Cache  │  Storage │  Service   │
-         └─────────────────────────────────────────────────┘
-```
-
-### **Service Architecture**
-
-```
+                                ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                        API Layer                               │
-├─────────────────────────────────────────────────────────────────┤
-│  Authentication  │  Rate Limiting  │  Security Headers        │
-│  Middleware      │  Middleware     │  Middleware              │
+│                        API Gateway Layer                        │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              Express.js API Server                      │    │
+│  │              Port: 4000                                 │    │
+│  │              TypeScript + Node.js                       │    │
+│  └─────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────┘
                                 │
-                    ┌─────────────────┐
-                    │   Router Layer  │
-                    │   (Express.js)  │
-                    └─────────────────┘
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Business Logic Layer                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│  │   Admin     │  │ Candidates  │  │  Payments   │            │
+│  │  Module     │  │   Module    │  │   Module    │            │
+│  └─────────────┘  └─────────────┘  └─────────────┘            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│  │ Documents   │  │  Academic   │  │   Audit     │            │
+│  │  Module     │  │  Module     │  │   Module    │            │
+│  └─────────────┘  └─────────────┘  └─────────────┘            │
+└─────────────────────────────────────────────────────────────────┘
                                 │
-         ┌─────────────────────────────────────────────────┐
-         │              Controller Layer                   │
-         ├─────────────────────────────────────────────────┤
-         │  Auth Ctrl  │  Candidate Ctrl │  Payment Ctrl │  Admin Ctrl │
-         │             │                 │               │             │
-         └─────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Service Layer                      │
-         ├─────────────────────────────────────────────────┤
-         │  Auth Svc   │  Candidate Svc │  Payment Svc  │  Admin Svc  │
-         │             │                 │               │             │
-         └─────────────────────────────────────────────────┘
-                                │
-                    ┌─────────────────┐
-                    │   Data Layer    │
-                    │   (Knex.js)     │
-                    └─────────────────┘
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Infrastructure Layer                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│  │ PostgreSQL  │  │    Redis    │  │    MinIO    │            │
+│  │  Database   │  │    Cache    │  │File Storage │            │
+│  │  Port: 5432 │  │  Port: 6379 │  │ Port: 9000  │            │
+│  └─────────────┘  └─────────────┘  └─────────────┘            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│  │  MailHog    │  │   Docker    │  │   Render    │            │
+│  │   Email     │  │  Container  │  │Production   │            │
+│  │ Port: 1025  │  │Management   │  │ Platform    │            │
+│  └─────────────┘  └─────────────┘  └─────────────┘            │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+## 🔧 **Technology Stack**
+
+### **Backend Runtime**
+
+- **Node.js**: 20.13.1 LTS (Long Term Support)
+- **TypeScript**: 5.5.4 for type safety and modern JavaScript features
+- **Express.js**: 4.18+ for HTTP server and middleware framework
+
+### **Database & Storage**
+
+- **PostgreSQL**: 16 for primary data storage with ACID compliance
+- **Redis**: 7 for caching, session management, and rate limiting
+- **MinIO**: S3-compatible object storage for file management
+- **Knex.js**: SQL query builder and migration management
+
+### **Authentication & Security**
+
+- **JWT**: JSON Web Tokens for stateless authentication
+- **bcrypt**: Password hashing with configurable salt rounds
+- **Helmet.js**: Security headers and middleware
+- **CORS**: Configurable cross-origin resource sharing
+- **Rate Limiting**: DDoS protection and abuse prevention
+
+### **Development & Deployment**
+
+- **pnpm**: 10.14.0 for fast, efficient package management
+- **Docker**: Containerization for consistent environments
+- **Docker Compose**: Multi-service development orchestration
+- **Render.com**: Production deployment platform with managed services
+
+## 🏢 **Service Architecture**
+
+### **Core API Server**
+
+The main Express.js application serves as the central API gateway, handling:
+
+- HTTP request routing and middleware
+- Authentication and authorization
+- Request validation and sanitization
+- Response formatting and error handling
+- Rate limiting and security measures
+
+### **Module-Based Architecture**
+
+The application is organized into feature modules:
+
+#### **Admin Module**
+
+- User management and role-based access control
+- Academic structure management (faculties, departments, programs)
+- Payment purpose configuration and management
+- System monitoring and analytics
+- Audit logging and compliance
+
+#### **Candidate Module**
+
+- Registration and profile management
+- JAMB verification and validation
+- Application processing and status tracking
+- Document management and verification
+
+#### **Payment Module**
+
+- Multi-provider payment gateway integration
+- Transaction processing and reconciliation
+- Webhook handling and status updates
+- Payment analytics and reporting
+
+#### **Document Module**
+
+- File upload and storage management
+- Document verification and processing
+- Storage optimization and cleanup
+- Access control and security
 
 ## 🔐 **Security Architecture**
 
-### **Authentication & Authorization**
+### **Authentication Flow**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Security Layer                               │
-├─────────────────────────────────────────────────────────────────┤
-│  JWT Tokens  │  Role-Based Access │  Session Management       │
-│               │  Control (RBAC)   │                           │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Protection Layer                   │
-         ├─────────────────────────────────────────────────┤
-         │  Rate Limiting │  Input Validation │  SQL Injection │
-         │                │                  │  Prevention     │
-         └─────────────────────────────────────────────────┘
-                                │
-                    ┌─────────────────┐
-                    │   Data Security │
-                    │   (Encryption)  │
-                    └─────────────────┘
+1. User Login → Username/Password Validation
+2. Credential Verification → Database Check + bcrypt
+3. JWT Generation → Access Token + Refresh Token
+4. Token Storage → Secure HTTP-only Cookies
+5. Request Authorization → JWT Validation + Role Check
 ```
 
-### **Security Features**
+### **Security Layers**
 
-- **JWT Authentication**: Secure token-based authentication with access and refresh tokens
-- **Password Security**: bcrypt hashing with configurable salt rounds
-- **Rate Limiting**: Protection against brute force attacks
-- **Input Validation**: Comprehensive request validation and sanitization using Zod schemas
-- **SQL Injection Prevention**: Parameterized queries with Knex.js
-- **XSS Protection**: Security headers and content sanitization
-- **CORS Configuration**: Controlled cross-origin resource sharing
-- **Token Refresh**: Secure token renewal mechanism
-- **Logout Security**: Token invalidation and session cleanup
+- **Transport Layer**: HTTPS/TLS encryption
+- **Application Layer**: Input validation and sanitization
+- **Database Layer**: Parameterized queries and access control
+- **Storage Layer**: Encrypted file storage and access logs
+
+### **Rate Limiting Strategy**
+
+- **Global Rate Limiting**: Per-IP address protection
+- **Endpoint-Specific Limits**: Different limits for different operations
+- **Authentication Rate Limiting**: Protection against brute force attacks
+- **Dynamic Adjustment**: Adaptive limits based on user behavior
 
 ## 📊 **Data Architecture**
 
-### **Database Design**
+### **Database Design Principles**
+
+- **Normalization**: Proper database normalization for data integrity
+- **Indexing Strategy**: Optimized indexes for query performance
+- **Foreign Key Constraints**: Referential integrity enforcement
+- **Audit Trail**: Comprehensive logging of all data changes
+
+### **Core Data Models**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Core Entities                                │
-├─────────────────────────────────────────────────────────────────┤
-│  candidates  │  profiles    │  applications │  payments       │
-│  (accounts)  │  (details)   │  (status)     │  (transactions) │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Academic Structure                  │
-         ├─────────────────────────────────────────────────┤
-         │  faculties   │  departments │  programs        │  program_departments │
-         │  (schools)   │  (divisions) │  (courses)       │  (relationships)     │
-         └─────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Supporting Entities                 │
-         ├─────────────────────────────────────────────────┤
-         │  documents  │  audit_logs │  email_logs │  users    │
-         │  (files)    │  (tracking) │  (notifications) │ (admin) │
-         └─────────────────────────────────────────────────┘
+Candidates ←→ Profiles ←→ Applications
+    ↓              ↓           ↓
+Payments ←→ Payment_Purposes ←→ Documents
+    ↓              ↓           ↓
+Audit_Logs ←→ Admin_Users ←→ Permissions
 ```
 
-### **Key Database Features**
+### **Data Flow Patterns**
 
-- **UUID Primary Keys**: Enhanced security and scalability
-- **Proper Indexing**: Optimized query performance
-- **Foreign Key Constraints**: Data integrity and referential integrity
-- **Enum Types**: Structured status and type management
-- **Timestamp Tracking**: Comprehensive audit trail
-- **Soft Deletes**: Data preservation and recovery capabilities
-- **Academic Hierarchy**: Structured faculty → department → program relationships
-- **Many-to-Many Relationships**: Flexible program-department associations
-
-## 🎓 **Academic Structure Management**
-
-### **Academic Entity Relationships**
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Faculties     │    │   Departments   │    │    Programs     │
-│   (Schools)     │    │   (Divisions)   │    │   (Courses)     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │ Program-Department │
-                    │   Junction Table   │
-                    └─────────────────┘
-```
-
-### **Academic Management Features**
-
-- **Faculty Management**: Create, read, update, delete faculty records
-- **Department Management**: Manage departments within faculties
-- **Program Management**: Handle academic programs and courses
-- **Relationship Management**: Link programs to departments with flexible associations
-- **Validation System**: Ensure data integrity across academic entities
-- **Active/Inactive Status**: Soft management of academic entities
-
-## 💳 **Payment System Architecture**
-
-### **Payment Provider Integration**
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Payment Gateway Layer                        │
-├─────────────────────────────────────────────────────────────────┤
-│  Remita        │  Flutterwave   │  Paystack      │  Mock       │
-│  (Primary)     │  (Secondary)   │  (Secondary)   │  (Testing)  │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Payment Service Layer               │
-         ├─────────────────────────────────────────────────┤
-         │  Payment      │  Provider      │  Transaction   │
-         │  Initiation   │  Management    │  Processing    │
-         └─────────────────────────────────────────────────┘
-                                │
-                    ┌─────────────────┐
-                    │   Database      │
-                    │   Integration   │
-                    └─────────────────┘
-```
-
-### **Payment Features**
-
-- **Multi-Provider Support**: Remita, Flutterwave, and Paystack integration
-- **Real Database Integration**: All payment data stored in PostgreSQL
-- **Transaction Tracking**: Comprehensive payment history and status
-- **Idempotency**: Prevents duplicate payment processing
-- **Webhook Support**: Real-time payment status updates
-- **Mock Provider**: Testing and development support
-- **Payment Types**: Dynamic payment type management per session
-- **Receipt Management**: Digital receipt generation and storage
-
-## 📧 **Email Service Architecture**
-
-### **Email Service Design**
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Email Service Layer                         │
-├─────────────────────────────────────────────────────────────────┤
-│  Email Service  │  Template Engine │  Transport Layer         │
-│  (Core Logic)   │  (HTML/Text)    │  (SMTP/Nodemailer)       │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Email Templates                     │
-         ├─────────────────────────────────────────────────┤
-         │  Temporary    │  Registration │  Payment       │
-         │  Password     │  Completion   │  Confirmation  │
-         └─────────────────────────────────────────────────┘
-                                │
-                    ┌─────────────────┐
-                    │   Email Storage │
-                    │   (MailHog/DB) │
-                    └─────────────────┘
-```
-
-### **Email Features**
-
-- **Professional Templates**: Branded HTML and plain text emails
-- **Dynamic Content**: Personalized email content generation
-- **Error Handling**: Comprehensive error logging and retry mechanisms
-- **Development Support**: MailHog integration for testing
-- **Production Ready**: Configurable SMTP providers
-- **Template Management**: Centralized email template system
-
-## 🔄 **Candidate Registration Flow**
-
-### **Phase 1: JAMB Verification & Account Creation**
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   JAMB Number   │───▶│  Verification   │───▶│  Account        │
-│   Input         │    │  Service        │    │  Creation       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                       │
-         ┌─────────────────────────────────────────────────┐
-         │              Email Notification                 │
-         ├─────────────────────────────────────────────────┤
-         │  Generate     │  Send Email    │  Log Activity   │
-         │  Temp Password│  with Creds    │                 │
-         └─────────────────────────────────────────────────┘
-```
-
-### **Phase 2: Payment & Authentication**
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Payment       │───▶│  Payment        │───▶│  Account        │
-│   Initiation    │    │  Processing     │    │  Activation     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                       │
-         ┌─────────────────────────────────────────────────┐
-         │              Security Setup                     │
-         ├─────────────────────────────────────────────────┤
-         │  Password      │  Session      │  Access         │
-         │  Enforcement   │  Management   │  Control        │
-         └─────────────────────────────────────────────────┘
-```
-
-### **Phase 3: Progressive Profile Completion**
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Biodata       │───▶│  Education      │───▶│  Next of Kin    │
-│   Completion    │    │  Background     │    │  Information    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                       │
-         ┌─────────────────────────────────────────────────┐
-         │              Document Upload                    │
-         ├─────────────────────────────────────────────────┤
-         │  File         │  Validation    │  Storage       │
-         │  Upload       │  & Processing  │  Management    │
-         └─────────────────────────────────────────────────┘
-```
-
-### **Phase 4: Registration Finalization**
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Profile       │───▶│  Application    │───▶│  Confirmation   │
-│   Validation    │    │  Submission     │    │  & Notification │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                       │
-         ┌─────────────────────────────────────────────────┐
-         │              Status Tracking                    │
-         ├─────────────────────────────────────────────────┤
-         │  Review        │  Updates       │  Progress       │
-         │  Process       │  & Notifications│  Monitoring     │
-         └─────────────────────────────────────────────────┘
-```
+- **Synchronous Operations**: Real-time data processing
+- **Asynchronous Processing**: Background job processing
+- **Event Sourcing**: Audit trail and change tracking
+- **Caching Strategy**: Multi-level caching for performance
 
 ## 🚀 **Performance Architecture**
 
 ### **Caching Strategy**
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Multi-Tier Caching                          │
-├─────────────────────────────────────────────────────────────────┤
-│  Fast Cache    │  Standard Cache │  Slow Cache   │  Static     │
-│  (Redis)       │  (Redis)        │  (Redis)      │  (Files)    │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                    ┌─────────────────┐
-                    │   Cache         │
-                    │   Warming       │
-                    └─────────────────┘
-```
+- **Application Cache**: In-memory caching for frequently accessed data
+- **Database Cache**: Query result caching and connection pooling
+- **CDN Integration**: Static asset delivery optimization
+- **Redis Clustering**: Distributed caching for scalability
 
-### **Performance Features**
+### **Database Optimization**
 
-- **Multi-Tier Caching**: Fast, standard, and slow cache layers
-- **Database Query Optimization**: Indexed queries and connection pooling
-- **Connection Management**: Efficient database and Redis connections
-- **Response Compression**: Gzip compression for API responses
-- **Static Asset Optimization**: CDN-ready static file serving
+- **Connection Pooling**: Efficient database connection management
+- **Query Optimization**: Optimized SQL queries with proper indexing
+- **Read Replicas**: Horizontal scaling for read operations
+- **Partitioning**: Large table partitioning for performance
+
+### **Load Balancing**
+
+- **Horizontal Scaling**: Multiple API instances behind load balancer
+- **Health Checks**: Automatic instance health monitoring
+- **Auto-scaling**: Dynamic scaling based on demand
+- **Geographic Distribution**: Multi-region deployment support
 
 ## 📈 **Monitoring & Observability**
 
-### **Logging Architecture**
+### **Logging Strategy**
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Logging Layer                               │
-├─────────────────────────────────────────────────────────────────┤
-│  Application   │  Database      │  Performance  │  Security    │
-│  Logs          │  Logs          │  Metrics      │  Events      │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Centralized Logging                │
-         ├─────────────────────────────────────────────────┤
-         │  Winston      │  Structured    │  Correlation   │
-         │  Logger       │  Logging       │  IDs           │
-         └─────────────────────────────────────────────────┘
-```
+- **Structured Logging**: JSON-formatted logs for easy parsing
+- **Log Levels**: Configurable logging levels (debug, info, warn, error)
+- **Correlation IDs**: Request tracing across service boundaries
+- **Centralized Logging**: Central log aggregation and analysis
 
-### **Monitoring Features**
+### **Metrics Collection**
 
-- **Structured Logging**: JSON-formatted logs with correlation IDs
-- **Performance Metrics**: HTTP, database, and system metrics
-- **Security Monitoring**: Authentication attempts and security events
-- **Business Analytics**: Application statistics and user behavior
-- **Error Tracking**: Comprehensive error logging and alerting
+- **Application Metrics**: Request/response times, error rates
+- **Business Metrics**: User registrations, payment success rates
+- **Infrastructure Metrics**: CPU, memory, disk usage
+- **Custom Metrics**: Business-specific KPIs and measurements
 
-## 🔧 **Deployment Architecture**
+### **Alerting & Notification**
 
-### **Container Architecture**
+- **Threshold Alerts**: Automatic alerts for critical metrics
+- **Escalation Procedures**: Multi-level alert escalation
+- **Integration**: Slack, email, and SMS notifications
+- **Dashboard**: Real-time monitoring dashboards
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Docker Services                              │
-├─────────────────────────────────────────────────────────────────┤
-│  API Service   │  Database      │  Cache        │  Storage     │
-│  (Node.js)     │  (PostgreSQL)  │  (Redis)      │  (MinIO)     │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌─────────────────────────────────────────────────┐
-         │              Development Tools                   │
-         ├─────────────────────────────────────────────────┤
-         │  MailHog      │  Health        │  Monitoring    │
-         │  (Email)      │  Checks        │  Tools         │
-         └─────────────────────────────────────────────────┘
-```
+## 🔄 **Deployment Architecture**
 
-### **Deployment Features**
+### **Development Environment**
 
-- **Container Orchestration**: Docker Compose for local development
-- **Health Checks**: Comprehensive service health monitoring
-- **Environment Management**: Configurable environment variables
-- **Service Discovery**: Internal service communication
-- **Load Balancing**: Nginx-based load balancing and reverse proxy
+- **Local Development**: Docker Compose for local services
+- **Hot Reloading**: Automatic code reloading during development
+- **Environment Variables**: Configuration management
+- **Database Migrations**: Automated schema updates
 
-## 🔄 **API Design Patterns**
+### **Production Environment**
 
-### **RESTful API Design**
+- **Container Orchestration**: Docker containers on Render.com
+- **Managed Services**: PostgreSQL, Redis, and file storage
+- **Auto-scaling**: Automatic scaling based on demand
+- **Health Monitoring**: Continuous health checks and recovery
 
-- **Resource-Based URLs**: Clear, hierarchical endpoint structure
-- **HTTP Method Semantics**: Proper use of GET, POST, PUT, DELETE
-- **Status Code Standards**: Consistent HTTP response codes
-- **Error Handling**: Standardized error response format
-- **Pagination**: Efficient data pagination for large datasets
+### **CI/CD Pipeline**
 
-### **API Security Patterns**
-
-- **Authentication**: JWT-based token authentication with refresh mechanism
-- **Authorization**: Role-based access control
-- **Rate Limiting**: Request throttling and abuse prevention
-- **Input Validation**: Comprehensive request validation using Zod schemas
-- **Output Sanitization**: Safe response data formatting
-
-## 📱 **Frontend Architecture**
-
-### **Component Architecture**
-
-- **Modular Design**: Reusable, maintainable components
-- **State Management**: Centralized application state
-- **Routing**: Client-side routing with deep linking
-- **Responsive Design**: Mobile-first, adaptive layouts
-- **Accessibility**: WCAG compliance and inclusive design
-
-### **Frontend Technologies**
-
-- **Framework**: React with TypeScript
-- **State Management**: Context API or Redux
-- **Styling**: CSS-in-JS or utility-first CSS
-- **Build Tools**: Vite for fast development
-- **Testing**: Jest and React Testing Library
+- **Automated Testing**: Unit, integration, and end-to-end tests
+- **Code Quality**: Linting, formatting, and security scanning
+- **Automated Deployment**: Git-based deployment triggers
+- **Rollback Capability**: Quick rollback to previous versions
 
 ## 🔮 **Future Architecture Considerations**
 
-### **Scalability Improvements**
+### **Scalability Enhancements**
 
-- **Microservices**: Service decomposition for better scalability
-- **Message Queues**: Asynchronous processing with Redis or RabbitMQ
-- **Database Sharding**: Horizontal database scaling
-- **CDN Integration**: Global content delivery optimization
-- **Load Balancing**: Advanced load balancing strategies
+- **Microservices Split**: Further service decomposition
+- **Event Streaming**: Apache Kafka for event-driven architecture
+- **API Gateway**: Advanced routing and rate limiting
+- **Service Mesh**: Istio for service-to-service communication
 
-### **Advanced Features**
+### **Technology Evolution**
 
-- **Real-time Updates**: WebSocket integration for live updates
-- **Push Notifications**: Mobile push notification system
-- **Advanced Analytics**: Machine learning and predictive analytics
-- **Multi-tenancy**: Support for multiple institutions
+- **GraphQL**: Alternative to REST for flexible data querying
+- **gRPC**: High-performance RPC framework
+- **WebSocket**: Real-time bidirectional communication
+- **Serverless**: Function-as-a-Service for specific operations
+
+### **Integration Capabilities**
+
+- **Third-party APIs**: External service integrations
+- **Webhook Support**: Outbound webhook notifications
 - **API Versioning**: Backward-compatible API evolution
+- **Documentation**: Interactive API documentation
+
+## 📚 **Architecture Documentation**
+
+### **API Documentation**
+
+- **OpenAPI/Swagger**: Interactive API documentation
+- **Postman Collections**: Pre-configured API testing
+- **Code Examples**: Multiple programming language examples
+- **Error Codes**: Comprehensive error code documentation
+
+### **System Documentation**
+
+- **Architecture Diagrams**: Visual system representation
+- **Data Flow Diagrams**: Process and data flow documentation
+- **Security Documentation**: Security policies and procedures
+- **Deployment Guides**: Step-by-step deployment instructions
 
 ---
 
-_This architecture document reflects the current state of the FUEP Post-UTME Portal as of August 2025._
+**This architecture is designed to be flexible, scalable, and maintainable, providing a solid foundation for the FUEP Post-UTME Portal's current and future needs.**
