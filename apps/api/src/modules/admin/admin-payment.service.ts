@@ -223,9 +223,9 @@ export class AdminPaymentService {
         updated_at: new Date(),
       });
 
-      // If amount changed, create new amount record
+      // If amount changed, update the existing amount record
       if (updateData.amount && updateData.amount !== currentPaymentPurpose.amount) {
-        // Check if there's an existing amount record for this payment purpose and session
+        // Find the current active amount record
         const existingAmountRecord = await db('payment_purpose_amounts')
           .where({
             payment_purpose_id: id,
@@ -235,21 +235,14 @@ export class AdminPaymentService {
           .first();
 
         if (existingAmountRecord) {
-          // Set the effective_to date of the current active amount record
-          await db('payment_purpose_amounts').where('id', existingAmountRecord.id).update({
-            effective_to: new Date(),
-          });
+          // Update the existing amount record
+          await db('payment_purpose_amounts')
+            .where('id', existingAmountRecord.id)
+            .update({
+              amount: updateData.amount,
+              currency: updateData.currency || currentPaymentPurpose.currency,
+            });
         }
-
-        // Create new amount record
-        await db('payment_purpose_amounts').insert({
-          payment_purpose_id: id,
-          amount: updateData.amount,
-          currency: updateData.currency || currentPaymentPurpose.currency,
-          session: updateData.session || currentPaymentPurpose.session,
-          effective_from: new Date(),
-          created_by: adminUserId,
-        });
       }
 
       // Log the action
