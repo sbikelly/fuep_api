@@ -106,10 +106,10 @@ export const PaymentTransactionSchema = BaseEntitySchema.extend({
   verifiedAt: z.date().optional(),
 });
 
-// Payment Type Configuration (for admin management)
-export interface PaymentTypeConfig extends BaseEntity {
+// Payment Purpose Configuration (for admin management)
+export interface PaymentPurposeConfig extends BaseEntity {
   name: string; // e.g., 'Post-UTME Application Fee'
-  code: PaymentPurpose; // equals payment purpose for clarity
+  purpose: PaymentPurpose; // equals payment purpose for clarity
   description?: string;
   amount: number;
   currency: string;
@@ -119,9 +119,9 @@ export interface PaymentTypeConfig extends BaseEntity {
   createdBy?: string; // admin user ID
 }
 
-export const PaymentTypeConfigSchema = BaseEntitySchema.extend({
+export const PaymentPurposeConfigSchema = BaseEntitySchema.extend({
   name: z.string().max(100),
-  code: PaymentPurposeSchema,
+  purpose: PaymentPurposeSchema,
   description: z.string().optional(),
   amount: z.number().positive(),
   currency: z.string().min(3).max(3),

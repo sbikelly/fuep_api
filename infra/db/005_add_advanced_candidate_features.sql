@@ -47,8 +47,8 @@ ADD COLUMN IF NOT EXISTS sponsor_address TEXT,
 ADD COLUMN IF NOT EXISTS sponsor_occupation VARCHAR(100),
 ADD COLUMN IF NOT EXISTS sponsor_income_range VARCHAR(50);
 
--- Create payment_types table if it doesn't exist
-CREATE TABLE IF NOT EXISTS payment_types (
+-- Create payment_purposes table if it doesn't exist
+CREATE TABLE IF NOT EXISTS payment_purposes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(100) NOT NULL,
   purpose VARCHAR(50) UNIQUE NOT NULL,
@@ -59,11 +59,11 @@ CREATE TABLE IF NOT EXISTS payment_types (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default payment types
-INSERT INTO payment_types (name, purpose, amount, description) VALUES
-  ('Post-UTME Fee', 'post_utme', 2000.00, 'Post-UTME examination fee'),
-  ('Acceptance Fee', 'acceptance', 50000.00, 'Acceptance fee for admitted students'),
-  ('School Fees', 'school_fees', 150000.00, 'Annual school fees')
+-- Insert default payment purposes
+INSERT INTO payment_purposes (name, purpose, amount, description) VALUES
+  ('Post-UTME Fee', 'POST_UTME', 2000.00, 'Post-UTME examination fee'),
+  ('Acceptance Fee', 'ACCEPTANCE', 50000.00, 'Acceptance fee for admitted students'),
+  ('School Fees', 'SCHOOL_FEES', 150000.00, 'Annual school fees')
 ON CONFLICT (purpose) DO NOTHING;
 
 -- Create email_logs table for tracking email communications

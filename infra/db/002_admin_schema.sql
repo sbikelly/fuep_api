@@ -295,8 +295,8 @@ INSERT INTO admin_permissions (role, resource, action) VALUES
 -- Finance Officer
 ('finance_officer', 'payments', 'read'),
 ('finance_officer', 'payments', 'update'),
-('finance_officer', 'payment_types', 'read'),
-('finance_officer', 'payment_types', 'update'),
+('finance_officer', 'payment_purposes', 'read'),
+('finance_officer', 'payment_purposes', 'update'),
 ('finance_officer', 'disputes', 'read'),
 ('finance_officer', 'disputes', 'update'),
 ('finance_officer', 'reconciliation', 'read'),
