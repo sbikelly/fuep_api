@@ -316,21 +316,18 @@ export class AdminService {
   }
 
   // Enhanced Analytics Methods
-  async getFinancialMetrics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AdminAnalytics['financialMetrics']> {
+  async getFinancialMetrics(
+    timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
+  ): Promise<AdminAnalytics['financialMetrics']> {
     try {
-      const [
-        totalRevenue,
-        pendingPayments,
-        failedPayments,
-        totalPayments,
-        successfulPayments,
-      ] = await Promise.all([
-        this.paymentService.getTotalRevenue(timeRange),
-        this.paymentService.getPendingPaymentsCount(),
-        this.paymentService.getFailedPaymentsCount(),
-        this.paymentService.getTotalPayments(),
-        this.paymentService.getSuccessfulPaymentsCount(),
-      ]);
+      const [totalRevenue, pendingPayments, failedPayments, totalPayments, successfulPayments] =
+        await Promise.all([
+          this.paymentService.getTotalRevenue(timeRange),
+          this.paymentService.getPendingPaymentsCount(),
+          this.paymentService.getFailedPaymentsCount(),
+          this.paymentService.getTotalPayments(),
+          this.paymentService.getSuccessfulPaymentsCount(),
+        ]);
 
       const averagePaymentAmount = totalPayments > 0 ? totalRevenue / totalPayments : 0;
       const paymentSuccessRate = totalPayments > 0 ? (successfulPayments / totalPayments) * 100 : 0;
@@ -349,7 +346,9 @@ export class AdminService {
     }
   }
 
-  async getCandidateMetrics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AdminAnalytics['candidateMetrics']> {
+  async getCandidateMetrics(
+    timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
+  ): Promise<AdminAnalytics['candidateMetrics']> {
     try {
       const [
         totalRegistered,
@@ -367,9 +366,14 @@ export class AdminService {
         this.candidateService.getStateDistribution(),
       ]);
 
-      const profileCompletionRate = totalRegistered > 0 ? (completedProfiles / totalRegistered) * 100 : 0;
-      const applicationSubmissionRate = totalRegistered > 0 ? (submittedApplications / totalRegistered) * 100 : 0;
-      const averageJambScore = jambScores.length > 0 ? jambScores.reduce((sum, score) => sum + score, 0) / jambScores.length : 0;
+      const profileCompletionRate =
+        totalRegistered > 0 ? (completedProfiles / totalRegistered) * 100 : 0;
+      const applicationSubmissionRate =
+        totalRegistered > 0 ? (submittedApplications / totalRegistered) * 100 : 0;
+      const averageJambScore =
+        jambScores.length > 0
+          ? jambScores.reduce((sum, score) => sum + score, 0) / jambScores.length
+          : 0;
 
       return {
         totalRegistered,
@@ -390,7 +394,7 @@ export class AdminService {
     try {
       const systemHealth = await this.getSystemHealth();
       const uptime = process.uptime();
-      
+
       // These would be collected from the metrics middleware
       const averageResponseTime = 150; // ms - placeholder
       const errorRate = 0.5; // % - placeholder
@@ -411,11 +415,13 @@ export class AdminService {
     }
   }
 
-  async getPredictiveAnalytics(timeRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AdminAnalytics['predictiveAnalytics']> {
+  async getPredictiveAnalytics(
+    timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
+  ): Promise<AdminAnalytics['predictiveAnalytics']> {
     try {
       const currentApplications = await this.candidateService.getTotalCandidates();
       const currentRevenue = await this.paymentService.getTotalRevenue(timeRange);
-      
+
       // Simple predictive models (would be enhanced with ML in production)
       const expectedApplications = Math.round(currentApplications * 1.15); // 15% growth
       const projectedRevenue = Math.round(currentRevenue * 1.2); // 20% growth
@@ -671,21 +677,40 @@ export class AdminService {
     return { success: true, message: 'Payment reconciled successfully', data: reconciliationData };
   }
 
-  async getPaymentTypes() {
-    return this.paymentService.getAllPaymentTypes();
+  async getPaymentPurposes() {
+    try {
+      return await this.paymentService.getAllPaymentPurposes();
+    } catch (error) {
+      console.error('Error getting payment purposes:', error);
+      throw error;
+    }
   }
 
-  async createPaymentType(paymentTypeData: any, adminUserId: string) {
-    return this.paymentService.createPaymentType(paymentTypeData, adminUserId);
+  async createPaymentPurpose(paymentPurposeData: any, adminUserId: string) {
+    try {
+      return await this.paymentService.createPaymentPurpose(paymentPurposeData, adminUserId);
+    } catch (error) {
+      console.error('Error creating payment purpose:', error);
+      throw error;
+    }
   }
 
-  async updatePaymentType(paymentTypeId: string, updates: any, adminUserId: string) {
-    return this.paymentService.updatePaymentType(paymentTypeId, updates, adminUserId);
+  async updatePaymentPurpose(id: string, updateData: any, adminUserId: string) {
+    try {
+      return await this.paymentService.updatePaymentPurpose(id, updateData, adminUserId);
+    } catch (error) {
+      console.error('Error updating payment purpose:', error);
+      throw error;
+    }
   }
 
-  async deletePaymentType(paymentTypeId: string, adminUserId: string) {
-    // This method doesn't exist in AdminPaymentService, so we'll implement a placeholder
-    return { success: true, message: 'Payment type marked as inactive' };
+  async deletePaymentPurpose(id: string, adminUserId: string) {
+    try {
+      return await this.paymentService.deletePaymentPurpose(id, adminUserId);
+    } catch (error) {
+      console.error('Error deleting payment purpose:', error);
+      throw error;
+    }
   }
 
   async getPaymentDisputes(limit: number = 50, offset: number = 0) {

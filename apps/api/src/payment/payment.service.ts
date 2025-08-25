@@ -51,8 +51,8 @@ export class PaymentService {
       }
 
       // Validate payment amount against configured payment types
-      const paymentTypes = await this.getPaymentTypes(request.session);
-      const configuredPaymentType = paymentTypes.find((pt) => pt.code === request.purpose);
+      const paymentTypes = await this.getPaymentPurposes(request.session);
+      const configuredPaymentType = paymentTypes.find((pt) => pt.purpose === request.purpose);
 
       if (!configuredPaymentType) {
         throw new Error(
@@ -603,28 +603,49 @@ export class PaymentService {
     }
   }
 
-  // Helper method to get payment types for a session
-  async getPaymentTypes(session: string): Promise<any[]> {
-    try {
-      const paymentTypes = await db('payment_types')
-        .where({ session: session, is_active: true })
-        .orderBy('name');
+  async getPaymentPurposes(session: string): Promise<any[]> {
+    const paymentPurposes = await db('payment_purposes')
+      .where('session', session)
+      .andWhere('is_active', true)
+      .orderBy('name', 'asc');
 
-      return paymentTypes.map((pt) => ({
-        id: pt.id,
-        name: pt.name,
-        code: pt.code,
-        amount: parseFloat(pt.amount),
-        currency: pt.currency,
-        session: pt.session,
-        isActive: pt.is_active,
-        description: pt.description,
-        dueDate: pt.due_date ? new Date(pt.due_date) : undefined,
-      }));
-    } catch (error) {
-      console.error('Error getting payment types:', error);
-      throw error;
-    }
+    return paymentPurposes.map((pp) => ({
+      id: pp.id,
+      name: pp.name,
+      purpose: pp.purpose,
+      description: pp.description,
+      amount: pp.amount,
+      currency: pp.currency,
+      category: pp.category,
+      requiresVerification: pp.requires_verification,
+      session: pp.session,
+      dueDate: pp.due_date,
+      isActive: pp.is_active,
+    }));
+  }
+
+  async getPaymentPurposeByPurpose(purpose: string): Promise<{
+    id: string;
+    name: string;
+    purpose: string;
+    amount: number;
+    currency: string;
+    session: string;
+    isActive: boolean;
+  } | null> {
+    const paymentPurpose = await db('payment_purposes').where('purpose', purpose).first();
+
+    if (!paymentPurpose) return null;
+
+    return {
+      id: paymentPurpose.id,
+      name: paymentPurpose.name,
+      purpose: paymentPurpose.purpose,
+      amount: paymentPurpose.amount,
+      currency: paymentPurpose.currency,
+      session: paymentPurpose.session,
+      isActive: paymentPurpose.is_active,
+    };
   }
 
   /**
@@ -644,7 +665,7 @@ export class PaymentService {
   }> {
     try {
       // Validate payment amount
-      const paymentType = await this.getPaymentTypeByPurpose(paymentData.purpose);
+      const paymentType = await this.getPaymentPurposeByPurpose(paymentData.purpose);
       if (!paymentType) {
         return {
           success: false,
@@ -744,30 +765,6 @@ export class PaymentService {
         message: 'Failed to create payment',
         error: error instanceof Error ? error.message : String(error),
       };
-    }
-  }
-
-  /**
-   * Get payment type by purpose
-   */
-  async getPaymentTypeByPurpose(purpose: string): Promise<{
-    id: string;
-    name: string;
-    amount: number;
-    description: string;
-  } | null> {
-    try {
-      const paymentType = await db('payment_types').where('code', purpose).first();
-
-      return paymentType || null;
-    } catch (error) {
-      logger.error('Failed to get payment type by purpose', {
-        module: 'payment',
-        operation: 'getPaymentTypeByPurpose',
-        metadata: { purpose },
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
     }
   }
 

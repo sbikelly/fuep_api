@@ -1,9 +1,9 @@
 import { Router } from 'express';
 
+import { paymentRateLimit } from '../middleware/rateLimiting.js';
 import { PaymentController } from './payment.controller.js';
 import { PaymentService } from './payment.service.js';
 import { PaymentProviderRegistry } from './providers/provider-registry.js';
-import { paymentRateLimit } from '../middleware/rateLimiting.js';
 
 export interface PaymentsModuleDependencies {
   logger?: Console;
@@ -45,7 +45,7 @@ export function createPaymentsModule(deps: PaymentsModuleDependencies = {}): Pay
     router.post('/init', paymentRateLimit, controller.initiatePayment.bind(controller));
 
     // Static routes (must come before parameterized routes)
-    router.get('/types', controller.getPaymentTypes.bind(controller));
+    router.get('/purposes', controller.getPaymentPurposes.bind(controller));
     router.get('/providers/status', controller.getProviderStatus.bind(controller));
     router.get('/statistics', controller.getPaymentStatistics.bind(controller));
     router.get(
