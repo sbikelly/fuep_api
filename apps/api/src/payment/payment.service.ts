@@ -51,8 +51,8 @@ export class PaymentService {
       }
 
       // Validate payment amount against configured payment types
-      const paymentTypes = await this.getPaymentPurposes(request.session);
-      const configuredPaymentType = paymentTypes.find((pt) => pt.purpose === request.purpose);
+      const paymentPurposes = await this.getPaymentPurposes(request.session);
+      const configuredPaymentType = paymentPurposes.find((pt) => pt.purpose === request.purpose);
 
       if (!configuredPaymentType) {
         throw new Error(

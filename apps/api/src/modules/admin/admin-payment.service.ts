@@ -57,7 +57,7 @@ export interface PaymentPurposeUpdate {
 export interface Payment {
   id: string;
   candidateId: string;
-  paymentTypeId: string;
+  paymentPurposeId: string;
   amount: number;
   currency: string;
   status:
@@ -110,7 +110,7 @@ export interface PaymentFilters {
   startDate?: Date;
   endDate?: Date;
   candidateId?: string;
-  paymentTypeId?: string;
+  paymentPurposeId?: string;
   minAmount?: number;
   maxAmount?: number;
 }
@@ -420,8 +420,8 @@ export class AdminPaymentService {
         query = query.where('candidate_id', filters.candidateId);
       }
 
-      if (filters?.paymentTypeId) {
-        query = query.where('payment_type_id', filters.paymentTypeId);
+      if (filters?.paymentPurposeId) {
+        query = query.where('payment_purpose_id', filters.paymentPurposeId);
       }
 
       if (filters?.minAmount !== undefined) {
@@ -928,7 +928,7 @@ export class AdminPaymentService {
     return {
       id: record.id,
       candidateId: record.candidate_id,
-      paymentTypeId: record.payment_type_id,
+      paymentPurposeId: record.payment_purpose_id,
       amount: record.amount,
       currency: record.currency,
       status: record.status,
@@ -946,20 +946,20 @@ export class AdminPaymentService {
   }
 
   private async logAmountChange(
-    paymentTypeId: string,
+    paymentPurposeId: string,
     amount: number,
     currency: string,
     reason: string,
     adminUserId: string
   ): Promise<void> {
     try {
-      await db('payment_type_amounts').insert({
-        payment_type_id: paymentTypeId,
+      await db('payment_purpose_amounts').insert({
+        payment_purpose_id: paymentPurposeId,
         amount,
         currency,
         effective_from: new Date(),
         reason,
-        changed_by: adminUserId,
+        created_by: adminUserId,
       });
     } catch (error) {
       console.error('Failed to log amount change:', error);
