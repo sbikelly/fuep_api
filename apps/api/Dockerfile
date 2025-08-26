@@ -53,7 +53,7 @@ ENV BRAND_PRIMARY_COLOR=FF134F47
 # Install wget for health checks and curl for better debugging
 RUN apk add --no-cache wget curl
 
-WORKDIR /app
+WORKDIR /app/apps/api
 
 # Copy only the built artifacts and production deps
 COPY --from=deps /app/node_modules /app/node_modules
@@ -79,4 +79,4 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:4000/api/health || exit 1
 
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["node", "dist/main.js"]
