@@ -5,9 +5,9 @@ info:
   description: REST API for candidate and admin workflows, payments, admissions, matriculation, and migration.
 
 servers:
-  - url: /api
-  - url: https://fuep-api.onrender.com/api
-  - url: http://localhost:4000/api
+  - url: 
+  - url: https://fuep-api.onrender.com
+  - url: http://localhost:4000
 
 security:
   - bearerAuth: []
