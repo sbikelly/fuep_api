@@ -97,16 +97,16 @@ fuep-postutme/
 
 1. **Clone and Setup**
 
-   ```bash
-   git clone https://github.com/sbikelly/fuep-postutme.git
-   cd fuep-postutme
+```bash
+git clone https://github.com/sbikelly/fuep-postutme.git
+cd fuep-postutme
    pnpm install
    ```
 
 2. **Environment Configuration**
 
-   ```bash
-   cp .env.example .env
+```bash
+cp .env.example .env
    # Edit .env with your configuration
    ```
 

@@ -205,6 +205,17 @@ if (openApiSpec) {
   console.log('OpenAPI documentation available at /docs and /api/openapi.json');
 }
 
+// Root health endpoint for Render health checks
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'FUEP Post-UTME Portal API',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Health check endpoint (with fast caching)
 app.get(
   '/api/health',
