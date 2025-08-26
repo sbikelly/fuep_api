@@ -60,9 +60,10 @@ export class MinioService {
       if (
         process.env.NODE_ENV === 'production' &&
         (config.endPoint === 'placeholder.minio.com' ||
-          config.accessKey === 'placeholder')
+          config.accessKey === 'placeholder' ||
+          config.accessKey === 'fuep') // Also skip if using default fuep credentials
       ) {
-        console.log('Skipping MinIO initialization in production (using placeholder values)');
+        console.log('Skipping MinIO initialization in production (using placeholder or default values)');
         this.minioClient = null as any;
         return;
       }
