@@ -161,7 +161,7 @@ The project includes a `render.yaml` blueprint for automated deployment to Rende
 pnpm build
 
 # Start API development server
-pnpm dev:api
+q
 
 # Run tests
 pnpm test

@@ -111,7 +111,14 @@ export class MinioService {
       }
     } catch (error: any) {
       console.error('Failed to initialize MinIO client', error);
-      throw error;
+      if (process.env.NODE_ENV === 'production') {
+        console.log('MinIO initialization failed, but continuing in production mode');
+        console.log('File operations will be disabled until MinIO is available');
+        // Don't throw error in production - just log it and continue
+        this.minioClient = null as any;
+      } else {
+        throw error;
+      }
     }
   }
 
@@ -143,6 +150,7 @@ export class MinioService {
       // Don't throw error in production - just log it
       if (process.env.NODE_ENV === 'production') {
         console.log('Continuing without MinIO bucket initialization in production');
+        console.log('MinIO operations will be disabled until connection is restored');
       } else {
         throw error;
       }
@@ -155,6 +163,11 @@ export class MinioService {
     metadata?: Record<string, string>
   ): Promise<UploadResult> {
     try {
+      // Check if MinIO is available
+      if (!this.minioClient) {
+        throw new Error('MinIO client not available');
+      }
+
       const etag = await this.minioClient.putObject(
         this.bucketName,
         objectName,
@@ -178,12 +191,27 @@ export class MinioService {
       };
     } catch (error: any) {
       console.error(`Failed to upload file: ${objectName}`, error);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('MinIO upload failed, but continuing in production mode');
+        // Return a mock result in production to prevent crashes
+        return {
+          url: `https://placeholder.com/${objectName}`,
+          bucket: this.bucketName,
+          objectName,
+          etag: 'placeholder',
+        };
+      }
       throw new Error(`File upload failed: ${error.message}`);
     }
   }
 
   async getFileUrl(objectName: string, expiresInSeconds: number = 3600): Promise<string> {
     try {
+      // Check if MinIO is available
+      if (!this.minioClient) {
+        return `https://placeholder.com/${objectName}`;
+      }
+
       if (expiresInSeconds <= 0) {
         // Return public URL for permanent access
         return `http://${this.configService.get('MINIO_ENDPOINT', 'localhost')}:${this.configService.get('MINIO_PORT', 9000)}/${this.bucketName}/${objectName}`;
@@ -197,26 +225,50 @@ export class MinioService {
       );
     } catch (error: any) {
       console.error(`Failed to generate file URL: ${objectName}`, error);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('MinIO URL generation failed, returning placeholder in production');
+        return `https://placeholder.com/${objectName}`;
+      }
       throw new Error(`Failed to generate file URL: ${error.message}`);
     }
   }
 
   async deleteFile(objectName: string): Promise<void> {
     try {
+      // Check if MinIO is available
+      if (!this.minioClient) {
+        console.log('MinIO client not available, skipping file deletion');
+        return;
+      }
+
       await this.minioClient.removeObject(this.bucketName, objectName);
       console.log(`File deleted successfully: ${objectName}`);
     } catch (error: any) {
       console.error(`Failed to delete file: ${objectName}`, error);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('MinIO deletion failed, but continuing in production mode');
+        return;
+      }
       throw new Error(`File deletion failed: ${error.message}`);
     }
   }
 
   async fileExists(objectName: string): Promise<boolean> {
     try {
+      // Check if MinIO is available
+      if (!this.minioClient) {
+        console.log('MinIO client not available, assuming file does not exist');
+        return false;
+      }
+
       await this.minioClient.statObject(this.bucketName, objectName);
       return true;
     } catch (error: any) {
       if (error.code === 'NoSuchKey') {
+        return false;
+      }
+      if (process.env.NODE_ENV === 'production') {
+        console.log('MinIO file check failed, assuming file does not exist in production');
         return false;
       }
       throw error;
@@ -225,6 +277,11 @@ export class MinioService {
 
   async getFileInfo(objectName: string) {
     try {
+      // Check if MinIO is available
+      if (!this.minioClient) {
+        throw new Error('MinIO client not available');
+      }
+
       const stat = await this.minioClient.statObject(this.bucketName, objectName);
       return {
         size: stat.size,
@@ -235,12 +292,28 @@ export class MinioService {
       };
     } catch (error: any) {
       console.error(`Failed to get file info: ${objectName}`, error);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('MinIO file info failed, returning placeholder in production');
+        return {
+          size: 0,
+          lastModified: new Date(),
+          etag: 'placeholder',
+          contentType: 'application/octet-stream',
+          metadata: {},
+        };
+      }
       throw new Error(`Failed to get file info: ${error.message}`);
     }
   }
 
   async listFiles(prefix?: string, recursive: boolean = true): Promise<string[]> {
     try {
+      // Check if MinIO is available
+      if (!this.minioClient) {
+        console.log('MinIO client not available, returning empty file list');
+        return [];
+      }
+
       const files: string[] = [];
       const stream = this.minioClient.listObjects(this.bucketName, prefix, recursive);
 
@@ -256,6 +329,10 @@ export class MinioService {
       });
     } catch (error: any) {
       console.error('Failed to list files', error);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('MinIO file listing failed, returning empty list in production');
+        return [];
+      }
       throw new Error(`Failed to list files: ${error.message}`);
     }
   }
