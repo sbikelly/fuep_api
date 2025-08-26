@@ -1,10 +1,10 @@
 services:
   - type: web
     name: fuep-api
-    env: node
+    env: docker
     plan: free
-    buildCommand: cd apps/api && npm install && npm run build
-    startCommand: cd apps/api && npm start
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
