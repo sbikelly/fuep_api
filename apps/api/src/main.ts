@@ -148,6 +148,20 @@ try {
 
   if (specContent) {
     openApiSpec = yaml.load(specContent);
+    
+    // Dynamically update server URLs based on current environment
+    if (openApiSpec.servers && Array.isArray(openApiSpec.servers)) {
+      const currentDomain = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+      const baseUrl = currentDomain.replace(/\/$/, ''); // Remove trailing slash
+      
+      openApiSpec.servers = [
+        { url: `${baseUrl}/api` },
+        { url: '/api' }, // Relative URL for same-origin requests
+      ];
+      
+      console.log(`OpenAPI servers configured for: ${baseUrl}/api`);
+    }
+    
     console.log('OpenAPI specification loaded successfully');
   } else {
     console.log('OpenAPI specification not found in any of the expected locations');
@@ -168,6 +182,18 @@ if (openApiSpec) {
       explorer: true,
       customCss: '.swagger-ui .topbar { display: none }',
       customSiteTitle: 'FUEP Post-UTME Portal API Documentation',
+      swaggerOptions: {
+        url: '/api/openapi.json',
+        defaultModelsExpandDepth: -1,
+        tryItOutEnabled: true,
+        requestInterceptor: (req: any) => {
+          // Ensure requests use the current domain
+          if (req.url && req.url.startsWith('/api/')) {
+            req.url = req.url;
+          }
+          return req;
+        },
+      },
     })
   );
 
