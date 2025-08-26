@@ -123,10 +123,35 @@ app.use(speedLimiter);
 // Load OpenAPI specification
 let openApiSpec: any;
 try {
-  const specPath = join(process.cwd(), 'docs', 'openapi.yaml');
-  const specContent = readFileSync(specPath, 'utf8');
-  openApiSpec = yaml.load(specContent);
-  console.log('OpenAPI specification loaded successfully');
+  // Try multiple possible paths for OpenAPI spec
+  const possiblePaths = [
+    join(process.cwd(), 'docs', 'openapi.yaml'),
+    join(process.cwd(), 'apps', 'api', 'docs', 'openapi.yaml'),
+    join(process.cwd(), '..', 'docs', 'openapi.yaml'),
+    join(__dirname, '..', '..', 'docs', 'openapi.yaml'),
+  ];
+
+  let specContent = null;
+  let specPath = null;
+
+  for (const path of possiblePaths) {
+    try {
+      specContent = readFileSync(path, 'utf8');
+      specPath = path;
+      console.log(`OpenAPI specification found at: ${path}`);
+      break;
+    } catch (err) {
+      // Continue to next path
+    }
+  }
+
+  if (specContent) {
+    openApiSpec = yaml.load(specContent);
+    console.log('OpenAPI specification loaded successfully');
+  } else {
+    console.log('OpenAPI specification not found in any of the expected locations');
+    openApiSpec = null;
+  }
 } catch (error) {
   console.error('Error loading OpenAPI specification:', error);
   openApiSpec = null;

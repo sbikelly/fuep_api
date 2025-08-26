@@ -64,8 +64,8 @@ COPY --from=build /app/apps/api/dist /app/apps/api/dist
 COPY --from=build /app/apps/api/package.json /app/apps/api/package.json
 COPY --from=build /app/tsconfig.base.json /app/tsconfig.base.json
 
-# Copy OpenAPI documentation
-COPY docs /app/docs
+# Copy OpenAPI documentation to the correct location
+COPY docs /app/apps/api/docs
 
 EXPOSE 4000
 
