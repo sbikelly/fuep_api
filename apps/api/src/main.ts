@@ -18,7 +18,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import { readFileSync } from 'fs';
-import helmet from 'helmet';
+import _helmet from 'helmet';
 import yaml from 'js-yaml';
 import { join } from 'path';
 import swaggerUi from 'swagger-ui-express';
@@ -40,7 +40,7 @@ if (process.env.NODE_ENV !== 'production') {
     const envPath = join(process.cwd(), '.env');
     console.log('Development mode: Loading .env from:', envPath);
     require('dotenv').config({ path: envPath });
-  } catch (error) {
+  } catch (_error) {
     console.log('No .env file found, using system environment variables');
   }
 }
@@ -78,11 +78,15 @@ const PORT = parseInt(process.env.PORT || '4000', 10);
 import {
   cacheInstances,
   createCacheMiddleware,
-  generateCacheKey,
+  generateCacheKey as _generateCacheKey,
   getCacheHealth,
 } from './middleware/caching.js';
 // Import logging middleware
-import { errorLoggingMiddleware, httpLoggingMiddleware, logger } from './middleware/logging.js';
+import {
+  errorLoggingMiddleware,
+  httpLoggingMiddleware,
+  logger as _logger,
+} from './middleware/logging.js';
 // Import metrics and tracing middleware
 import { httpMetricsMiddleware, metricsStore, tracingMiddleware } from './middleware/metrics.js';
 import {
@@ -133,42 +137,42 @@ try {
   ];
 
   let specContent = null;
-  let specPath = null;
+  let _specPath = null;
 
   for (const path of possiblePaths) {
     try {
       specContent = readFileSync(path, 'utf8');
-      specPath = path;
+      _specPath = path;
       console.log(`OpenAPI specification found at: ${path}`);
       break;
-    } catch (err) {
+    } catch (_err) {
       // Continue to next path
     }
   }
 
   if (specContent) {
     openApiSpec = yaml.load(specContent);
-    
+
     // Dynamically update server URLs based on current environment
     if (openApiSpec.servers && Array.isArray(openApiSpec.servers)) {
       const currentDomain = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
       const baseUrl = currentDomain.replace(/\/$/, ''); // Remove trailing slash
-      
+
       openApiSpec.servers = [
         { url: `${baseUrl}/api` },
         { url: '/api' }, // Relative URL for same-origin requests
       ];
-      
+
       console.log(`OpenAPI servers configured for: ${baseUrl}/api`);
     }
-    
+
     console.log('OpenAPI specification loaded successfully');
   } else {
     console.log('OpenAPI specification not found in any of the expected locations');
     openApiSpec = null;
   }
-} catch (error) {
-  console.error('Error loading OpenAPI specification:', error);
+} catch (_error) {
+  console.error('Error loading OpenAPI specification:', _error);
   openApiSpec = null;
 }
 
@@ -205,14 +209,25 @@ if (openApiSpec) {
   console.log('OpenAPI documentation available at /docs and /api/openapi.json');
 }
 
-// Root health endpoint for Render health checks
+// Root endpoint placeholder for Render health checks
 app.get('/', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     service: 'FUEP Post-UTME Portal API',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
+// Root health endpoint for Render health checks
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'FUEP Post-UTME Portal API',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
   });
 });
 
@@ -248,7 +263,7 @@ app.get('/api/health/db', healthCheckRateLimit, async (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Database connection failed',
@@ -268,7 +283,7 @@ app.get('/api/admin/rate-limit-stats', (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get rate limit statistics',
@@ -288,7 +303,7 @@ app.get('/api/admin/metrics', (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get metrics',
@@ -308,7 +323,7 @@ app.get('/api/admin/cache-stats', (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get cache statistics',
@@ -353,7 +368,7 @@ app.get('/api/health/detailed', createCacheMiddleware(cacheInstances.fast, 30000
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get detailed health status',
@@ -782,9 +797,9 @@ try {
   console.log('Mounting payment routes...');
   app.use('/api/payments', paymentsModule.router);
   console.log('Payment routes mounted successfully');
-} catch (error) {
-  console.error('Error initializing payments module:', error);
-  throw error;
+} catch (_error) {
+  console.error('Error initializing payments module:', _error);
+  throw _error;
 }
 
 // Initialize and mount candidate module
@@ -797,13 +812,13 @@ try {
   console.log('Mounting candidate routes...');
   app.use('/api/candidates', candidateModule.router);
   console.log('Candidate routes mounted successfully');
-} catch (error) {
-  console.error('Error initializing candidate module:', error);
-  throw error;
+} catch (_error) {
+  console.error('Error initializing candidate module:', _error);
+  throw _error;
 }
 
 // Initialize and mount documents module
-let documentsModule;
+let _documentsModule;
 try {
   console.log('Initializing documents module...');
   const { DocumentsController } = await import('./modules/documents/documents.controller.js');
@@ -889,8 +904,8 @@ try {
   app.use('/api/documents', documentsRouter);
 
   console.log('Document routes mounted successfully');
-} catch (error) {
-  console.error('Error initializing documents module:', error);
+} catch (_error) {
+  console.error('Error initializing documents module:', _error);
   // Don't throw error, continue without documents module
   console.log('Continuing without documents module...');
 }
@@ -902,14 +917,14 @@ try {
   adminModule = createAdminModule();
   app.use('/api/admin', adminModule.router);
   console.log('Admin module initialized and mounted successfully');
-} catch (error) {
-  console.error('Error initializing admin module:', error);
+} catch (_error) {
+  console.error('Error initializing admin module:', _error);
   console.log('Continuing without admin module...');
 }
 
 // Global error handling middleware (must come after all routes)
 app.use(errorLoggingMiddleware);
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const errorResponse = {
     success: false,
     error: {
