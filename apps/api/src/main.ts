@@ -128,7 +128,8 @@ try {
     join(process.cwd(), 'docs', 'openapi.yaml'),
     join(process.cwd(), 'apps', 'api', 'docs', 'openapi.yaml'),
     join(process.cwd(), '..', 'docs', 'openapi.yaml'),
-    join(__dirname, '..', '..', 'docs', 'openapi.yaml'),
+    // Use import.meta.url for ES modules instead of __dirname
+    join(new URL('.', import.meta.url).pathname, '..', '..', 'docs', 'openapi.yaml'),
   ];
 
   let specContent = null;
