@@ -20,13 +20,15 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: MINIO_ENDPOINT
-        value: ${MINIO_ENDPOINT}
+        value: localhost
+      - key: MINIO_PORT
+        value: 9000
       - key: MINIO_ACCESS_KEY
-        value: ${MINIO_ACCESS_KEY}
+        value: fuep
       - key: MINIO_SECRET_KEY
-        value: ${MINIO_SECRET_KEY}
+        value: fuepstrongpassword
       - key: MINIO_USE_SSL
-        value: true
+        value: false
       - key: REMITA_PUBLIC_KEY
         value: ${REMITA_PUBLIC_KEY}
       - key: REMITA_SECRET_KEY

@@ -33,15 +33,18 @@ export class MinioService {
     try {
       const rawPort = this.configService.get('MINIO_PORT', 9000);
       const port = typeof rawPort === 'string' ? parseInt(rawPort.trim(), 10) : rawPort;
-      
+
       console.log('MinIO configuration debug:');
       console.log('  - MINIO_ENDPOINT:', this.configService.get('MINIO_ENDPOINT', 'localhost'));
       console.log('  - MINIO_PORT (raw):', rawPort, 'type:', typeof rawPort);
       console.log('  - MINIO_PORT (parsed):', port, 'type:', typeof port);
       console.log('  - MINIO_USE_SSL:', this.configService.get('MINIO_USE_SSL', false));
       console.log('  - MINIO_ACCESS_KEY:', this.configService.get('MINIO_ROOT_USER', 'fuep'));
-      console.log('  - MINIO_SECRET_KEY:', this.configService.get('MINIO_ROOT_PASSWORD', 'fuepstrongpassword'));
-      
+      console.log(
+        '  - MINIO_SECRET_KEY:',
+        this.configService.get('MINIO_ROOT_PASSWORD', 'fuepstrongpassword')
+      );
+
       const config: MinioConfig = {
         endPoint: this.configService.get('MINIO_ENDPOINT', 'localhost'),
         port: port,
@@ -55,7 +58,7 @@ export class MinioService {
 
       // Try different MinIO client construction approaches
       let minioClient: Minio.Client;
-      
+
       try {
         // Approach 1: Use port as number
         console.log('Attempting MinIO client construction with port as number...');
@@ -91,11 +94,21 @@ export class MinioService {
           console.log('MinIO client created successfully with string port');
         }
       }
-      
+
       this.minioClient = minioClient;
 
       console.log(`MinIO client initialized for bucket: ${this.bucketName}`);
-      this.ensureBucketExists();
+
+      // Only try to ensure bucket exists if we're not in production or if MinIO is available
+      if (
+        process.env.NODE_ENV !== 'production' ||
+        (this.configService.get('MINIO_ENDPOINT') &&
+          this.configService.get('MINIO_ENDPOINT') !== 'localhost')
+      ) {
+        this.ensureBucketExists();
+      } else {
+        console.log('Skipping MinIO bucket initialization in production (using localhost)');
+      }
     } catch (error: any) {
       console.error('Failed to initialize MinIO client', error);
       throw error;
@@ -127,7 +140,12 @@ export class MinioService {
       }
     } catch (error: any) {
       console.error(`Failed to ensure bucket exists: ${this.bucketName}`, error);
-      throw error;
+      // Don't throw error in production - just log it
+      if (process.env.NODE_ENV === 'production') {
+        console.log('Continuing without MinIO bucket initialization in production');
+      } else {
+        throw error;
+      }
     }
   }
 
