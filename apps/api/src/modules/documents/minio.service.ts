@@ -56,6 +56,17 @@ export class MinioService {
 
       this.bucketName = config.bucketName;
 
+      // Skip MinIO initialization if using placeholder values in production
+      if (
+        process.env.NODE_ENV === 'production' &&
+        (config.endPoint === 'placeholder.minio.com' ||
+          config.accessKey === 'placeholder')
+      ) {
+        console.log('Skipping MinIO initialization in production (using placeholder values)');
+        this.minioClient = null as any;
+        return;
+      }
+
       // Try different MinIO client construction approaches
       let minioClient: Minio.Client;
 
@@ -103,11 +114,12 @@ export class MinioService {
       if (
         process.env.NODE_ENV !== 'production' ||
         (this.configService.get('MINIO_ENDPOINT') &&
-          this.configService.get('MINIO_ENDPOINT') !== 'localhost')
+          this.configService.get('MINIO_ENDPOINT') !== 'localhost' &&
+          this.configService.get('MINIO_ENDPOINT') !== 'placeholder.minio.com')
       ) {
         this.ensureBucketExists();
       } else {
-        console.log('Skipping MinIO bucket initialization in production (using localhost)');
+        console.log('Skipping MinIO bucket initialization in production (using placeholder or localhost)');
       }
     } catch (error: any) {
       console.error('Failed to initialize MinIO client', error);
