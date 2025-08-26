@@ -1,6 +1,6 @@
+import { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import slowDown from 'express-slow-down';
-import { Request, Response } from 'express';
 
 // Store for tracking rate limit violations for monitoring
 export const rateLimitViolations = new Map<string, number>();
@@ -20,13 +20,13 @@ const rateLimitHandler = (req: Request, res: Response) => {
   const clientIP = getClientIP(req);
   const current = rateLimitViolations.get(clientIP) || 0;
   rateLimitViolations.set(clientIP, current + 1);
-  
+
   console.warn(`[RATE_LIMIT] IP ${clientIP} exceeded rate limit on ${req.path}`, {
     ip: clientIP,
     path: req.path,
     method: req.method,
     violations: current + 1,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   res.status(429).json({
@@ -34,7 +34,7 @@ const rateLimitHandler = (req: Request, res: Response) => {
     error: 'Too many requests',
     message: 'Rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil((req as any).rateLimit?.resetTime || 60),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 
@@ -45,12 +45,12 @@ export const generalRateLimit = rateLimit({
   message: {
     success: false,
     error: 'Too many requests',
-    message: 'Rate limit exceeded. Please try again later.'
+    message: 'Rate limit exceeded. Please try again later.',
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: rateLimitHandler,
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Authentication endpoints - stricter limits
@@ -60,12 +60,12 @@ export const authRateLimit = rateLimit({
   message: {
     success: false,
     error: 'Too many authentication attempts',
-    message: 'Please wait before attempting to login again.'
+    message: 'Please wait before attempting to login again.',
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Admin endpoints - moderate limits
@@ -75,12 +75,12 @@ export const adminRateLimit = rateLimit({
   message: {
     success: false,
     error: 'Too many admin requests',
-    message: 'Admin rate limit exceeded. Please try again later.'
+    message: 'Admin rate limit exceeded. Please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Candidate endpoints - standard limits
@@ -90,12 +90,12 @@ export const candidateRateLimit = rateLimit({
   message: {
     success: false,
     error: 'Too many candidate requests',
-    message: 'Rate limit exceeded. Please try again later.'
+    message: 'Rate limit exceeded. Please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Payment endpoints - very strict limits
@@ -105,12 +105,12 @@ export const paymentRateLimit = rateLimit({
   message: {
     success: false,
     error: 'Too many payment requests',
-    message: 'Payment rate limit exceeded. Please wait before making another payment request.'
+    message: 'Payment rate limit exceeded. Please wait before making another payment request.',
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Upload endpoints - moderate limits due to file processing
@@ -120,12 +120,12 @@ export const uploadRateLimit = rateLimit({
   message: {
     success: false,
     error: 'Too many upload requests',
-    message: 'Upload rate limit exceeded. Please wait before uploading more files.'
+    message: 'Upload rate limit exceeded. Please wait before uploading more files.',
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Progressive delay for repeated requests (speed limiting)
@@ -134,7 +134,7 @@ export const speedLimiter = slowDown({
   delayAfter: 50, // allow 50 requests per windowMs without delay
   delayMs: (hits) => hits * 100, // add 100ms delay per request after delayAfter
   maxDelayMs: 5000, // max delay of 5 seconds
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Rate limit for health checks and monitoring
@@ -143,21 +143,24 @@ export const healthCheckRateLimit = rateLimit({
   max: 30, // 30 health checks per minute
   message: {
     success: false,
-    error: 'Too many health check requests'
+    error: 'Too many health check requests',
   },
   standardHeaders: false,
   legacyHeaders: false,
-  keyGenerator: getClientIP
+  keyGenerator: getClientIP,
 });
 
 // Function to get rate limit statistics
 export const getRateLimitStats = () => {
   const stats = {
-    totalViolations: Array.from(rateLimitViolations.values()).reduce((sum, count) => sum + count, 0),
+    totalViolations: Array.from(rateLimitViolations.values()).reduce(
+      (sum, count) => sum + count,
+      0
+    ),
     violationsByIP: Object.fromEntries(rateLimitViolations),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
-  
+
   return stats;
 };
 

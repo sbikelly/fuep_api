@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 
 // Log levels
 export enum LogLevel {
@@ -6,7 +6,7 @@ export enum LogLevel {
   WARN = 'warn',
   INFO = 'info',
   DEBUG = 'debug',
-  TRACE = 'trace'
+  TRACE = 'trace',
 }
 
 // Log context interface
@@ -31,7 +31,11 @@ export class StructuredLogger {
   private environment: string;
   private version: string;
 
-  constructor(serviceName = 'fuep-api', environment = process.env.NODE_ENV || 'development', version = '1.0.0') {
+  constructor(
+    serviceName = 'fuep-api',
+    environment = process.env.NODE_ENV || 'development',
+    version = '1.0.0'
+  ) {
     this.serviceName = serviceName;
     this.environment = environment;
     this.version = version;
@@ -47,15 +51,19 @@ export class StructuredLogger {
       message,
       ...context,
       // Add correlation ID for distributed tracing
-      correlationId: context.requestId || this.generateCorrelationId()
+      correlationId: context.requestId || this.generateCorrelationId(),
     };
 
     // Sanitize sensitive information
     const sanitizedEntry = this.sanitizeLogEntry(logEntry);
 
     // Output to console (in production, this would go to a logging service)
-    const logOutput = JSON.stringify(sanitizedEntry, null, this.environment === 'development' ? 2 : 0);
-    
+    const logOutput = JSON.stringify(
+      sanitizedEntry,
+      null,
+      this.environment === 'development' ? 2 : 0
+    );
+
     switch (level) {
       case LogLevel.ERROR:
         console.error(logOutput);
@@ -89,10 +97,10 @@ export class StructuredLogger {
       }
 
       const result: any = Array.isArray(obj) ? [] : {};
-      
+
       for (const [key, value] of Object.entries(obj)) {
         const lowerKey = key.toLowerCase();
-        if (sensitiveFields.some(field => lowerKey.includes(field))) {
+        if (sensitiveFields.some((field) => lowerKey.includes(field))) {
           result[key] = '[REDACTED]';
         } else if (typeof value === 'object') {
           result[key] = sanitizeObject(value);
@@ -100,7 +108,7 @@ export class StructuredLogger {
           result[key] = value;
         }
       }
-      
+
       return result;
     };
 
@@ -148,17 +156,26 @@ export class StructuredLogger {
         query: req.query,
         params: req.params,
         contentLength: req.get('Content-Length'),
-        referer: req.get('Referer')
-      }
+        referer: req.get('Referer'),
+      },
     };
 
-    const level = res.statusCode >= 500 ? LogLevel.ERROR : 
-                  res.statusCode >= 400 ? LogLevel.WARN : LogLevel.INFO;
-    
+    const level =
+      res.statusCode >= 500
+        ? LogLevel.ERROR
+        : res.statusCode >= 400
+          ? LogLevel.WARN
+          : LogLevel.INFO;
+
     this.formatLog(level, `HTTP Request Completed`, context);
   }
 
-  public logDatabaseOperation(operation: string, table: string, duration: number, context: LogContext = {}): void {
+  public logDatabaseOperation(
+    operation: string,
+    table: string,
+    duration: number,
+    context: LogContext = {}
+  ): void {
     this.info(`Database Operation: ${operation}`, {
       ...context,
       module: 'database',
@@ -166,12 +183,17 @@ export class StructuredLogger {
       duration,
       metadata: {
         table,
-        type: 'database'
-      }
+        type: 'database',
+      },
     });
   }
 
-  public logPaymentEvent(event: string, paymentId: string, provider: string, context: LogContext = {}): void {
+  public logPaymentEvent(
+    event: string,
+    paymentId: string,
+    provider: string,
+    context: LogContext = {}
+  ): void {
     this.info(`Payment Event: ${event}`, {
       ...context,
       module: 'payments',
@@ -179,12 +201,17 @@ export class StructuredLogger {
       metadata: {
         paymentId,
         provider,
-        type: 'payment'
-      }
+        type: 'payment',
+      },
     });
   }
 
-  public logAdminAction(action: string, targetResource: string, adminUserId: string, context: LogContext = {}): void {
+  public logAdminAction(
+    action: string,
+    targetResource: string,
+    adminUserId: string,
+    context: LogContext = {}
+  ): void {
     this.info(`Admin Action: ${action}`, {
       ...context,
       userId: adminUserId,
@@ -192,8 +219,8 @@ export class StructuredLogger {
       operation: action,
       metadata: {
         targetResource,
-        type: 'admin_action'
-      }
+        type: 'admin_action',
+      },
     });
   }
 
@@ -204,23 +231,27 @@ export class StructuredLogger {
       module: 'candidates',
       operation: action,
       metadata: {
-        type: 'candidate_action'
-      }
+        type: 'candidate_action',
+      },
     });
   }
 
-  public logSecurityEvent(event: string, severity: 'low' | 'medium' | 'high', context: LogContext = {}): void {
-    const level = severity === 'high' ? LogLevel.ERROR : 
-                  severity === 'medium' ? LogLevel.WARN : LogLevel.INFO;
-    
+  public logSecurityEvent(
+    event: string,
+    severity: 'low' | 'medium' | 'high',
+    context: LogContext = {}
+  ): void {
+    const level =
+      severity === 'high' ? LogLevel.ERROR : severity === 'medium' ? LogLevel.WARN : LogLevel.INFO;
+
     this.formatLog(level, `Security Event: ${event}`, {
       ...context,
       module: 'security',
       operation: event,
       metadata: {
         severity,
-        type: 'security'
-      }
+        type: 'security',
+      },
     });
   }
 
@@ -250,7 +281,7 @@ export const logger = new StructuredLogger();
 // HTTP request logging middleware
 export const httpLoggingMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
-  
+
   // Log incoming request
   logger.trace('HTTP Request Started', {
     requestId: (req as any).requestId,
@@ -262,8 +293,8 @@ export const httpLoggingMiddleware = (req: Request, res: Response, next: NextFun
       method: req.method,
       path: req.path,
       query: req.query,
-      contentType: req.get('Content-Type')
-    }
+      contentType: req.get('Content-Type'),
+    },
   });
 
   // Log response when finished
@@ -276,7 +307,12 @@ export const httpLoggingMiddleware = (req: Request, res: Response, next: NextFun
 };
 
 // Error logging middleware
-export const errorLoggingMiddleware = (err: any, req: Request, res: Response, next: NextFunction) => {
+export const errorLoggingMiddleware = (
+  err: any,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   logger.error('Unhandled Error', {
     requestId: (req as any).requestId,
     module: logger['getModuleFromPath'](req.path),
@@ -285,8 +321,8 @@ export const errorLoggingMiddleware = (err: any, req: Request, res: Response, ne
     error: err,
     metadata: {
       stack: err.stack,
-      type: 'unhandled_error'
-    }
+      type: 'unhandled_error',
+    },
   });
 
   next(err);
@@ -300,32 +336,32 @@ export const withDatabaseLogging = async <T>(
   context: LogContext = {}
 ): Promise<T> => {
   const startTime = Date.now();
-  
+
   try {
     logger.debug(`Database Operation Started: ${operation}`, {
       ...context,
       module: 'database',
       operation,
-      metadata: { table, status: 'started' }
+      metadata: { table, status: 'started' },
     });
 
     const result = await asyncOperation();
     const duration = Date.now() - startTime;
-    
+
     logger.logDatabaseOperation(operation, table, duration, context);
     return result;
   } catch (error) {
     const duration = Date.now() - startTime;
-    
+
     logger.error(`Database Operation Failed: ${operation}`, {
       ...context,
       module: 'database',
       operation,
       duration,
       error: error instanceof Error ? error : String(error),
-      metadata: { table, status: 'failed' }
+      metadata: { table, status: 'failed' },
     });
-    
+
     throw error;
   }
 };
@@ -337,37 +373,37 @@ export const withPerformanceLogging = async <T>(
   context: LogContext = {}
 ): Promise<T> => {
   const startTime = Date.now();
-  
+
   try {
     const result = await asyncOperation();
     const duration = Date.now() - startTime;
-    
+
     // Log slow operations (>1000ms)
     if (duration > 1000) {
       logger.warn(`Slow Operation Detected: ${operationName}`, {
         ...context,
         duration,
-        metadata: { type: 'performance', threshold: 1000 }
+        metadata: { type: 'performance', threshold: 1000 },
       });
     } else {
       logger.debug(`Operation Completed: ${operationName}`, {
         ...context,
         duration,
-        metadata: { type: 'performance' }
+        metadata: { type: 'performance' },
       });
     }
-    
+
     return result;
   } catch (error) {
     const duration = Date.now() - startTime;
-    
+
     logger.error(`Operation Failed: ${operationName}`, {
       ...context,
       duration,
       error: error instanceof Error ? error : String(error),
-      metadata: { type: 'performance_error' }
+      metadata: { type: 'performance_error' },
     });
-    
+
     throw error;
   }
 };
