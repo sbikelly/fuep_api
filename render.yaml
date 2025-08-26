@@ -5,7 +5,6 @@ services:
     plan: free
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
-    dockerCommand: docker build -f ./apps/api/Dockerfile -t fuep-api .
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
