@@ -17,7 +17,7 @@ import {
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
-import { existsSync,readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import _helmet from 'helmet';
 import yaml from 'js-yaml';
 import { join } from 'path';
@@ -50,18 +50,15 @@ console.log('Environment variables loaded:');
 console.log('REMITA_PUBLIC_KEY:', process.env.REMITA_PUBLIC_KEY ? 'SET' : 'NOT SET');
 console.log('REMITA_SECRET_KEY:', process.env.REMITA_SECRET_KEY ? 'SET' : 'NOT SET');
 
-
 // Set sandbox environment variables for testing if not present
 if (!process.env.REMITA_PUBLIC_KEY) {
   console.log('Setting sandbox Remita environment variables for testing');
-  process.env.REMITA_PUBLIC_KEY = 'test_public_key_123'; // my testmode public key: pk_test_1KeEKQyxvpwBPGQBjEBOl7GqPpbKJuidH7ymPNW1em/u+gRBbfh32H4GnjwBQRTr
-  process.env.REMITA_SECRET_KEY = 'test_secret_key_456'; // my testmode private key: sk_test_1KeEKQyxvpxkKbu3lrHky8DzOFTIv6ZYPWGR0ojRAs0HAbZRnoLqVN9ZTmHSwmZg
+  process.env.REMITA_PUBLIC_KEY = 'test_public_key_placeholder';
+  process.env.REMITA_SECRET_KEY = 'test_secret_key_placeholder';
   process.env.REMITA_WEBHOOK_SECRET = 'test_webhook_secret_789';
   process.env.REMITA_MERCHANT_ID = '2547916';
   process.env.REMITA_BASE_URL = 'https://remitademo.net';
 }
-
-
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '4000', 10);
@@ -120,42 +117,35 @@ app.use(speedLimiter);
 // Load and merge domain-specific OpenAPI specifications with multiple fallback paths
 let openApiSpec: any;
 try {
-  const domainSpecs = [
-    'auth',
-    'candidates', 
-    'payments',
-    'admin',
-    'documents',
-    'academic'
-  ];
+  const domainSpecs = ['auth', 'candidates', 'payments', 'admin', 'documents', 'academic'];
 
   // Multiple possible paths for OpenAPI specifications
   const possiblePaths = [
     // Docker paths (when running in container)
     join(process.cwd(), 'docs', 'openapi'),
     join(process.cwd(), 'app', 'docs', 'openapi'),
-    
+
     // Development paths (relative to project root)
     join(process.cwd(), 'docs', 'openapi'),
     join(process.cwd(), '..', 'docs', 'openapi'),
     join(process.cwd(), '..', '..', 'docs', 'openapi'),
-    
+
     // Production paths (when deployed)
     join(process.cwd(), 'docs', 'openapi'),
     join(process.cwd(), 'dist', 'docs', 'openapi'),
-    
+
     // Alternative directory structures
     join(process.cwd(), 'openapi'),
     join(process.cwd(), 'api-docs'),
     join(process.cwd(), 'swagger'),
-    
+
     // Render.com specific paths
     join(process.cwd(), 'build', 'docs', 'openapi'),
     join(process.cwd(), 'release', 'docs', 'openapi'),
   ];
 
   console.log('Searching for OpenAPI specifications in multiple paths...');
-  
+
   let baseSpec: any = null;
   let baseSpecPath: string | null = null;
   let openApiBaseDir: string | null = null;
@@ -180,14 +170,14 @@ try {
   // If no base spec found, try to load the old single OpenAPI file as fallback
   if (!baseSpec) {
     console.log('Base OpenAPI specification not found, trying fallback single file...');
-    
+
     // Try to find the old single OpenAPI file
     const fallbackPaths = [
       join(process.cwd(), 'docs', 'openapi_old.yaml'),
       join(process.cwd(), '..', 'docs', 'openapi_old.yaml'),
       join(process.cwd(), '..', '..', 'docs', 'openapi_old.yaml'),
     ];
-    
+
     let fallbackLoaded = false;
     for (const fallbackPath of fallbackPaths) {
       try {
@@ -202,7 +192,7 @@ try {
         // Continue to next path
       }
     }
-    
+
     // If still no spec found, create a minimal one
     if (!fallbackLoaded) {
       console.log('No fallback OpenAPI specification found, creating minimal spec');
@@ -211,12 +201,12 @@ try {
         info: {
           title: 'FUEP Post-UTME Portal API',
           version: '1.0.0',
-          description: 'Comprehensive REST API for candidate and admin workflows'
+          description: 'Comprehensive REST API for candidate and admin workflows',
         },
         paths: {},
         components: {
-          schemas: {}
-        }
+          schemas: {},
+        },
       };
     }
   }
@@ -238,17 +228,17 @@ try {
         if (existsSync(domainPath)) {
           const domainContent = readFileSync(domainPath, 'utf8');
           const domainSpec = yaml.load(domainContent) as any;
-          
+
           // Merge paths
           if (domainSpec.paths) {
             Object.assign(mergedSpec.paths, domainSpec.paths);
           }
-          
+
           // Merge schemas
           if (domainSpec.components?.schemas) {
             Object.assign(mergedSpec.components.schemas, domainSpec.components.schemas);
           }
-          
+
           loadedDomains++;
           console.log(`Domain specification '${domain}' loaded from: ${domainPath}`);
         } else {
@@ -261,27 +251,27 @@ try {
   } else {
     // Fallback: try to find domain specs in any of the possible paths
     console.log('Base directory not found, searching for domain specifications in all paths...');
-    
+
     for (const domain of domainSpecs) {
       let domainLoaded = false;
-      
+
       for (const basePath of possiblePaths) {
         const domainPath = join(basePath, `${domain}.yaml`);
         try {
           if (existsSync(domainPath)) {
             const domainContent = readFileSync(domainPath, 'utf8');
             const domainSpec = yaml.load(domainContent) as any;
-            
+
             // Merge paths
             if (domainSpec.paths) {
               Object.assign(mergedSpec.paths, domainSpec.paths);
             }
-            
+
             // Merge schemas
             if (domainSpec.components?.schemas) {
               Object.assign(mergedSpec.components.schemas, domainSpec.components.schemas);
             }
-            
+
             loadedDomains++;
             domainLoaded = true;
             console.log(`Domain specification '${domain}' loaded from: ${domainPath}`);
@@ -291,7 +281,7 @@ try {
           // Continue to next path
         }
       }
-      
+
       if (!domainLoaded) {
         console.log(`Domain specification '${domain}' not found in any path`);
       }
@@ -313,7 +303,9 @@ try {
     console.log(`OpenAPI servers configured for: ${baseUrl}/api`);
   }
 
-  console.log(`OpenAPI specifications loaded successfully: ${loadedDomains}/${totalDomains} domain specs loaded`);
+  console.log(
+    `OpenAPI specifications loaded successfully: ${loadedDomains}/${totalDomains} domain specs loaded`
+  );
   console.log(`Total paths found: ${Object.keys(mergedSpec.paths).length}`);
   console.log(`Total schemas found: ${Object.keys(mergedSpec.components.schemas).length}`);
 } catch (error) {
@@ -325,7 +317,7 @@ try {
     info: {
       title: 'FUEP Post-UTME Portal API (Fallback)',
       version: '1.0.0',
-      description: 'Minimal API specification - some features may be limited'
+      description: 'Minimal API specification - some features may be limited',
     },
     paths: {
       '/api/health': {
@@ -340,19 +332,19 @@ try {
                     type: 'object',
                     properties: {
                       status: { type: 'string' },
-                      timestamp: { type: 'string' }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                      timestamp: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     },
     components: {
-      schemas: {}
-    }
+      schemas: {},
+    },
   };
   console.log('Fallback OpenAPI specification created successfully');
 }
