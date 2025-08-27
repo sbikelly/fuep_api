@@ -51,14 +51,8 @@ console.log('REMITA_PUBLIC_KEY:', process.env.REMITA_PUBLIC_KEY ? 'SET' : 'NOT S
 console.log('REMITA_SECRET_KEY:', process.env.REMITA_SECRET_KEY ? 'SET' : 'NOT SET');
 
 // Set sandbox environment variables for testing if not present
-if (!process.env.REMITA_PUBLIC_KEY) {
-  console.log('Setting sandbox Remita environment variables for testing');
-  process.env.REMITA_PUBLIC_KEY = 'test_public_key_placeholder';
-  process.env.REMITA_SECRET_KEY = 'test_secret_key_placeholder';
-  process.env.REMITA_WEBHOOK_SECRET = 'test_webhook_secret_789';
-  process.env.REMITA_MERCHANT_ID = '2547916';
-  process.env.REMITA_BASE_URL = 'https://remitademo.net';
-}
+// Remita environment variables should be set via environment variables or .env file
+// No hardcoded values for security reasons
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '4000', 10);
