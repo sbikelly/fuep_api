@@ -29,16 +29,27 @@ export const PaymentStatusSchema = z.enum([
   'refunded',
 ]);
 
-// Payment types (these are the same as payment purposes for clarity)
-export type PaymentType = 'post_utme' | 'acceptance' | 'school_fee' | 'other';
+// Payment purpose types (these are the payment purposes for clarity)
+export type PaymentPurpose =
+  | 'POST_UTME'
+  | 'ACCEPTANCE'
+  | 'SCHOOL_FEES'
+  | 'LIBRARY_FEE'
+  | 'HOSTEL_FEE'
+  | 'MEDICAL_FEE'
+  | 'SPORTS_FEE'
+  | 'other';
 
-export const PaymentTypeSchema = z.enum(['post_utme', 'acceptance', 'school_fee', 'other']);
-
-// Payment purpose types (equals payment types for database schema alignment)
-// Note: paymentPurpose equals payment types for clarity
-export type PaymentPurpose = 'post_utme' | 'acceptance' | 'school_fee';
-
-export const PaymentPurposeSchema = z.enum(['post_utme', 'acceptance', 'school_fee']);
+export const PaymentPurposeSchema = z.enum([
+  'POST_UTME',
+  'ACCEPTANCE',
+  'SCHOOL_FEES',
+  'LIBRARY_FEE',
+  'HOSTEL_FEE',
+  'MEDICAL_FEE',
+  'SPORTS_FEE',
+  'other',
+]);
 
 // Enhanced Payment Transaction interface for Phase 7
 export interface PaymentTransaction extends BaseEntity {
@@ -95,10 +106,10 @@ export const PaymentTransactionSchema = BaseEntitySchema.extend({
   verifiedAt: z.date().optional(),
 });
 
-// Payment Type Configuration (for admin management)
-export interface PaymentTypeConfig extends BaseEntity {
+// Payment Purpose Configuration (for admin management)
+export interface PaymentPurposeConfig extends BaseEntity {
   name: string; // e.g., 'Post-UTME Application Fee'
-  code: PaymentPurpose; // equals payment purpose for clarity
+  purpose: PaymentPurpose; // equals payment purpose for clarity
   description?: string;
   amount: number;
   currency: string;
@@ -108,9 +119,9 @@ export interface PaymentTypeConfig extends BaseEntity {
   createdBy?: string; // admin user ID
 }
 
-export const PaymentTypeConfigSchema = BaseEntitySchema.extend({
+export const PaymentPurposeConfigSchema = BaseEntitySchema.extend({
   name: z.string().max(100),
-  code: PaymentPurposeSchema,
+  purpose: PaymentPurposeSchema,
   description: z.string().optional(),
   amount: z.number().positive(),
   currency: z.string().min(3).max(3),
@@ -287,8 +298,6 @@ export const RemitaPaymentDataSchema = z.object({
   bankCode: z.string().optional(),
   bankName: z.string().optional(),
 });
-
-
 
 // Payment fees configuration
 export interface PaymentFees {

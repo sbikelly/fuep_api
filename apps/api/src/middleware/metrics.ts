@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 
 // Metrics collection interface
 export interface MetricData {
@@ -32,13 +32,13 @@ class MetricsStore {
     const key = this.createKey(name, labels);
     const current = this.counters.get(key) || 0;
     this.counters.set(key, current + value);
-    
+
     this.recordMetric({
       name,
       value: current + value,
       type: 'counter',
       labels,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 
@@ -46,13 +46,13 @@ class MetricsStore {
   setGauge(name: string, value: number, labels: Record<string, string> = {}): void {
     const key = this.createKey(name, labels);
     this.gauges.set(key, value);
-    
+
     this.recordMetric({
       name,
       value,
       type: 'gauge',
       labels,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 
@@ -62,26 +62,26 @@ class MetricsStore {
     const values = this.histograms.get(key) || [];
     values.push(value);
     this.histograms.set(key, values);
-    
+
     this.recordMetric({
       name,
       value,
       type: 'histogram',
       labels,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 
   // Timer operations
   recordTimer(name: string, duration: number, labels: Record<string, string> = {}): void {
     this.recordHistogram(`${name}_duration_ms`, duration, labels);
-    
+
     this.recordMetric({
       name: `${name}_duration`,
       value: duration,
       type: 'timer',
       labels,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 
@@ -89,12 +89,12 @@ class MetricsStore {
     const key = this.createKey(metric.name, metric.labels);
     const existing = this.metrics.get(key) || [];
     existing.push(metric);
-    
+
     // Keep only last 1000 entries per metric to prevent memory issues
     if (existing.length > 1000) {
       existing.shift();
     }
-    
+
     this.metrics.set(key, existing);
   }
 
@@ -117,7 +117,10 @@ class MetricsStore {
     return this.gauges.get(key) || 0;
   }
 
-  getHistogramStats(name: string, labels: Record<string, string> = {}): {
+  getHistogramStats(
+    name: string,
+    labels: Record<string, string> = {}
+  ): {
     count: number;
     sum: number;
     avg: number;
@@ -129,7 +132,7 @@ class MetricsStore {
   } {
     const key = this.createKey(name, labels);
     const values = this.histograms.get(key) || [];
-    
+
     if (values.length === 0) {
       return { count: 0, sum: 0, avg: 0, min: 0, max: 0, p50: 0, p95: 0, p99: 0 };
     }
@@ -145,7 +148,7 @@ class MetricsStore {
       max: sorted[sorted.length - 1],
       p50: this.percentile(sorted, 0.5),
       p95: this.percentile(sorted, 0.95),
-      p99: this.percentile(sorted, 0.99)
+      p99: this.percentile(sorted, 0.99),
     };
   }
 
@@ -154,11 +157,11 @@ class MetricsStore {
     const lower = Math.floor(index);
     const upper = Math.ceil(index);
     const weight = index - lower;
-    
+
     if (lower === upper) {
       return sorted[lower];
     }
-    
+
     return sorted[lower] * (1 - weight) + sorted[upper] * weight;
   }
 
@@ -169,7 +172,7 @@ class MetricsStore {
       gauges: Object.fromEntries(this.gauges),
       histograms: {},
       uptime: Date.now() - this.startTime.getTime(),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // Add histogram statistics
@@ -185,27 +188,28 @@ class MetricsStore {
   private parseLabels(key: string): Record<string, string> {
     const match = key.match(/\{(.+)\}/);
     if (!match) return {};
-    
+
     const labels: Record<string, string> = {};
     const labelStr = match[1];
     const pairs = labelStr.split(',');
-    
+
     for (const pair of pairs) {
       const [k, v] = pair.split('=');
       if (k && v) {
         labels[k] = v.replace(/"/g, '');
       }
     }
-    
+
     return labels;
   }
 
   // Clear old metrics (for memory management)
-  clearOldMetrics(olderThanMs = 24 * 60 * 60 * 1000): void { // 24 hours default
+  clearOldMetrics(olderThanMs = 24 * 60 * 60 * 1000): void {
+    // 24 hours default
     const cutoff = new Date(Date.now() - olderThanMs);
-    
+
     for (const [key, metrics] of this.metrics) {
-      const filtered = metrics.filter(m => m.timestamp > cutoff);
+      const filtered = metrics.filter((m) => m.timestamp > cutoff);
       if (filtered.length === 0) {
         this.metrics.delete(key);
       } else {
@@ -224,14 +228,15 @@ export const httpMetricsMiddleware = (req: Request, res: Response, next: NextFun
   const labels = {
     method: req.method,
     route: getRoutePattern(req.path),
-    module: getModuleFromPath(req.path)
+    module: getModuleFromPath(req.path),
   };
 
   // Increment request counter
   metricsStore.incrementCounter('http_requests_total', 1, labels);
 
   // Track active requests
-  metricsStore.setGauge('http_requests_active', 
+  metricsStore.setGauge(
+    'http_requests_active',
     metricsStore.getGaugeValue('http_requests_active') + 1
   );
 
@@ -239,26 +244,27 @@ export const httpMetricsMiddleware = (req: Request, res: Response, next: NextFun
   res.on('finish', () => {
     const duration = Date.now() - startTime;
     const statusClass = `${Math.floor(res.statusCode / 100)}xx`;
-    
+
     const responseLabels = {
       ...labels,
       status_code: res.statusCode.toString(),
-      status_class: statusClass
+      status_class: statusClass,
     };
 
     // Record response time
     metricsStore.recordTimer('http_request_duration', duration, responseLabels);
-    
+
     // Record response count by status
     metricsStore.incrementCounter('http_responses_total', 1, responseLabels);
-    
+
     // Track error rate
     if (res.statusCode >= 400) {
       metricsStore.incrementCounter('http_errors_total', 1, responseLabels);
     }
 
     // Decrement active requests
-    metricsStore.setGauge('http_requests_active', 
+    metricsStore.setGauge(
+      'http_requests_active',
       Math.max(0, metricsStore.getGaugeValue('http_requests_active') - 1)
     );
   });
@@ -268,16 +274,16 @@ export const httpMetricsMiddleware = (req: Request, res: Response, next: NextFun
 
 // Database metrics helpers
 export const recordDatabaseQuery = (
-  operation: string, 
-  table: string, 
-  duration: number, 
+  operation: string,
+  table: string,
+  duration: number,
   success: boolean = true
 ) => {
   const labels = { operation, table, status: success ? 'success' : 'error' };
-  
+
   metricsStore.incrementCounter('database_queries_total', 1, labels);
   metricsStore.recordTimer('database_query_duration', duration, labels);
-  
+
   if (!success) {
     metricsStore.incrementCounter('database_errors_total', 1, labels);
   }
@@ -291,10 +297,10 @@ export const recordPaymentEvent = (
   success: boolean = true
 ) => {
   const labels = { event, provider, status: success ? 'success' : 'error' };
-  
+
   metricsStore.incrementCounter('payment_events_total', 1, labels);
   metricsStore.recordHistogram('payment_amount', amount, labels);
-  
+
   if (!success) {
     metricsStore.incrementCounter('payment_errors_total', 1, labels);
   }
@@ -308,9 +314,9 @@ export const recordAdminAction = (
   success: boolean = true
 ) => {
   const labels = { action, resource, status: success ? 'success' : 'error' };
-  
+
   metricsStore.incrementCounter('admin_actions_total', 1, labels);
-  
+
   if (!success) {
     metricsStore.incrementCounter('admin_errors_total', 1, labels);
   }
@@ -323,9 +329,9 @@ export const recordCandidateAction = (
   success: boolean = true
 ) => {
   const labels = { action, status: success ? 'success' : 'error' };
-  
+
   metricsStore.incrementCounter('candidate_actions_total', 1, labels);
-  
+
   if (!success) {
     metricsStore.incrementCounter('candidate_errors_total', 1, labels);
   }
@@ -334,13 +340,13 @@ export const recordCandidateAction = (
 // System metrics collection
 export const collectSystemMetrics = () => {
   const memUsage = process.memoryUsage();
-  
+
   // Memory metrics
   metricsStore.setGauge('system_memory_heap_used_bytes', memUsage.heapUsed);
   metricsStore.setGauge('system_memory_heap_total_bytes', memUsage.heapTotal);
   metricsStore.setGauge('system_memory_external_bytes', memUsage.external);
   metricsStore.setGauge('system_memory_rss_bytes', memUsage.rss);
-  
+
   // Process metrics
   metricsStore.setGauge('system_uptime_seconds', process.uptime());
   metricsStore.setGauge('system_cpu_usage_percent', process.cpuUsage().user / 1000);
@@ -353,11 +359,11 @@ export const withMetrics = <T extends any[], R>(
 ) => {
   return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value;
-    
+
     descriptor.value = async function (...args: T): Promise<R> {
       const startTime = Date.now();
       let success = true;
-      
+
       try {
         const result = await originalMethod.apply(this, args);
         return result;
@@ -366,17 +372,21 @@ export const withMetrics = <T extends any[], R>(
         throw error;
       } finally {
         const duration = Date.now() - startTime;
-        const finalLabels = { ...labels, method: propertyKey, status: success ? 'success' : 'error' };
-        
+        const finalLabels = {
+          ...labels,
+          method: propertyKey,
+          status: success ? 'success' : 'error',
+        };
+
         metricsStore.recordTimer(metricName, duration, finalLabels);
         metricsStore.incrementCounter(`${metricName}_total`, 1, finalLabels);
-        
+
         if (!success) {
           metricsStore.incrementCounter(`${metricName}_errors`, 1, finalLabels);
         }
       }
     };
-    
+
     return descriptor;
   };
 };
@@ -405,7 +415,7 @@ class TracingStore {
     tags: Record<string, any> = {}
   ): TraceSpan {
     const spanId = `span-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const span: TraceSpan = {
       traceId,
       spanId,
@@ -413,7 +423,7 @@ class TracingStore {
       operationName,
       startTime: Date.now(),
       tags,
-      logs: []
+      logs: [],
     };
 
     this.spans.set(spanId, span);
@@ -431,7 +441,7 @@ class TracingStore {
     // Record span duration as metric
     metricsStore.recordTimer('trace_span_duration', span.duration, {
       operation: span.operationName,
-      trace_id: span.traceId
+      trace_id: span.traceId,
     });
   }
 
@@ -441,7 +451,7 @@ class TracingStore {
 
     span.logs.push({
       timestamp: Date.now(),
-      fields
+      fields,
     });
   }
 
@@ -451,7 +461,7 @@ class TracingStore {
 
   getTraceSpans(traceId: string): TraceSpan[] {
     return Array.from(this.spans.values())
-      .filter(span => span.traceId === traceId)
+      .filter((span) => span.traceId === traceId)
       .sort((a, b) => a.startTime - b.startTime);
   }
 
@@ -464,9 +474,10 @@ class TracingStore {
     return spanId ? this.spans.get(spanId) : undefined;
   }
 
-  clearOldSpans(olderThanMs = 60 * 60 * 1000): void { // 1 hour default
+  clearOldSpans(olderThanMs = 60 * 60 * 1000): void {
+    // 1 hour default
     const cutoff = Date.now() - olderThanMs;
-    
+
     for (const [spanId, span] of this.spans) {
       if (span.startTime < cutoff) {
         this.spans.delete(spanId);
@@ -479,10 +490,11 @@ export const tracingStore = new TracingStore();
 
 // Tracing middleware
 export const tracingMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const traceId = req.headers['x-trace-id'] as string || 
-                  (req as any).requestId || 
-                  `trace-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
+  const traceId =
+    (req.headers['x-trace-id'] as string) ||
+    (req as any).requestId ||
+    `trace-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
   const span = tracingStore.createSpan(
     `HTTP ${req.method} ${getRoutePattern(req.path)}`,
     traceId,
@@ -492,7 +504,7 @@ export const tracingMiddleware = (req: Request, res: Response, next: NextFunctio
       'http.url': req.url,
       'http.route': getRoutePattern(req.path),
       'user.ip': getClientIP(req),
-      'user.agent': req.get('User-Agent')
+      'user.agent': req.get('User-Agent'),
     }
   );
 
@@ -509,7 +521,7 @@ export const tracingMiddleware = (req: Request, res: Response, next: NextFunctio
   res.on('finish', () => {
     tracingStore.finishSpan(span.spanId, {
       'http.status_code': res.statusCode,
-      'http.response.size': res.get('Content-Length') || 0
+      'http.response.size': res.get('Content-Length') || 0,
     });
   });
 

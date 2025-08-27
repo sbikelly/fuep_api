@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: fuep-api
+    env: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fuep-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: MINIO_ENDPOINT
+        value: placeholder.minio.com
+      - key: MINIO_PORT
+        value: 443
+      - key: MINIO_ACCESS_KEY
+        value: placeholder
+      - key: MINIO_SECRET_KEY
+        value: placeholder_secret
+      - key: MINIO_USE_SSL
+        value: true
+      - key: REMITA_PUBLIC_KEY
+        value: ${REMITA_PUBLIC_KEY}
+      - key: REMITA_SECRET_KEY
+        value: ${REMITA_SECRET_KEY}
+      - key: REMITA_MERCHANT_ID
+        value: ${REMITA_MERCHANT_ID}
+      - key: FLUTTERWAVE_PUBLIC_KEY
+        value: ${FLUTTERWAVE_PUBLIC_KEY}
+      - key: FLUTTERWAVE_SECRET_KEY
+        value: ${FLUTTERWAVE_SECRET_KEY}
+      - key: SMTP_HOST
+        value: ${SMTP_HOST}
+      - key: SMTP_PORT
+        value: ${SMTP_PORT}
+      - key: SMTP_USER
+        value: ${SMTP_USER}
+      - key: SMTP_PASS
+        value: ${SMTP_PASS}
+      - key: CORS_ORIGIN
+        value: '*'
+      - key: REDIS_URL
+        value: ${REDIS_URL}
+      - key: RENDER_EXTERNAL_URL
+        value: https://fuep-api.onrender.com
+    autoDeploy: true
+
+databases:
+  - name: fuep-postgres
+    databaseName: fuep_portal
+    user: fuep_user
+    plan: free

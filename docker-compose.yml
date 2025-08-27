@@ -52,7 +52,6 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4000
-      - CORS_ORIGIN=http://localhost:5173
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=fuep
@@ -76,43 +75,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-
-  # Reverse proxy service
-  proxy:
-    image: nginx:alpine
-    container_name: fuep_proxy
-    ports:
-      - '8080:80'
-    volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      api:
-        condition: service_healthy
-      web:
-        condition: service_started
-    healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost/health || exit 1']
-      interval: 10s
-      timeout: 3s
-      retries: 3
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: runtime
-      args:
-        VITE_API_BASE_URL: /api
-        VITE_BRAND_PRIMARY_COLOR: '#134F47'
-    container_name: fuep_web
-    environment:
-      - VITE_API_BASE_URL=/api
-      - VITE_BRAND_PRIMARY_COLOR=#134F47
-    expose:
-      - '80' # Internal access for proxy (served to host via proxy service on 8080)
-    depends_on:
-      api:
-        condition: service_healthy
 
 volumes:
   pgdata:

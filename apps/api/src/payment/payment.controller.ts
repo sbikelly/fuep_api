@@ -283,8 +283,6 @@ export class PaymentController {
     }
   }
 
-
-
   async verifyPayment(req: Request, res: Response): Promise<void> {
     try {
       const { paymentId } = req.params;
@@ -335,7 +333,7 @@ export class PaymentController {
     }
   }
 
-  async getPaymentTypes(req: Request, res: Response): Promise<void> {
+  async getPaymentPurposes(req: Request, res: Response): Promise<void> {
     try {
       const { session } = req.query;
 
@@ -348,18 +346,18 @@ export class PaymentController {
         return;
       }
 
-      const paymentTypes = await this.paymentService.getPaymentTypes(session);
+      const paymentPurposes = await this.paymentService.getPaymentPurposes(session);
 
       res.status(200).json({
         success: true,
-        data: paymentTypes,
+        data: paymentPurposes,
         timestamp: new Date(),
       });
     } catch (error) {
-      console.error('Payment types retrieval failed:', error);
+      console.error('Payment purposes retrieval failed:', error);
       res.status(500).json({
         success: false,
-        error: 'Payment types retrieval failed',
+        error: 'Payment purposes retrieval failed',
         timestamp: new Date(),
       });
     }
