@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { ApiResponse, BaseEntity, BaseEntitySchema } from './common';
 
-// Simplified Application interface for Phase 6 (matches database schema)
+// Simplified Application interface development for Phase 6 (matches database schema)
 export interface SimpleApplication extends BaseEntity {
   candidateId: string;
   session: string;
@@ -21,7 +21,7 @@ export const SimpleApplicationSchema = BaseEntitySchema.extend({
   submittedAt: z.date().optional(),
 });
 
-// Simplified Profile interface for Phase 6 (matches database schema)
+// Simplified Profile interface development for Phase 6 (matches database schema)
 export interface SimpleProfile extends BaseEntity {
   candidateId: string;
   surname?: string;

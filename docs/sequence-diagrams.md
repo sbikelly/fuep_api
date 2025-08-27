@@ -2,7 +2,7 @@
 
 This document contains sequence diagrams that illustrate the key workflows and interactions within the FUEP Post-UTME Portal system.
 
-## 📋 **Table of Contents**
+## Table of Contents
 
 1. [Candidate Registration Flow](#candidate-registration-flow)
 2. [Payment Processing Flow](#payment-processing-flow)
@@ -10,10 +10,14 @@ This document contains sequence diagrams that illustrate the key workflows and i
 4. [Document Management Flow](#document-management-flow)
 5. [Email Service Integration](#email-service-integration)
 6. [Authentication Flow](#authentication-flow)
+7. [Academic Structure Management](#academic-structure-management)
+8. [Document Upload and Processing](#document-upload-and-processing)
+9. [Payment Webhook Processing](#payment-webhook-processing)
+10. [Admin Report Generation](#admin-report-generation)
 
 ---
 
-## 🎓 **Candidate Registration Flow**
+## Candidate Registration Flow
 
 ### **Step 1 — Apply & Verify JAMB Number**
 
@@ -69,7 +73,7 @@ sequenceDiagram
     participant PS as Payment Service
     participant CS as Candidate Service
     participant DB as Database
-    participant R as Remita/Flutterwave
+    participant R as Remita
 
     C->>F: Complete contact information
     F->>A: POST /api/candidates/{id}/complete-contact
@@ -101,7 +105,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant C as Candidate
-    participant R as Remita/Flutterwave
+    participant R as Remita
     participant A as API Gateway
     participant PS as Payment Service
     participant CS as Candidate Service
@@ -217,7 +221,7 @@ sequenceDiagram
 
 ---
 
-## 💳 **Payment Processing Flow**
+## Payment Processing Flow
 
 ### **Payment Initiation & Processing**
 
@@ -228,7 +232,7 @@ sequenceDiagram
     participant A as API Gateway
     participant PS as Payment Service
     participant DB as Database
-    participant R as Remita/Flutterwave
+    participant R as Remita
 
     C->>F: Select payment type & amount
     F->>A: POST /api/payments/initiate
@@ -258,7 +262,7 @@ sequenceDiagram
 
 ---
 
-## 👨‍💼 **Admin Management Flow**
+## Admin Management Flow
 
 ### **Admin Dashboard & Analytics**
 
@@ -294,7 +298,7 @@ sequenceDiagram
 
 ---
 
-## 📄 **Document Management Flow**
+## Document Management Flow
 
 ### **Document Upload & Processing**
 
@@ -331,7 +335,7 @@ sequenceDiagram
 
 ---
 
-## 📧 **Email Service & Temporary Password Flow**
+## Email Service & Temporary Password Flow
 
 ### **Temporary Password Generation & Email Sending**
 
@@ -407,7 +411,7 @@ sequenceDiagram
 
 ---
 
-## 🔐 **Authentication Flow**
+## Authentication Flow
 
 ### **Candidate Login & Session Management**
 
@@ -591,7 +595,152 @@ sequenceDiagram
 
 ---
 
-## 📱 **Mobile Application Integration Flow**
+## Academic Structure Management
+
+### Faculty and Department Management
+
+```mermaid
+sequenceDiagram
+    participant A as Admin User
+    participant F as Frontend
+    participant API as API Gateway
+    participant AS as Academic Service
+    participant DB as Database
+
+    A->>F: Access academic structure management
+    F->>API: GET /api/admin/faculties
+    API->>AS: getFaculties()
+    AS->>DB: Query faculties table
+    DB-->>AS: Faculty list
+    AS-->>API: Faculty data
+    API-->>F: Faculty list response
+    F-->>A: Display faculties
+
+    A->>F: Create new faculty
+    F->>API: POST /api/admin/faculties
+    API->>AS: createFaculty(facultyData)
+    AS->>DB: Insert faculty record
+    DB-->>AS: Faculty created
+    AS-->>API: Success response
+    API-->>F: Faculty created
+    F-->>A: Faculty added to list
+
+    A->>F: Create department
+    F->>API: POST /api/admin/departments
+    API->>AS: createDepartment(deptData)
+    AS->>DB: Insert department record
+    DB-->>AS: Department created
+    AS-->>API: Success response
+    API-->>F: Department created
+    F-->>A: Department added to list
+```
+
+## Document Upload and Processing
+
+### Document Upload Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Candidate
+    participant F as Frontend
+    participant API as API Gateway
+    participant DS as Document Service
+    participant M as MinIO Storage
+    participant VS as Virus Scanner
+
+    C->>F: Select document to upload
+    F->>API: POST /api/documents/upload
+    API->>DS: uploadDocument(file, metadata)
+    
+    DS->>VS: Scan file for viruses
+    VS-->>DS: Scan result (clean/infected)
+    
+    alt File is clean
+        DS->>M: Store file in MinIO
+        M-->>DS: File stored successfully
+        DS->>DB: Save document metadata
+        DS-->>API: Upload success
+        API-->>F: Document uploaded
+        F-->>C: Upload confirmation
+    else File is infected
+        DS-->>API: Upload rejected
+        API-->>F: Upload failed
+        F-->>C: Error message
+    end
+```
+
+## Payment Webhook Processing
+
+### Payment Confirmation via Webhook
+
+```mermaid
+sequenceDiagram
+    participant PG as Payment Gateway
+    participant API as API Gateway
+    participant PS as Payment Service
+    participant DB as Database
+    participant ES as Email Service
+    participant C as Candidate
+
+    PG->>API: POST /api/payments/webhook/remita
+    API->>PS: processWebhook(webhookData)
+    
+    PS->>PS: Verify webhook signature
+    PS->>DB: Update payment status
+    DB-->>PS: Payment updated
+    
+    PS->>ES: Send payment confirmation email
+    ES-->>PS: Email sent
+    
+    PS->>DB: Log payment event
+    PS-->>API: Webhook processed
+    API-->>PG: 200 OK response
+    
+    PS->>C: Send SMS notification (optional)
+```
+
+## Admin Report Generation
+
+### Asynchronous Report Generation
+
+```mermaid
+sequenceDiagram
+    participant A as Admin User
+    participant F as Frontend
+    participant API as API Gateway
+    participant RS as Report Service
+    participant DB as Database
+    participant FS as File Storage
+
+    A->>F: Request report generation
+    F->>API: POST /api/admin/reports/generate
+    API->>RS: generateReport(reportType, params)
+    
+    RS->>DB: Query data for report
+    DB-->>RS: Report data
+    
+    RS->>RS: Process and format data
+    RS->>FS: Store generated report
+    FS-->>RS: Report stored
+    
+    RS->>DB: Update report job status
+    RS-->>API: Report generation initiated
+    API-->>F: Job ID returned
+    F-->>A: Report generation started
+    
+    A->>F: Check report status
+    F->>API: GET /api/admin/reports/jobs/{jobId}
+    API->>RS: getReportStatus(jobId)
+    RS->>DB: Query job status
+    DB-->>RS: Job status
+    RS-->>API: Status response
+    API-->>F: Report status
+    F-->>A: Report ready for download
+```
+
+---
+
+## Mobile Application Integration Flow
 
 ### **Mobile App Authentication & Sync**
 
@@ -626,7 +775,7 @@ sequenceDiagram
 
 ---
 
-## 🔄 **Real-time Updates & Notifications**
+## Real-time Updates & Notifications
 
 ### **WebSocket Integration for Live Updates**
 

@@ -71,7 +71,7 @@ export interface ProviderPaymentGatewayResponse {
 
 export const ProviderPaymentGatewayResponseSchema = z.object({
   success: z.boolean(),
-  provider: z.enum(['remita', 'flutterwave', 'paystack']),
+  provider: z.enum(['remita']),
   providerReference: z.string(),
   paymentUrl: z.string().url().optional(),
   redirectUrl: z.string().url().optional(),
@@ -161,7 +161,7 @@ export interface ProviderConfiguration {
 }
 
 export const ProviderConfigurationSchema = z.object({
-  provider: z.enum(['remita', 'flutterwave', 'paystack']),
+  provider: z.enum(['remita']),
   isEnabled: z.boolean(),
   isPrimary: z.boolean(),
   publicKey: z.string(),

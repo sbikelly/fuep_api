@@ -42,7 +42,7 @@ export function createPaymentsModule(deps: PaymentsModuleDependencies = {}): Pay
     const router = Router();
 
     // Payment initiation (with strict rate limiting)
-    router.post('/init', paymentRateLimit, controller.initiatePayment.bind(controller));
+    router.post('/initiate', paymentRateLimit, controller.initiatePayment.bind(controller));
 
     // Static routes (must come before parameterized routes)
     router.get('/types', controller.getPaymentTypes.bind(controller));
@@ -55,7 +55,6 @@ export function createPaymentsModule(deps: PaymentsModuleDependencies = {}): Pay
 
     // Webhook endpoints
     router.post('/webhook/remita', controller.processRemitaWebhook.bind(controller));
-    router.post('/webhook/flutterwave', controller.processFlutterwaveWebhook.bind(controller));
 
     // Parameterized routes (must come after static routes)
     router.get('/:paymentId', controller.getPaymentStatus.bind(controller));

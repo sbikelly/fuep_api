@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { ApiResponse, BaseEntity, BaseEntitySchema } from './common';
 
 // Payment provider types
-export type PaymentProvider = 'remita' | 'flutterwave' | 'paystack';
+export type PaymentProvider = 'remita';
 
-export const PaymentProviderSchema = z.enum(['remita', 'flutterwave', 'paystack']);
+export const PaymentProviderSchema = z.enum(['remita']);
 
 // Payment status types (aligned with database schema)
 export type PaymentStatus =
@@ -288,36 +288,7 @@ export const RemitaPaymentDataSchema = z.object({
   bankName: z.string().optional(),
 });
 
-// Flutterwave-specific types
-export interface FlutterwavePaymentData {
-  tx_ref: string;
-  flw_ref: string;
-  amount: number;
-  currency: string;
-  status: string;
-  payment_type: string;
-  customer: {
-    email: string;
-    name: string;
-    phone_number: string;
-  };
-  meta: Record<string, any>;
-}
 
-export const FlutterwavePaymentDataSchema = z.object({
-  tx_ref: z.string(),
-  flw_ref: z.string(),
-  amount: z.number().positive(),
-  currency: z.string().length(3),
-  status: z.string(),
-  payment_type: z.string(),
-  customer: z.object({
-    email: z.string().email(),
-    name: z.string(),
-    phone_number: z.string(),
-  }),
-  meta: z.record(z.any()),
-});
 
 // Payment fees configuration
 export interface PaymentFees {

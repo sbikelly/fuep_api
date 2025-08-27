@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction,Request, Response } from 'express';
 import helmet from 'helmet';
 
 // Security configuration for different environments
@@ -13,11 +13,11 @@ export const customSecurityHeaders = (req: Request, res: Response, next: NextFun
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
-  
+
   // Add custom security headers for API
   res.setHeader('X-API-Version', '1.0.0');
   res.setHeader('X-Rate-Limit-Policy', 'standard');
-  
+
   // Add cache control headers for sensitive endpoints
   if (req.path.includes('/admin') || req.path.includes('/auth')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -25,14 +25,14 @@ export const customSecurityHeaders = (req: Request, res: Response, next: NextFun
     res.setHeader('Expires', '0');
     res.setHeader('Surrogate-Control', 'no-store');
   }
-  
+
   // Add request ID for tracing
   if (!req.headers['x-request-id']) {
     const requestId = generateRequestId();
     res.setHeader('X-Request-ID', requestId);
     (req as any).requestId = requestId;
   }
-  
+
   next();
 };
 
@@ -50,73 +50,71 @@ export const helmetConfig = helmet({
       styleSrc: [
         "'self'",
         "'unsafe-inline'", // Required for Swagger UI
-        "https://fonts.googleapis.com",
-        "https://cdnjs.cloudflare.com"
+        'https://fonts.googleapis.com',
+        'https://cdnjs.cloudflare.com',
       ],
       scriptSrc: [
         "'self'",
         // Only allow specific script sources in production
-        ...(isProduction ? [] : ["'unsafe-inline'", "'unsafe-eval'"]) // Dev only
+        ...(isProduction ? [] : ["'unsafe-inline'", "'unsafe-eval'"]), // Dev only
       ],
-      fontSrc: [
-        "'self'",
-        "https://fonts.gstatic.com",
-        "data:"
-      ],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       imgSrc: [
         "'self'",
-        "data:",
-        "https:" // Allow HTTPS images
+        'data:',
+        'https:', // Allow HTTPS images
       ],
       connectSrc: [
         "'self'",
         // Add your API domains here
-        "https://api.remita.net",
-        "https://remitademo.net",
-        "https://api.flutterwave.com"
+        'https://api.remita.net',
+        'https://remitademo.net',
       ],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: isProduction ? [] : null
+      upgradeInsecureRequests: isProduction ? [] : null,
     },
-    reportOnly: isDevelopment // Only report violations in development
+    reportOnly: isDevelopment, // Only report violations in development
   },
-  
+
   // Cross Origin Embedder Policy
   crossOriginEmbedderPolicy: false, // Disabled for API compatibility
-  
+
   // HTTP Strict Transport Security
   hsts: {
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
-    preload: true
+    preload: true,
   },
-  
+
   // Disable X-Powered-By header
   hidePoweredBy: true,
-  
+
   // IE No Open
   ieNoOpen: true,
-  
+
   // No Sniff
   noSniff: true,
-  
+
   // Origin Agent Cluster
   originAgentCluster: true,
-  
+
   // Referrer Policy
   referrerPolicy: {
-    policy: "strict-origin-when-cross-origin"
+    policy: 'strict-origin-when-cross-origin',
   },
-  
+
   // X-XSS-Protection
-  xssFilter: true
+  xssFilter: true,
 });
 
 // CORS configuration with enhanced security
 export const corsConfig = {
   // Allow specific origins only
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+  origin: function (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) {
     // List of allowed origins
     const allowedOrigins = [
       'http://localhost:5173', // Vite dev server
@@ -125,12 +123,17 @@ export const corsConfig = {
       'http://127.0.0.1:8080', // Docker reverse proxy (alternative)
       'http://localhost', // Local development
       'http://127.0.0.1', // Local development (alternative)
-      // Add production domains here when deploying
-      ...(isProduction ? [
-        'https://yourdomain.com',
-        'https://www.yourdomain.com',
-        'https://admin.yourdomain.com'
-      ] : [])
+      // Production domains
+      ...(isProduction
+        ? [
+            'https://yourdomain.com',
+            'https://www.yourdomain.com',
+            'https://admin.yourdomain.com',
+            // Render.com domains
+            /^https:\/\/.*\.onrender\.com$/,
+            /^https:\/\/.*\.render\.com$/,
+          ]
+        : []),
     ];
 
     // Allow requests with no origin (mobile apps, Postman, etc.)
@@ -138,24 +141,35 @@ export const corsConfig = {
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    // Check if origin matches any allowed pattern
+    const isAllowed = allowedOrigins.some((allowed) => {
+      if (typeof allowed === 'string') {
+        return allowed === origin;
+      }
+      if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.warn(`[CORS] Blocked origin: ${origin}`, {
         origin,
         timestamp: new Date().toISOString(),
-        userAgent: 'N/A' // Will be added by middleware if available
+        userAgent: 'N/A', // Will be added by middleware if available
       });
       callback(new Error('Not allowed by CORS policy'));
     }
   },
-  
+
   // Allow credentials (cookies, authorization headers)
   credentials: true,
-  
+
   // Allowed HTTP methods
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  
+
   // Allowed headers
   allowedHeaders: [
     'Content-Type',
@@ -164,9 +178,9 @@ export const corsConfig = {
     'Accept',
     'X-Request-ID',
     'X-API-Key',
-    'Cache-Control'
+    'Cache-Control',
   ],
-  
+
   // Exposed headers (what the client can access)
   exposedHeaders: [
     'X-Request-ID',
@@ -174,29 +188,29 @@ export const corsConfig = {
     'X-Rate-Limit-Limit',
     'X-Rate-Limit-Remaining',
     'X-Rate-Limit-Reset',
-    'X-Rate-Limit-Policy'
+    'X-Rate-Limit-Policy',
   ],
-  
+
   // Preflight cache duration (24 hours)
   maxAge: 24 * 60 * 60,
-  
+
   // Handle preflight for all routes
   preflightContinue: false,
-  
+
   // Success status for preflight
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
 };
 
 // IP whitelisting middleware for sensitive endpoints
 export const createIPWhitelist = (allowedIPs: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const clientIP = getClientIP(req);
-    
+
     // In development, allow all IPs
     if (isDevelopment) {
       return next();
     }
-    
+
     if (allowedIPs.includes(clientIP) || allowedIPs.includes('*')) {
       next();
     } else {
@@ -205,14 +219,14 @@ export const createIPWhitelist = (allowedIPs: string[]) => {
         path: req.path,
         method: req.method,
         userAgent: req.get('User-Agent'),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       res.status(403).json({
         success: false,
         error: 'Access denied',
         message: 'Your IP address is not authorized to access this resource',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
   };
@@ -235,7 +249,7 @@ export const securityLogger = (req: Request, res: Response, next: NextFunction) 
   const clientIP = getClientIP(req);
   const userAgent = req.get('User-Agent') || 'unknown';
   const requestId = (req as any).requestId || generateRequestId();
-  
+
   // Log suspicious patterns
   const suspiciousPatterns = [
     /\.\.\//g, // Directory traversal
@@ -245,15 +259,16 @@ export const securityLogger = (req: Request, res: Response, next: NextFunction) 
     /vbscript:/gi, // VBScript injection
     /%3cscript/gi, // Encoded XSS
     /eval\(/gi, // Code evaluation attempts
-    /expression\(/gi // CSS expression injection
+    /expression\(/gi, // CSS expression injection
   ];
-  
-  const isSuspicious = suspiciousPatterns.some(pattern => 
-    pattern.test(req.url) || 
-    pattern.test(JSON.stringify(req.body || {})) ||
-    pattern.test(JSON.stringify(req.query || {}))
+
+  const isSuspicious = suspiciousPatterns.some(
+    (pattern) =>
+      pattern.test(req.url) ||
+      pattern.test(JSON.stringify(req.body || {})) ||
+      pattern.test(JSON.stringify(req.query || {}))
   );
-  
+
   if (isSuspicious) {
     console.warn(`[SECURITY] Suspicious request detected`, {
       requestId,
@@ -263,18 +278,18 @@ export const securityLogger = (req: Request, res: Response, next: NextFunction) 
       userAgent,
       query: req.query,
       body: req.body ? '[REDACTED]' : undefined,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
-  
+
   // Continue with the request
   next();
-  
+
   // Log completed request
   res.on('finish', () => {
     const duration = Date.now() - startTime;
     const logLevel = res.statusCode >= 400 ? 'warn' : 'info';
-    
+
     console[logLevel](`[HTTP] ${req.method} ${req.path}`, {
       requestId,
       ip: clientIP,
@@ -284,7 +299,7 @@ export const securityLogger = (req: Request, res: Response, next: NextFunction) 
       duration: `${duration}ms`,
       userAgent,
       suspicious: isSuspicious,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   });
 };
@@ -293,32 +308,32 @@ export const securityLogger = (req: Request, res: Response, next: NextFunction) 
 export const createAPIKeyValidator = (validKeys: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.headers['x-api-key'] as string;
-    
+
     if (!apiKey) {
       return res.status(401).json({
         success: false,
         error: 'API key required',
         message: 'X-API-Key header is required',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
-    
+
     if (!validKeys.includes(apiKey)) {
       console.warn(`[API_KEY] Invalid API key attempt`, {
         ip: getClientIP(req),
         path: req.path,
         key: apiKey.substring(0, 8) + '...',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       return res.status(401).json({
         success: false,
         error: 'Invalid API key',
         message: 'The provided API key is not valid',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
-    
+
     next();
   };
 };

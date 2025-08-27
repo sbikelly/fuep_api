@@ -1,3 +1,4 @@
+import { AdminAcademicService } from './admin-academic.service.js';
 import { AdminAdmissionService } from './admin-admission.service.js';
 import { AdminCandidateService } from './admin-candidate.service.js';
 import { AdminPaymentService } from './admin-payment.service.js';
@@ -69,6 +70,7 @@ export interface AdminAnalytics {
 
 export class AdminService {
   constructor(
+    private academicService: AdminAcademicService,
     private prelistService: AdminPrelistService,
     private candidateService: AdminCandidateService,
     private paymentService: AdminPaymentService,

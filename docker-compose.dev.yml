@@ -1,0 +1,75 @@
+# Development Docker Compose configuration
+# This file extends the base docker-compose.yml for development purposes
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: deps  # Use deps stage for development (includes source code)
+    container_name: fuep_api_dev
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=fuep
+      - DB_PASSWORD=fuep
+      - DB_NAME=fuep_portal
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=fuep
+      - MINIO_SECRET_KEY=fuepstrongpassword
+      - MINIO_USE_SSL=false
+      - BRAND_PRIMARY_COLOR=FF134F47
+      # Development-specific environment variables
+      - REMITA_PUBLIC_KEY=test_public_key_123
+      - REMITA_SECRET_KEY=test_secret_key_456
+      - REMITA_WEBHOOK_SECRET=test_webhook_secret_789
+      - REMITA_MERCHANT_ID=2547916
+      - REMITA_BASE_URL=https://remitademo.net
+    ports:
+      - '4000:4000'
+    volumes:
+      # Mount source code for hot reloading
+      - ./apps/api:/app/apps/api
+      - ./packages/types:/app/packages/types
+      - ./docs:/app/docs
+      - ./tsconfig.base.json:/app/tsconfig.base.json
+      # Mount node_modules to avoid rebuilding
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/packages/types/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    command: ["sh", "-c", "pnpm build && pnpm start"]
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4000/api/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # Development tools
+  adminer:
+    image: adminer:latest
+    container_name: fuep_adminer
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: fuep_redis_commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis

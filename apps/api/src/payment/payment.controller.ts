@@ -283,42 +283,7 @@ export class PaymentController {
     }
   }
 
-  async processFlutterwaveWebhook(req: Request, res: Response): Promise<void> {
-    try {
-      const signature = req.headers['verif-hash'] as string;
-      const timestamp = req.headers['x-timestamp'] as string;
 
-      if (!signature) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing signature',
-          timestamp: new Date(),
-        });
-        return;
-      }
-
-      // Process webhook
-      await this.paymentService.processWebhook(
-        'flutterwave',
-        req.body,
-        signature,
-        timestamp || new Date().toISOString()
-      );
-
-      res.status(200).json({
-        success: true,
-        message: 'Webhook processed successfully',
-        timestamp: new Date(),
-      });
-    } catch (error) {
-      console.error('Flutterwave webhook processing failed:', error);
-      res.status(400).json({
-        success: false,
-        error: 'Webhook processing failed',
-        timestamp: new Date(),
-      });
-    }
-  }
 
   async verifyPayment(req: Request, res: Response): Promise<void> {
     try {

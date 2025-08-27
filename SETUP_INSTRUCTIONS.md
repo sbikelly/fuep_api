@@ -1,285 +1,361 @@
 # FUEP Post-UTME Portal - Setup Instructions
 
+## Quick Start Guide
+
+This guide will help you set up the FUEP Post-UTME Portal API for local development and production deployment.
+
 ## Prerequisites
 
-- **Node.js** (v18 or higher)
-- **pnpm** package manager
-- **Docker Desktop** (for database and services)
-- **Git**
+- **Node.js**: 20.13.1 or higher
+- **pnpm**: 10.14.0 or higher
+- **Docker**: 24.0 or higher
+- **Docker Compose**: 2.20 or higher
+- **Git**: Latest version
 
 ## Project Structure
 
 ```
 fuep-postutme/
 ├── apps/
-│   ├── api/          # Backend Express API
-│   └── web/          # Frontend React App
+│   └── api/                 # Express.js API server
+│       ├── src/             # Source code
+│       ├── package.json     # API dependencies
+│       └── Dockerfile       # Production container
 ├── packages/
-│   └── types/        # Shared TypeScript types
-├── infra/            # Infrastructure configuration
-├── docs/             # Documentation (OpenAPI: docs/openapi.yaml)
-└── docker-compose.yml
+│   └── types/               # Shared TypeScript types
+├── infra/
+│   └── db/                  # Database migrations and schemas
+├── docs/                    # API documentation
+├── docker-compose.yml       # Local development stack
+└── render.yaml              # Render.com deployment blueprint
 ```
 
-## Quick Start
+## Local Development Setup
 
-### 1. Clone and Install Dependencies
+### **Step 1: Clone Repository**
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/sbikelly/fuep_api.git
 cd fuep-postutme
-pnpm install:all
 ```
 
-### 2. Start Infrastructure Services
+### **Step 2: Install Dependencies**
 
 ```bash
-# Start PostgreSQL, Redis, MinIO, and MailHog
-docker-compose up -d
+# Install pnpm if not already installed
+npm install -g pnpm@10.14.0
+
+# Install project dependencies
+pnpm install
 ```
 
-**Services:**
-
-- **PostgreSQL**: `localhost:5432` (user: `fuep`, password: `fuep`, db: `fuep_portal`)
-- **Redis**: `localhost:6379`
-- **MinIO**: `localhost:9000` (Console: `localhost:9001`, user: `fuep`, password: `fuepstrongpassword`)
-- **MailHog**: `localhost:1025` (Web UI: `localhost:8025`)
-
-### 3. Environment Configuration
-
-Create a `.env.development` file in the root directory:
-
-```env
-# Application Configuration
-NODE_ENV=development
-PORT=4000
-
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=fuep
-DB_PASSWORD=fuep
-DB_NAME=fuep_portal
-
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-here-change-in-production
-JWT_EXPIRES_IN=24h
-JWT_REFRESH_SECRET=your-refresh-secret-key-here
-JWT_REFRESH_EXPIRES_IN=7d
-SESSION_TTL=86400
-
-# File Storage Configuration (MinIO)
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=fuep
-MINIO_SECRET_KEY=fuepstrongpassword
-MINIO_BUCKET=uploads
-MINIO_USE_SSL=false
-
-# Redis Configuration
-# Optional: when REDIS_URL is set, it overrides host/port/db below
-REDIS_URL=
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-
-# Security Configuration
-CORS_ORIGIN=http://localhost:5173
-```
-
-### 4. Start Applications
-
-#### Option A: Start Both Together
+### **Step 3: Environment Configuration**
 
 ```bash
-pnpm dev
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your configuration
+# Key variables to configure:
+# - Database credentials
+# - Payment provider keys
+# - Email settings
+# - JWT secrets
 ```
 
-#### Option B: Start Separately
+### **Step 4: Start Development Services**
 
 ```bash
-# Terminal 1 - Backend API
+# Start all services (API, PostgreSQL, Redis, MinIO, MailHog)
+pnpm docker:up
+
+# Or start API only in development mode
 pnpm dev:api
-
-# Terminal 2 - Frontend
-pnpm dev:web
 ```
 
-**Ports:**
-
-- **Frontend**: `http://localhost:5173`
-- **Backend API**: `http://localhost:4000`
-
-## Development Commands
-
-### Backend API (Express)
+### **Step 5: Verify Setup**
 
 ```bash
-cd apps/api
+# Test API health
+curl http://localhost:4000/api/health
 
-# Development (tsx watch)
-pnpm start:dev
+# Test database connection
+curl http://localhost:4000/api/health/db
 
-# Build
-pnpm build
-
-# Production (run compiled dist)
-pnpm start
+# Access API documentation
+# Open: http://localhost:4000/docs
 ```
 
-### Frontend
+## Docker Services
+
+### **Available Services**
+
+- **API Server**: http://localhost:4000
+- **PostgreSQL**: localhost:5432
+- **Redis**: localhost:6379
+- **MinIO**: localhost:9000 (Console: localhost:9001)
+- **MailHog**: localhost:1025 (SMTP), localhost:8025 (Web UI)
+
+### **Docker Commands**
 
 ```bash
-cd apps/web
+# Start all services
+pnpm docker:up
 
-# Development
-pnpm dev
+# Stop all services
+pnpm docker:down
 
-# Build
-pnpm build
+# View service logs
+pnpm docker:logs
 
-# Preview build
-pnpm preview
+# Check service status
+pnpm docker:ps
+
+# Rebuild and start API
+docker compose up -d --build api
 ```
 
-### Root Level
+## Database Setup
+
+### **Automatic Setup**
+
+The database is automatically initialized when you run `pnpm docker:up`. This includes:
+
+- Database creation
+- Schema migrations
+- Seed data insertion
+- Admin user creation
+
+### **Manual Database Access**
 
 ```bash
-# Install all dependencies
-pnpm install:all
-
-# Build all packages
-pnpm build
-
-# Lint all code
-pnpm lint
-
-# Type check
-pnpm typecheck
-```
-
-## Database Management
-
-### Access PostgreSQL
-
-```bash
-# Connect to database (container created by docker-compose)
-docker exec -it fuep-postgres psql -U fuep -d fuep_portal
+# Connect to PostgreSQL
+docker compose exec postgres psql -U fuep -d fuep_portal
 
 # View tables
 \dt
 
-# Exit
-\q
+# View admin users
+SELECT * FROM admin_users;
 ```
 
-### Reset Database
+### **Default Admin Account**
+
+- **Username**: `admin`
+- **Password**: `admin123`
+- **Role**: `super_admin`
+
+## Authentication Setup
+
+### **JWT Configuration**
 
 ```bash
-# Stop and remove containers
-docker-compose down
-
-# Remove volumes
-docker-compose down -v
-
-# Start fresh
-docker-compose up -d
+# Generate secure JWT secrets
+openssl rand -hex 32  # For JWT_SECRET
+openssl rand -hex 32  # For JWT_REFRESH_SECRET
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Database Connection Failed
-
-- Ensure Docker Desktop is running
-- Check if containers are healthy: `docker ps`
-- Verify database credentials in `.env` file
-- Restart containers: `docker-compose restart`
-
-#### 2. Port Already in Use
+### **Admin Login**
 
 ```bash
-# Find process using ports
-netstat -ano | findstr :4000   # API
-netstat -ano | findstr :5173   # Frontend
-
-# Kill process
-taskkill /PID <process-id> /F
+# Login as admin
+curl -X POST http://localhost:4000/api/admin/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
 ```
 
-#### 3. Dependencies Issues
+## Payment Provider Setup
+
+### **Remita Integration**
 
 ```bash
-# Clear cache and reinstall
-pnpm store prune
-pnpm install:all
+# Set in .env file
+REMITA_PUBLIC_KEY=your_public_key
+REMITA_SECRET_KEY=your_secret_key
+REMITA_MERCHANT_ID=your_merchant_id
+REMITA_BASE_URL=https://remitademo.net  # Sandbox
 ```
 
-#### 4. TypeScript Errors
+
+
+## Email Configuration
+
+### **Development (MailHog)**
 
 ```bash
-# Check for type errors
-pnpm typecheck
-
-# Fix linting issues
-pnpm lint --fix
+# MailHog is automatically configured for development
+# Access web interface at: http://localhost:8025
+# SMTP port: 1025
 ```
 
-### Environment Testing
-
-Use the provided test script to verify environment variables:
+### **Production (SMTP)**
 
 ```bash
-cd apps/api
-node test-env.js
+# Set in .env file
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
 ```
-
-This will output your current environment configuration.
 
 ## Production Deployment
 
-### Environment Variables
+### **Render.com Deployment**
 
-- Set `NODE_ENV=production`
-- Use strong, unique `JWT_SECRET`
-- Configure production database credentials
-- Set up SSL certificates
-- Configure production MinIO/S3 credentials
+1. **Connect Repository**
+   - Link your GitHub repository to Render
+   - Render will automatically detect `render.yaml`
 
-### Security Checklist
+2. **Environment Variables**
+   - Configure required environment variables
+   - Set production database and API keys
 
-- [ ] Change default passwords
-- [ ] Set up proper CORS origins
-- [ ] Configure rate limiting
-- [ ] Set up monitoring and logging
-- [ ] Enable HTTPS
-- [ ] Set up backup strategies
+3. **Auto-deploy**
+   - Render will automatically build and deploy
+   - Database will be provisioned automatically
 
-## Additional Resources
+### **Manual Deployment**
 
-- **OpenAPI Spec**: [docs/openapi.yaml](docs/openapi.yaml)
-- **Preview (Redocly)**:
-  ```bash
-  npx @redocly/cli@latest preview-docs docs/openapi.yaml
-  ```
-- **Preview (Swagger UI)**:
-  ```bash
-  docker run -p 8080:8080 -e SWAGGER_JSON=/openapi.yaml -v %cd%/docs/openapi.yaml:/openapi.yaml swaggerapi/swagger-ui
-  ```
-  Then open http://localhost:8080
-- **Sequence Diagrams (Mermaid)**: [docs/sequence-diagrams.md](docs/sequence-diagrams.md)
-  - Paste each code block into a Markdown engine that supports Mermaid, or use https://mermaid.live for quick previews
-- **MinIO Console**: `http://localhost:9001` (development)
-- **MailHog**: `http://localhost:8025` (development)
-- **Database Schema**: `infra/db/001_schema.sql`
+```bash
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
+
+# Or use Docker
+docker compose -f docker-compose.prod.yml up -d
+```
+
+## Testing
+
+### **API Testing**
+
+```bash
+# Test health endpoints
+curl http://localhost:4000/api/health
+curl http://localhost:4000/api/health/db
+
+# Test admin endpoints
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:4000/api/admin/payment-purposes
+
+# Test payment endpoints
+curl -X POST http://localhost:4000/api/payments/init \
+  -H "Content-Type: application/json" \
+  -d '{"purpose":"POST_UTME","amount":2500,"session":"2025/2026"}'
+```
+
+### **Database Testing**
+
+```bash
+# Test database connection
+docker compose exec postgres psql -U fuep -d fuep_portal -c "SELECT version();"
+
+# Test admin user
+docker compose exec postgres psql -U fuep -d fuep_portal -c "SELECT username, role FROM admin_users;"
+```
+
+## Development Commands
+
+```bash
+# Build all packages
+pnpm build
+
+# Start API development server
+pnpm dev:api
+
+# Run tests
+pnpm test
+
+# Clean build artifacts
+pnpm clean
+
+# Type checking
+pnpm type-check
+
+# Linting
+pnpm lint
+
+# Formatting
+pnpm format
+```
+
+## API Documentation
+
+### **OpenAPI Specification**
+
+- **Swagger UI**: http://localhost:4000/docs
+- **OpenAPI JSON**: http://localhost:4000/openapi.json
+- **YAML Spec**: `docs/openapi.yaml`
+
+### **Key Endpoints**
+
+- **Health**: `GET /api/health`
+- **Admin Auth**: `POST /api/admin/auth/login`
+- **Payment Purposes**: `GET /api/admin/payment-purposes`
+- **Candidates**: `GET /api/candidates`
+- **Payments**: `POST /api/payments/init`
+
+## Troubleshooting
+
+### **Common Issues**
+
+#### **Port Already in Use**
+
+```bash
+# Check what's using port 4000
+netstat -ano | findstr :4000  # Windows
+lsof -i :4000                 # macOS/Linux
+
+# Kill process or change port in .env
+PORT=4001
+```
+
+#### **Database Connection Issues**
+
+```bash
+# Check PostgreSQL status
+docker compose ps postgres
+
+# View PostgreSQL logs
+docker compose logs postgres
+
+# Restart PostgreSQL
+docker compose restart postgres
+```
+
+#### **API Build Issues**
+
+```bash
+# Clean and rebuild
+pnpm clean
+pnpm install
+pnpm build
+
+# Check TypeScript errors
+pnpm type-check
+```
+
+### **Logs and Debugging**
+
+```bash
+# View API logs
+docker compose logs -f api
+
+# View all service logs
+docker compose logs -f
+
+# Check API health
+curl http://localhost:4000/api/health
+```
 
 ## Support
 
-For issues and questions:
+- **Documentation**: Check the `/docs` directory
+- **Issues**: Report bugs via GitHub Issues
+- **Discussions**: Use GitHub Discussions for questions
 
-1. Check the troubleshooting section above
-2. Review Docker container logs: `docker-compose logs <service-name>`
-3. Check application logs in the terminal
-4. Verify all prerequisites are met
+---
+
+**Happy coding!**

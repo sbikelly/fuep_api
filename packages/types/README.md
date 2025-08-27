@@ -95,7 +95,7 @@ const stateSchema = CustomValidators.nigerianState;
 - `PaymentTransaction`: Payment transaction records
 - `PaymentInitiationRequest` & `Response`: Payment flow
 - `WebhookPayload`: Payment provider webhooks
-- `RemitaPaymentData` & `FlutterwavePaymentData`: Provider-specific data
+- `RemitaPaymentData`: Provider-specific data
 
 ### Validation Types
 

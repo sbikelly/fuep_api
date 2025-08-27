@@ -2,14 +2,14 @@
 
 A comprehensive Post-UTME application and management system for Federal University of Education, Pankshin (FUEP).
 
-## 🚀 Current Status
+## Current Status
 
-### ✅ **Completed Features**
+### Completed Features
 
 - **Core API Infrastructure** - Express.js with TypeScript, Docker containerization
 - **Database Management** - PostgreSQL with Knex.js, comprehensive schema design
 - **Authentication & Security** - JWT-based auth with refresh tokens, rate limiting, security headers
-- **Payment Integration** - Remita, Flutterwave, and Paystack payment providers with real database integration
+- **Payment Integration** - Remita payment provider with real database integration
 - **Document Management** - MinIO integration for file storage
 - **Advanced Analytics** - Comprehensive reporting and metrics
 - **Audit Logging** - Complete audit trail and security monitoring
@@ -18,34 +18,27 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Academic Structure Management** - Faculty, Department, and Program management system
 - **Enhanced Application Validation** - Real-time validation against academic entities
 - **Token Management** - Secure logout and token invalidation
+- **Cloud Deployment** - Production deployment on Render.com using Docker containers
 
-### 🔄 **In Progress**
+### �� **In Progress**
 
-- Frontend web application development
-- Mobile application development
 - Advanced reporting dashboard
+- Enhanced admin management features
 
-### 📋 **Planned Features**
+### Planned Features
 
 - SMS notifications
 - Advanced document verification
 - Integration with external systems
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ### **System Architecture**
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend Web  │    │   Mobile App   │    │   Admin Panel   │
-│   (React/Vue)   │    │   (React Native)│    │   (React)       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
                     ┌─────────────────┐
-                    │   API Gateway   │
-                    │   (Nginx)       │
+                    │   Load Balancer │
+                    │   (Render.com)  │
                     └─────────────────┘
                                  │
                     ┌─────────────────┐
@@ -67,13 +60,14 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Database**: PostgreSQL with Knex.js ORM
 - **Cache**: Redis for session management and caching
 - **File Storage**: MinIO for document management
-- **Containerization**: Docker & Docker Compose
+- **Containerization**: Docker & Docker Compose for local development and production deployment
+- **Hosting**: Render.com for managed cloud deployment with Docker containers
 - **Email**: Nodemailer with MailHog (dev) / SMTP (prod)
 - **Security**: JWT with refresh tokens, bcrypt, helmet, rate limiting
 - **Monitoring**: Winston logging, metrics collection
 - **Validation**: Zod schemas for type-safe API requests
 
-## 🎓 **Academic Structure Management**
+## Academic Structure Management
 
 ### **Academic Entities**
 
@@ -90,7 +84,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Relationship Management**: Flexible linking of programs to departments
 - **Admin Interface**: Comprehensive admin panel for academic structure management
 
-## 🔐 **Enhanced Security Features**
+## Enhanced Security Features
 
 ### **Authentication & Authorization**
 
@@ -117,14 +111,11 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Suspicious Activity Detection**: Security event monitoring
 - **Audit Logging**: Complete audit trail for compliance
 
-## 💳 **Enhanced Payment System**
+## Enhanced Payment System
 
 ### **Payment Providers**
 
 - **Remita**: Primary payment gateway with comprehensive integration
-- **Flutterwave**: Secondary payment option for additional flexibility
-- **Paystack**: Alternative payment gateway support
-- **Mock Provider**: Development and testing support
 
 ### **Payment Features**
 
@@ -137,7 +128,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Multi-Currency Support**: Flexible currency handling
 - **Payment Statistics**: Comprehensive analytics and reporting
 
-## 📊 **Candidate Registration Flow**
+## Candidate Registration Flow
 
 ### **Phase 1: JAMB Verification & Account Creation**
 
@@ -168,7 +159,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 3. **Confirmation Email** - Send registration completion notification
 4. **Status Tracking** - Monitor application review process
 
-## 📧 **Email Service**
+## Email Service
 
 ### **Email Templates**
 
@@ -185,7 +176,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - Automated sending with error handling
 - Development testing with MailHog
 
-## 🗄️ **Database Schema**
+## Database Schema
 
 ### **Core Tables**
 
@@ -212,7 +203,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - Timestamp tracking for all records
 - Academic hierarchy management
 
-## 🚀 **Getting Started**
+## Getting Started
 
 ### **Prerequisites**
 
@@ -224,7 +215,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 
 ```bash
 # Clone the repository
-git clone https://github.com/sbikelly/fuep-postutme.git
+git clone https://github.com/sbikelly/fuep_api.git
 cd fuep-postutme
 
 # Start all services
@@ -232,10 +223,39 @@ docker compose up -d
 
 # Access the application
 # API: http://localhost:4000
-# Web UI: http://localhost:5173
-# Admin Panel: http://localhost:5173/admin
 # MailHog: http://localhost:8025
 ```
+
+### **Production Deployment**
+
+The application is automatically deployed to production on Render.com using Docker containers:
+
+#### **API Service (fuep-api)**
+- **Service Type**: Web service with Docker deployment
+- **Plan**: Free tier with automatic scaling
+- **Dockerfile**: `./apps/api/Dockerfile`
+- **Health Check**: `/api/health` endpoint
+- **Auto-deploy**: Enabled for continuous deployment from main branch
+- **URL**: https://fuep-api.onrender.com
+
+#### **Database Service (fuep-postgres)**
+- **Name**: `fuep_postgres`
+- **Database**: `fuep_portal`
+- **User**: `fuep_user`
+- **Plan**: Free tier managed PostgreSQL
+- **Connection**: Automatically managed via `DATABASE_URL` environment variable
+
+#### **External Services**
+- **Redis**: External Redis service via `REDIS_URL` environment variable
+- **MinIO**: External MinIO service for file storage
+- **Email**: External SMTP service for production emails
+
+#### **Deployment Features**
+- **Container Management**: Docker-based deployment with automatic scaling
+- **SSL/TLS**: Automatic HTTPS certificate management
+- **Scaling**: Automatic horizontal scaling of Docker containers based on load
+- **Environment Variables**: Secure configuration with automatic secret generation
+- **Health Monitoring**: Built-in health checks and monitoring
 
 ### **Environment Configuration**
 
@@ -247,7 +267,36 @@ cp .env.example .env
 # Database, payment providers, email settings, etc.
 ```
 
-## 📚 **API Documentation**
+### **Render.com Configuration**
+
+The production deployment is configured via `render.yaml` in the root directory:
+
+```yaml
+services:
+  - type: web
+    name: fuep-api
+    env: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+
+databases:
+  - name: fuep-postgres
+    databaseName: fuep_portal
+    user: fuep_user
+    plan: free
+```
+
+**Key Configuration Points:**
+- **Docker Deployment**: Uses `./apps/api/Dockerfile` for containerization
+- **Health Checks**: Monitors `/api/health` endpoint for service health
+- **Auto-deploy**: Automatically deploys from main branch
+- **Free Tier**: Cost-effective deployment with managed PostgreSQL
+- **Environment Variables**: Automatically configured from Render.com dashboard
+
+## API Documentation
 
 ### **Available Endpoints**
 
@@ -273,7 +322,7 @@ cp .env.example .env
 - **Swagger UI**: `http://localhost:4000/docs`
 - **OpenAPI Spec**: `http://localhost:4000/api/openapi.json`
 
-## 🧪 **Testing**
+## Testing
 
 ### **API Testing**
 
@@ -298,7 +347,7 @@ curl -X POST http://localhost:4000/api/auth/login \
 - View all sent emails in development
 - Test email templates and delivery
 
-## 📈 **Monitoring & Analytics**
+## Monitoring & Analytics
 
 ### **Performance Metrics**
 
@@ -322,7 +371,7 @@ curl -X POST http://localhost:4000/api/auth/login \
 - Data access patterns
 - Security event logging
 
-## 🤝 **Contributing**
+## Contributing
 
 ### **Development Setup**
 
@@ -348,11 +397,11 @@ pnpm build
 - Conventional commits
 - Comprehensive testing
 
-## 📄 **License**
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 **Support**
+## Support
 
 ### **Contact Information**
 
@@ -362,11 +411,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### **Issue Reporting**
 
-- GitHub Issues: [Report a Bug](https://github.com/sbikelly/fuep-postutme/issues)
-- Feature Requests: [Request Feature](https://github.com/sbikelly/fuep-postutme/issues/new)
+- GitHub Issues: [Report a Bug](https://github.com/sbikelly/fuep_api/issues)
+- Feature Requests: [Request Feature](https://github.com/sbikelly/fuep_api/issues/new)
 
 ---
 
-**Built with ❤️ for Federal University of Education, Pankshin**
+**Built with dedication for Federal University of Education, Pankshin**
 
 _Last updated: August 2025_

@@ -1,0 +1,515 @@
+openapi: 3.0.3
+info:
+  title: FUEP Post-UTME Portal - Academic Structure API
+  version: '1.0.0'
+  description: Faculty, department, and program management endpoints
+
+paths:
+  /api/admin/faculties:
+    get:
+      summary: Get all faculties
+      tags: [Academic]
+      responses:
+        '200':
+          description: List of faculties
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Faculty' }
+                  timestamp: { type: string, format: date-time }
+
+    post:
+      summary: Create new faculty
+      tags: [Academic]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, code]
+              properties:
+                name: { type: string, maxLength: 200 }
+                code: { type: string, maxLength: 20 }
+                description: { type: string }
+      responses:
+        '201':
+          description: Faculty created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Faculty' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/faculties/{id}:
+    get:
+      summary: Get faculty by ID
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Faculty details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Faculty' }
+                  timestamp: { type: string, format: date-time }
+
+    put:
+      summary: Update faculty
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 200 }
+                code: { type: string, maxLength: 20 }
+                description: { type: string }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Faculty updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Faculty' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete faculty
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Faculty deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/departments:
+    get:
+      summary: Get all departments
+      tags: [Academic]
+      parameters:
+        - in: query
+          name: facultyId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of departments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Department' }
+                  timestamp: { type: string, format: date-time }
+
+    post:
+      summary: Create new department
+      tags: [Academic]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, code, facultyId]
+              properties:
+                name: { type: string, maxLength: 200 }
+                code: { type: string, maxLength: 20 }
+                description: { type: string }
+                facultyId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Department created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Department' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/departments/{id}:
+    get:
+      summary: Get department by ID
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Department details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Department' }
+                  timestamp: { type: string, format: date-time }
+
+    put:
+      summary: Update department
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 200 }
+                code: { type: string, maxLength: 20 }
+                description: { type: string }
+                facultyId: { type: string, format: uuid }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Department updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Department' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete department
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Department deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/programs:
+    get:
+      summary: Get all programs
+      tags: [Academic]
+      responses:
+        '200':
+          description: List of programs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Program' }
+                  timestamp: { type: string, format: date-time }
+
+    post:
+      summary: Create new program
+      tags: [Academic]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, code]
+              properties:
+                name: { type: string, maxLength: 200 }
+                code: { type: string, maxLength: 20 }
+                description: { type: string }
+      responses:
+        '201':
+          description: Program created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Program' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/programs/{id}:
+    get:
+      summary: Get program by ID
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Program details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Program' }
+                  timestamp: { type: string, format: date-time }
+
+    put:
+      summary: Update program
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 200 }
+                code: { type: string, maxLength: 20 }
+                description: { type: string }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Program updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Program' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete program
+      tags: [Academic]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Program deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/program-departments:
+    get:
+      summary: Get program-department relationships
+      tags: [Academic]
+      parameters:
+        - in: query
+          name: programId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: departmentId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of program-department relationships
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ProgramDepartment' }
+                  timestamp: { type: string, format: date-time }
+
+    post:
+      summary: Create program-department relationship
+      tags: [Academic]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [programId, departmentId]
+              properties:
+                programId: { type: string, format: uuid }
+                departmentId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Relationship created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/ProgramDepartment' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/academic-structure:
+    get:
+      summary: Get complete academic structure
+      tags: [Academic]
+      responses:
+        '200':
+          description: Complete academic structure
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      faculties:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            faculty: { $ref: '#/components/schemas/Faculty' }
+                            departments:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  department: { $ref: '#/components/schemas/Department' }
+                                  programs:
+                                    type: array
+                                    items: { $ref: '#/components/schemas/Program' }
+                  timestamp: { type: string, format: date-time }
+
+components:
+  schemas:
+    Faculty:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Department:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        facultyId: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Program:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProgramDepartment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        programId: { type: string, format: uuid }
+        departmentId: { type: string, format: uuid }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AcademicStructure:
+      type: object
+      properties:
+        faculties:
+          type: array
+          items:
+            type: object
+            properties:
+              faculty: { $ref: '#/components/schemas/Faculty' }
+              departments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    department: { $ref: '#/components/schemas/Department' }
+                    programs:
+                      type: array
+                      items: { $ref: '#/components/schemas/Program' }

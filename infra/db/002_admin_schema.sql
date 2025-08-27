@@ -193,15 +193,22 @@ CREATE TABLE IF NOT EXISTS batch_admission_operations (
 -- Report generation jobs
 CREATE TABLE IF NOT EXISTS report_generation_jobs (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                 varchar(255) NOT NULL,
+  description          text,
   report_type          varchar(64) NOT NULL,
   parameters           jsonb,
+  format               varchar(16) NOT NULL,
   status               varchar(32) NOT NULL DEFAULT 'pending',
-  file_url             text,
-  generated_by         uuid NOT NULL REFERENCES admin_users(id),
-  processing_started_at timestamptz,
-  processing_completed_at timestamptz,
+  file_path            text,
+  file_size            bigint,
+  total_records        integer NOT NULL DEFAULT 0,
+  processed_records    integer NOT NULL DEFAULT 0,
+  started_at           timestamptz,
+  completed_at         timestamptz,
   error_message        text,
-  created_at           timestamptz NOT NULL DEFAULT NOW()
+  created_by           uuid NOT NULL REFERENCES admin_users(id),
+  created_at           timestamptz NOT NULL DEFAULT NOW(),
+  updated_at           timestamptz NOT NULL DEFAULT NOW()
 );
 
 -- ---------- Indexes for Performance ----------
@@ -257,6 +264,10 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER admission_decision_templates_set_updated_at
 BEFORE UPDATE ON admission_decision_templates
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER report_generation_jobs_set_updated_at
+BEFORE UPDATE ON report_generation_jobs
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---------- Seed Data for Admin Portal ----------
@@ -368,7 +379,7 @@ SELECT
   c.jamb_reg_no,
   c.email,
   c.phone,
-  pt.name as payment_type_name,
+  pt.name as payment_purpose_name,
   pd.status as dispute_status,
   pd.description as dispute_description
 FROM payments p

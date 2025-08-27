@@ -1,0 +1,307 @@
+openapi: 3.0.3
+info:
+  title: FUEP Post-UTME Portal - Payment Management API
+  version: '1.0.0'
+  description: Payment processing, verification, and management endpoints
+
+paths:
+  /api/payments/initiate:
+    post:
+      summary: Initialize a payment
+      tags: [Payments]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose, amount, session]
+              properties:
+                purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+                amount: { type: number, format: float }
+                session: { type: string }
+                email: { type: string }
+                phone: { type: string }
+                preferredProvider: { type: string }
+                jambRegNo: { type: string }
+      responses:
+        '201':
+          description: Payment created / provider init response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitiationResponse'
+
+  /api/payments/{paymentId}:
+    get:
+      summary: Get payment status and details
+      tags: [Payments]
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusCheckResponse'
+        '404': { description: Payment not found }
+
+  /api/payments/{paymentId}/verify:
+    post:
+      summary: Manually verify payment with provider
+      tags: [Payments]
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentVerificationResponse'
+        '404': { description: Payment not found }
+
+  /api/payments/{paymentId}/receipt:
+    get:
+      summary: Get payment receipt
+      tags: [Payments]
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentReceiptResponse'
+        '400': { description: Payment not successful' }
+        '404': { description: Payment not found }
+
+  /api/payments/webhook/remita:
+    post:
+      summary: Remita webhook callback
+      tags: [Payments]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200': { description: Acknowledged }
+
+
+
+  /api/payments/providers/status:
+    get:
+      summary: Get payment provider status
+      tags: [Payments]
+      responses:
+        '200':
+          description: Provider status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: object }
+                  timestamp: { type: string, format: date-time }
+
+  /api/payments/types:
+    get:
+      summary: Get available payment types for session
+      tags: [Payments]
+      parameters:
+        - in: query
+          name: session
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Available payment types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaymentPurposeConfig' }
+                  timestamp: { type: string, format: date-time }
+
+components:
+  schemas:
+    PaymentPurpose:
+      type: string
+      enum: ['POST_UTME', 'ACCEPTANCE', 'SCHOOL_FEES', 'LIBRARY_FEE', 'HOSTEL_FEE', 'MEDICAL_FEE', 'SPORTS_FEE', 'other']
+
+    PaymentProvider:
+      type: string
+      enum: ['remita']
+
+    PaymentStatus:
+      type: string
+      enum: ['initiated', 'pending', 'processing', 'success', 'failed', 'cancelled', 'disputed', 'refunded']
+
+    PaymentTransaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+        provider: { type: string }
+        providerRef: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        paymentLevel: { type: string }
+        session: { type: string }
+        idempotencyKey: { type: string }
+        requestHash: { type: string }
+        responseSnapshot: { type: object }
+        statusCode: { type: integer }
+        firstRequestAt: { type: string, format: date-time }
+        lastRequestAt: { type: string, format: date-time }
+        replayCount: { type: integer }
+        externalReference: { type: string }
+        metadata: { type: object }
+        expiresAt: { type: string, format: date-time }
+        rawPayload: { type: object }
+        receiptUrl: { type: string }
+        webhookReceivedAt: { type: string, format: date-time }
+        verifiedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentPurposeConfig:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+        description: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        isActive: { type: boolean }
+        session: { type: string }
+        dueDate: { type: string, format: date }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentInitiationRequest:
+      type: object
+      properties:
+        purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+        amount: { type: number }
+        currency: { type: string }
+        session: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        preferredProvider: { type: string }
+        jambRegNo: { type: string }
+
+    PaymentInitiationResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/PaymentTransaction' }
+        paymentUrl: { type: string, format: uri }
+        providerRef: { type: string }
+        expiresAt: { type: string, format: date-time }
+        redirectUrl: { type: string, format: uri }
+        inlineParams: { type: object }
+        clientPollUrl: { type: string, format: uri }
+        timestamp: { type: string, format: date-time }
+
+    PaymentVerificationRequest:
+      type: object
+      properties:
+        transactionId: { type: string, format: uuid }
+        providerReference: { type: string }
+
+    PaymentVerificationResponse:
+      type: object
+      properties:
+        transactionId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        amount: { type: number }
+        currency: { type: string }
+        providerReference: { type: string }
+        providerData: { type: object }
+        verifiedAt: { type: string, format: date-time }
+
+    PaymentStatusCheckRequest:
+      type: object
+      properties:
+        paymentId: { type: string, format: uuid }
+
+    PaymentStatusCheckResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/PaymentTransaction' }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    PaymentReceipt:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        paymentId: { type: string, format: uuid }
+        serial: { type: string }
+        qrToken: { type: string }
+        pdfUrl: { type: string, format: uri }
+        contentHash: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    PaymentReceiptResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/PaymentReceipt' }
+        downloadUrl: { type: string, format: uri }
+        verificationUrl: { type: string, format: uri }
+        timestamp: { type: string, format: date-time }
+
+    RemitaPaymentData:
+      type: object
+      properties:
+        rrr: { type: string }
+        orderId: { type: string }
+        amount: { type: number }
+        status: { type: string }
+        transactionId: { type: string }
+        paymentDate: { type: string }
+        channel: { type: string }
+        bankCode: { type: string }
+        bankName: { type: string }
+
+
+
+    PaymentEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        paymentId: { type: string, format: uuid }
+        eventType: { type: string }
+        fromStatus: { $ref: '#/components/schemas/PaymentStatus' }
+        toStatus: { $ref: '#/components/schemas/PaymentStatus' }
+        providerEventId: { type: string }
+        signatureHash: { type: string }
+        providerData: { type: object }
+        metadata: { type: object }
+        createdAt: { type: string, format: date-time }

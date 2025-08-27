@@ -5,9 +5,9 @@ info:
   description: REST API for candidate and admin workflows, payments, admissions, matriculation, and migration.
 
 servers:
+  - url: http://localhost:4000
+  - url: http://localhost:8080
   - url: https://api.example.edu/v1
-  - url: http://localhost:4000/api
-  - url: http://localhost:8080/api
 
 security:
   - bearerAuth: []
@@ -865,7 +865,7 @@ paths:
         receiptUrl: { type: string }
 
   # ------- Payments management (for creating/updating/deleting payment type, amount, and other relevant informations) --------
-  /admin/payments/types:
+  /admin/payments/purposes:
     get:
       summary: List payment types
       responses:
@@ -1333,6 +1333,78 @@ paths:
           description: Unauthorized
         '403':
           description: Insufficient permissions
+   /api/admin/programs:
+    get:
+      summary: Get all programs
+      responses:
+        '200':
+          description: List of programs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Program'
+    post:
+      summary: Create a new program
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Program'
+      responses:
+        '201':
+          description: Program created
+
+  /api/admin/faculties:
+    get:
+      summary: Get all faculties
+      responses:
+        '200':
+          description: List of faculties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Faculty'
+    post:
+      summary: Create a new faculty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+      responses:
+        '201':
+          description: Faculty created
+
+  /api/admin/departments:
+    get:
+      summary: Get all departments
+      responses:
+        '200':
+          description: List of departments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Department'
+    post:
+      summary: Create a new department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+      responses:
+        '201':
+          description: Department created
+
 
   # Prelist Management
   /api/admin/prelist/upload:
@@ -1696,7 +1768,7 @@ paths:
         '403':
           description: Insufficient permissions
 
-  /api/admin/payments/types:
+  /api/admin/payments/purposes:
     get:
       summary: Get payment types
       tags: [Admin Payments]
@@ -1713,7 +1785,7 @@ paths:
                   success: { type: boolean }
                   data:
                     type: array
-                    items: { $ref: '#/components/schemas/PaymentType' }
+                    items: { $ref: '#/components/schemas/PaymentPurpose' }
                   timestamp: { type: string, format: date-time }
         '401':
           description: Unauthorized
@@ -1746,7 +1818,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaymentType'
+                $ref: '#/components/schemas/PaymentPurpose'
         '400':
           description: Invalid input
         '401':
@@ -1754,7 +1826,7 @@ paths:
         '403':
           description: Insufficient permissions
 
-  /api/admin/payments/types/{id}:
+  /api/admin/payments/purposes/{id}:
     put:
       summary: Update payment type
       tags: [Admin Payments]
@@ -1785,7 +1857,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaymentType'
+                $ref: '#/components/schemas/PaymentPurpose'
         '400':
           description: Invalid input
         '404':
@@ -2498,6 +2570,8 @@ paths:
         '500':
           description: Internal server error
 
+ 
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3149,7 +3223,7 @@ components:
         status: { type: string }
         message: { type: string }
 
-    PaymentType:
+    PaymentPurpose:
       type: object
       properties:
         id: { type: string, format: uuid }
@@ -3216,3 +3290,65 @@ components:
         notes: { type: string }
         decidedBy: { type: string, format: uuid }
         decidedAt: { type: string, format: date-time }
+
+     Program:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Faculty:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        programId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Department:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        facultyId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+

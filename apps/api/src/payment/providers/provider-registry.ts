@@ -1,7 +1,5 @@
 import { IPaymentProvider, IPaymentProviderRegistry, PaymentProvider } from '@fuep/types';
 
-import { FlutterwavePaymentProvider } from './flutterwave.provider.js';
-import { MockPaymentProvider } from './mock.provider.js';
 import { RemitaPaymentProvider } from './remita.provider.js';
 
 export class PaymentProviderRegistry implements IPaymentProviderRegistry {
@@ -21,18 +19,11 @@ export class PaymentProviderRegistry implements IPaymentProviderRegistry {
 
   private initializeProviders(): void {
     try {
-      console.log('[PaymentProviderRegistry] Initializing payment providers...');
+      console.log('[PaymentProviderRegistry] Initializing Remita payment provider...');
       console.log('[PaymentProviderRegistry] Environment check:');
       console.log('  - REMITA_PUBLIC_KEY:', process.env.REMITA_PUBLIC_KEY ? 'SET' : 'NOT SET');
       console.log('  - REMITA_SECRET_KEY:', process.env.REMITA_SECRET_KEY ? 'SET' : 'NOT SET');
-      console.log(
-        '  - FLUTTERWAVE_PUBLIC_KEY:',
-        process.env.FLUTTERWAVE_PUBLIC_KEY ? 'SET' : 'NOT SET'
-      );
-      console.log(
-        '  - FLUTTERWAVE_SECRET_KEY:',
-        process.env.FLUTTERWAVE_SECRET_KEY ? 'SET' : 'NOT SET'
-      );
+
 
       // Initialize Remita provider
       if (process.env.REMITA_PUBLIC_KEY && process.env.REMITA_SECRET_KEY) {
@@ -55,47 +46,17 @@ export class PaymentProviderRegistry implements IPaymentProviderRegistry {
         }
       } else {
         console.log('[PaymentProviderRegistry] Remita provider not created - missing credentials');
+        throw new Error('Remita credentials are required for payment processing');
       }
 
-      // Initialize Flutterwave provider
-      if (process.env.FLUTTERWAVE_PUBLIC_KEY && process.env.FLUTTERWAVE_SECRET_KEY) {
-        console.log('[PaymentProviderRegistry] Creating Flutterwave provider...');
-        const flutterwaveProvider = new FlutterwavePaymentProvider({
-          publicKey: process.env.FLUTTERWAVE_PUBLIC_KEY,
-          secretKey: process.env.FLUTTERWAVE_SECRET_KEY,
-          webhookSecret: process.env.FLUTTERWAVE_WEBHOOK_SECRET || 'flutterwave-webhook-secret',
-          baseUrl: process.env.FLUTTERWAVE_BASE_URL || 'https://api.flutterwave.com/v3',
-          sandboxMode: process.env.NODE_ENV !== 'production',
-        });
 
-        this.registerProvider(flutterwaveProvider);
-
-        // Set Flutterwave as primary if Remita is not available
-        if (!this.primaryProvider && flutterwaveProvider.isEnabled) {
-          this.primaryProvider = 'flutterwave';
-          console.log('[PaymentProviderRegistry] Flutterwave set as primary provider');
-        }
-      } else {
-        console.log(
-          '[PaymentProviderRegistry] Flutterwave provider not created - missing credentials'
-        );
-      }
 
       console.log(
         `[PaymentProviderRegistry] Payment providers initialized: ${Array.from(this.providers.keys()).join(', ')}`
       );
       console.log(`[PaymentProviderRegistry] Primary provider: ${this.primaryProvider}`);
 
-      // If no real providers are available, add mock provider for testing
-      if (this.providers.size === 0) {
-        console.log(
-          '[PaymentProviderRegistry] No real providers available, adding mock provider for testing'
-        );
-        const mockProvider = new MockPaymentProvider();
-        this.registerProvider(mockProvider);
-        this.primaryProvider = 'remita'; // Use the provider type from MockPaymentProvider
-        console.log('[PaymentProviderRegistry] Mock provider set as primary provider');
-      }
+
     } catch (error) {
       console.error('[PaymentProviderRegistry] Error in initializeProviders:', error);
       throw error;

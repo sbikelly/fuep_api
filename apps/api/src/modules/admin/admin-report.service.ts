@@ -62,20 +62,37 @@ export class AdminReportService {
     adminUserId: string
   ): Promise<ReportGenerationJob> {
     try {
-      const [jobId] = await db('report_generation_jobs')
+            // Insert the job and get the ID using returning
+      const result = await db('report_generation_jobs')
         .insert({
           name: jobData.name,
           description: jobData.description,
           report_type: jobData.reportType,
           status: 'pending',
-          parameters: JSON.stringify(jobData.parameters),
+          parameters: jobData.parameters,
           format: jobData.format,
           total_records: 0,
           processed_records: 0,
           created_by: adminUserId,
         })
         .returning('id');
-
+      
+      console.log('Insert result:', JSON.stringify(result));
+      
+      // Extract the ID from the result array
+      if (!result || !Array.isArray(result) || result.length === 0) {
+        throw new Error('Failed to get job ID from insert result');
+      }
+      
+      const jobId = result[0].id;
+      
+      if (!jobId) {
+        throw new Error('Failed to extract job ID from result');
+      }
+      
+      console.log('Extracted jobId:', jobId, 'Type:', typeof jobId);
+      console.log('Calling getReportJobById with:', jobId);
+      
       // Log audit
       await this.auditService.logAction({
         adminUserId,
@@ -85,10 +102,22 @@ export class AdminReportService {
         details: jobData,
       });
 
-      const createdJob = await this.getReportJobById(jobId);
-      if (!createdJob) {
-        throw new Error('Failed to retrieve created report job');
-      }
+      // Return the created job directly without calling getReportJobById
+      const createdJob: ReportGenerationJob = {
+        id: jobId,
+        name: jobData.name,
+        description: jobData.description,
+        reportType: jobData.reportType,
+        status: 'pending',
+        parameters: jobData.parameters,
+        format: jobData.format,
+        totalRecords: 0,
+        processedRecords: 0,
+        createdBy: adminUserId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
       return createdJob;
     } catch (error) {
       throw new Error(
@@ -171,6 +200,7 @@ export class AdminReportService {
 
   async getReportJobById(id: string): Promise<ReportGenerationJob | null> {
     try {
+      console.log('getReportJobById called with id:', id, 'Type:', typeof id);
       const job = await db('report_generation_jobs').where('id', id).first();
 
       if (!job) return null;
@@ -181,7 +211,7 @@ export class AdminReportService {
         description: job.description,
         reportType: job.report_type,
         status: job.status,
-        parameters: JSON.parse(job.parameters),
+        parameters: job.parameters,
         format: job.format,
         filePath: job.file_path,
         fileSize: job.file_size,
@@ -249,7 +279,7 @@ export class AdminReportService {
           description: job.description,
           reportType: job.report_type,
           status: job.status,
-          parameters: JSON.parse(job.parameters),
+          parameters: job.parameters,
           format: job.format,
           filePath: job.file_path,
           fileSize: job.file_size,

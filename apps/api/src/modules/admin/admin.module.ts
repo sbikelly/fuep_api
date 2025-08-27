@@ -1,5 +1,6 @@
 import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
+import { AdminAcademicService } from './admin-academic.service.js';
 import { AdminAdmissionService } from './admin-admission.service.js';
 import { AdminAuditService } from './admin-audit.service.js';
 import { AdminAuthService } from './admin-auth.service.js';
@@ -20,6 +21,7 @@ export function createAdminModule(): AdminModule {
   const adminAuditService = new AdminAuditService();
   const adminPermissionService = new AdminPermissionService();
   const adminAuthService = new AdminAuthService(adminAuditService);
+  const adminAcademicService = new AdminAcademicService();
   const adminPrelistService = new AdminPrelistService(adminAuditService);
   const adminCandidateService = new AdminCandidateService(adminAuditService);
   const adminPaymentService = new AdminPaymentService(adminAuditService);
@@ -27,6 +29,7 @@ export function createAdminModule(): AdminModule {
   const adminReportService = new AdminReportService(adminAuditService);
 
   const adminService = new AdminService(
+    adminAcademicService,
     adminPrelistService,
     adminCandidateService,
     adminPaymentService,
@@ -37,7 +40,8 @@ export function createAdminModule(): AdminModule {
   const adminController = new AdminController(
     adminService,
     adminAuthService,
-    adminPermissionService
+    adminPermissionService,
+    adminAcademicService
   );
 
   return {

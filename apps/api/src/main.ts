@@ -16,15 +16,14 @@ import {
 } from '@fuep/types';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import express from 'express';
-import { readFileSync } from 'fs';
-import helmet from 'helmet';
+import { existsSync,readFileSync } from 'fs';
+import _helmet from 'helmet';
 import yaml from 'js-yaml';
 import { join } from 'path';
 import swaggerUi from 'swagger-ui-express';
 
-// Load environment variables from apps/api directory
+// Import database connection
 import { db } from './db/knex.js';
 // Import admin module initializer
 import { createAdminModule } from './modules/admin/admin.module.js';
@@ -34,49 +33,53 @@ import { createPaymentsModule } from './payment/index.js';
 // Import authentication service
 import { AuthService } from './services/auth.service.js';
 
-const envPath = join(process.cwd(), '.env');
-console.log('Current working directory:', process.cwd());
-console.log('Loading .env from:', envPath);
-dotenv.config({ path: envPath });
+// Load environment variables (Render auto-injects these in production)
+// Only load .env in development
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const envPath = join(process.cwd(), '.env');
+    console.log('Development mode: Loading .env from:', envPath);
+    require('dotenv').config({ path: envPath });
+  } catch (_error) {
+    console.log('No .env file found, using system environment variables');
+  }
+}
 
 // Debug: Log environment variables
 console.log('Environment variables loaded:');
 console.log('REMITA_PUBLIC_KEY:', process.env.REMITA_PUBLIC_KEY ? 'SET' : 'NOT SET');
 console.log('REMITA_SECRET_KEY:', process.env.REMITA_SECRET_KEY ? 'SET' : 'NOT SET');
-console.log('FLUTTERWAVE_PUBLIC_KEY:', process.env.FLUTTERWAVE_PUBLIC_KEY ? 'SET' : 'NOT SET');
-console.log('FLUTTERWAVE_SECRET_KEY:', process.env.FLUTTERWAVE_SECRET_KEY ? 'SET' : 'NOT SET');
+
 
 // Set sandbox environment variables for testing if not present
 if (!process.env.REMITA_PUBLIC_KEY) {
   console.log('Setting sandbox Remita environment variables for testing');
-  process.env.REMITA_PUBLIC_KEY = 'test_public_key_123';
-  process.env.REMITA_SECRET_KEY = 'test_secret_key_456';
+  process.env.REMITA_PUBLIC_KEY = 'test_public_key_123'; // my testmode public key: pk_test_1KeEKQyxvpwBPGQBjEBOl7GqPpbKJuidH7ymPNW1em/u+gRBbfh32H4GnjwBQRTr
+  process.env.REMITA_SECRET_KEY = 'test_secret_key_456'; // my testmode private key: sk_test_1KeEKQyxvpxkKbu3lrHky8DzOFTIv6ZYPWGR0ojRAs0HAbZRnoLqVN9ZTmHSwmZg
   process.env.REMITA_WEBHOOK_SECRET = 'test_webhook_secret_789';
   process.env.REMITA_MERCHANT_ID = '2547916';
   process.env.REMITA_BASE_URL = 'https://remitademo.net';
 }
 
-if (!process.env.FLUTTERWAVE_PUBLIC_KEY) {
-  console.log('Setting sandbox Flutterwave environment variables for testing');
-  process.env.FLUTTERWAVE_PUBLIC_KEY = 'test_public_key_123';
-  process.env.FLUTTERWAVE_SECRET_KEY = 'test_secret_key_456';
-  process.env.FLUTTERWAVE_WEBHOOK_SECRET = 'test_webhook_secret_789';
-  process.env.FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
-}
+
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = parseInt(process.env.PORT || '4000', 10);
 
 // Import security middleware
 // Import caching middleware
 import {
   cacheInstances,
   createCacheMiddleware,
-  generateCacheKey,
+  generateCacheKey as _generateCacheKey,
   getCacheHealth,
 } from './middleware/caching.js';
 // Import logging middleware
-import { errorLoggingMiddleware, httpLoggingMiddleware, logger } from './middleware/logging.js';
+import {
+  errorLoggingMiddleware,
+  httpLoggingMiddleware,
+  logger as _logger,
+} from './middleware/logging.js';
 // Import metrics and tracing middleware
 import { httpMetricsMiddleware, metricsStore, tracingMiddleware } from './middleware/metrics.js';
 import {
@@ -114,16 +117,244 @@ import {
 app.use(generalRateLimit);
 app.use(speedLimiter);
 
-// Load OpenAPI specification
+// Load and merge domain-specific OpenAPI specifications with multiple fallback paths
 let openApiSpec: any;
 try {
-  const specPath = join(process.cwd(), 'docs', 'openapi.yaml');
-  const specContent = readFileSync(specPath, 'utf8');
-  openApiSpec = yaml.load(specContent);
-  console.log('OpenAPI specification loaded successfully');
+  const domainSpecs = [
+    'auth',
+    'candidates', 
+    'payments',
+    'admin',
+    'documents',
+    'academic'
+  ];
+
+  // Multiple possible paths for OpenAPI specifications
+  const possiblePaths = [
+    // Docker paths (when running in container)
+    join(process.cwd(), 'docs', 'openapi'),
+    join(process.cwd(), 'app', 'docs', 'openapi'),
+    
+    // Development paths (relative to project root)
+    join(process.cwd(), 'docs', 'openapi'),
+    join(process.cwd(), '..', 'docs', 'openapi'),
+    join(process.cwd(), '..', '..', 'docs', 'openapi'),
+    
+    // Production paths (when deployed)
+    join(process.cwd(), 'docs', 'openapi'),
+    join(process.cwd(), 'dist', 'docs', 'openapi'),
+    
+    // Alternative directory structures
+    join(process.cwd(), 'openapi'),
+    join(process.cwd(), 'api-docs'),
+    join(process.cwd(), 'swagger'),
+    
+    // Render.com specific paths
+    join(process.cwd(), 'build', 'docs', 'openapi'),
+    join(process.cwd(), 'release', 'docs', 'openapi'),
+  ];
+
+  console.log('Searching for OpenAPI specifications in multiple paths...');
+  
+  let baseSpec: any = null;
+  let baseSpecPath: string | null = null;
+  let openApiBaseDir: string | null = null;
+
+  // Try to find the base specification
+  for (const basePath of possiblePaths) {
+    const mainSpecPath = join(basePath, 'main.yaml');
+    try {
+      if (existsSync(mainSpecPath)) {
+        const baseContent = readFileSync(mainSpecPath, 'utf8');
+        baseSpec = yaml.load(baseContent);
+        baseSpecPath = mainSpecPath;
+        openApiBaseDir = basePath;
+        console.log(`Base OpenAPI specification found at: ${mainSpecPath}`);
+        break;
+      }
+    } catch (err) {
+      // Continue to next path
+    }
+  }
+
+  // If no base spec found, try to load the old single OpenAPI file as fallback
+  if (!baseSpec) {
+    console.log('Base OpenAPI specification not found, trying fallback single file...');
+    
+    // Try to find the old single OpenAPI file
+    const fallbackPaths = [
+      join(process.cwd(), 'docs', 'openapi_old.yaml'),
+      join(process.cwd(), '..', 'docs', 'openapi_old.yaml'),
+      join(process.cwd(), '..', '..', 'docs', 'openapi_old.yaml'),
+    ];
+    
+    let fallbackLoaded = false;
+    for (const fallbackPath of fallbackPaths) {
+      try {
+        if (existsSync(fallbackPath)) {
+          const fallbackContent = readFileSync(fallbackPath, 'utf8');
+          baseSpec = yaml.load(fallbackContent);
+          console.log(`Fallback OpenAPI specification loaded from: ${fallbackPath}`);
+          fallbackLoaded = true;
+          break;
+        }
+      } catch (err) {
+        // Continue to next path
+      }
+    }
+    
+    // If still no spec found, create a minimal one
+    if (!fallbackLoaded) {
+      console.log('No fallback OpenAPI specification found, creating minimal spec');
+      baseSpec = {
+        openapi: '3.0.3',
+        info: {
+          title: 'FUEP Post-UTME Portal API',
+          version: '1.0.0',
+          description: 'Comprehensive REST API for candidate and admin workflows'
+        },
+        paths: {},
+        components: {
+          schemas: {}
+        }
+      };
+    }
+  }
+
+  // Merge domain specifications
+  const mergedSpec = { ...baseSpec };
+  mergedSpec.paths = { ...mergedSpec.paths };
+  mergedSpec.components = { ...mergedSpec.components };
+  mergedSpec.components.schemas = { ...mergedSpec.components.schemas };
+
+  let loadedDomains = 0;
+  let totalDomains = domainSpecs.length;
+
+  // Try to load domain specifications from the found base directory
+  if (openApiBaseDir) {
+    for (const domain of domainSpecs) {
+      try {
+        const domainPath = join(openApiBaseDir, `${domain}.yaml`);
+        if (existsSync(domainPath)) {
+          const domainContent = readFileSync(domainPath, 'utf8');
+          const domainSpec = yaml.load(domainContent) as any;
+          
+          // Merge paths
+          if (domainSpec.paths) {
+            Object.assign(mergedSpec.paths, domainSpec.paths);
+          }
+          
+          // Merge schemas
+          if (domainSpec.components?.schemas) {
+            Object.assign(mergedSpec.components.schemas, domainSpec.components.schemas);
+          }
+          
+          loadedDomains++;
+          console.log(`Domain specification '${domain}' loaded from: ${domainPath}`);
+        } else {
+          console.log(`Domain specification '${domain}.yaml' not found at: ${domainPath}`);
+        }
+      } catch (err) {
+        console.log(`Error loading domain specification '${domain}':`, err);
+      }
+    }
+  } else {
+    // Fallback: try to find domain specs in any of the possible paths
+    console.log('Base directory not found, searching for domain specifications in all paths...');
+    
+    for (const domain of domainSpecs) {
+      let domainLoaded = false;
+      
+      for (const basePath of possiblePaths) {
+        const domainPath = join(basePath, `${domain}.yaml`);
+        try {
+          if (existsSync(domainPath)) {
+            const domainContent = readFileSync(domainPath, 'utf8');
+            const domainSpec = yaml.load(domainContent) as any;
+            
+            // Merge paths
+            if (domainSpec.paths) {
+              Object.assign(mergedSpec.paths, domainSpec.paths);
+            }
+            
+            // Merge schemas
+            if (domainSpec.components?.schemas) {
+              Object.assign(mergedSpec.components.schemas, domainSpec.components.schemas);
+            }
+            
+            loadedDomains++;
+            domainLoaded = true;
+            console.log(`Domain specification '${domain}' loaded from: ${domainPath}`);
+            break;
+          }
+        } catch (err) {
+          // Continue to next path
+        }
+      }
+      
+      if (!domainLoaded) {
+        console.log(`Domain specification '${domain}' not found in any path`);
+      }
+    }
+  }
+
+  openApiSpec = mergedSpec;
+
+  // Dynamically update server URLs based on current environment
+  if (openApiSpec.servers && Array.isArray(openApiSpec.servers)) {
+    const currentDomain = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    const baseUrl = currentDomain.replace(/\/$/, ''); // Remove trailing slash
+
+    openApiSpec.servers = [
+      { url: `${baseUrl}/api` },
+      { url: '/api' }, // Relative URL for same-origin requests
+    ];
+
+    console.log(`OpenAPI servers configured for: ${baseUrl}/api`);
+  }
+
+  console.log(`OpenAPI specifications loaded successfully: ${loadedDomains}/${totalDomains} domain specs loaded`);
+  console.log(`Total paths found: ${Object.keys(mergedSpec.paths).length}`);
+  console.log(`Total schemas found: ${Object.keys(mergedSpec.components.schemas).length}`);
 } catch (error) {
-  console.error('Error loading OpenAPI specification:', error);
-  openApiSpec = null;
+  console.error('Error loading/merging OpenAPI specifications:', error);
+  // Create a minimal fallback specification to prevent complete failure
+  console.log('Creating minimal fallback OpenAPI specification...');
+  openApiSpec = {
+    openapi: '3.0.3',
+    info: {
+      title: 'FUEP Post-UTME Portal API (Fallback)',
+      version: '1.0.0',
+      description: 'Minimal API specification - some features may be limited'
+    },
+    paths: {
+      '/api/health': {
+        get: {
+          summary: 'Health Check',
+          responses: {
+            '200': {
+              description: 'API is healthy',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      status: { type: 'string' },
+                      timestamp: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    components: {
+      schemas: {}
+    }
+  };
+  console.log('Fallback OpenAPI specification created successfully');
 }
 
 // Serve OpenAPI documentation
@@ -136,6 +367,18 @@ if (openApiSpec) {
       explorer: true,
       customCss: '.swagger-ui .topbar { display: none }',
       customSiteTitle: 'FUEP Post-UTME Portal API Documentation',
+      swaggerOptions: {
+        url: '/api/openapi.json',
+        defaultModelsExpandDepth: -1,
+        tryItOutEnabled: true,
+        requestInterceptor: (req: any) => {
+          // Ensure requests use the current domain
+          if (req.url && req.url.startsWith('/api/')) {
+            req.url = req.url;
+          }
+          return req;
+        },
+      },
     })
   );
 
@@ -146,6 +389,28 @@ if (openApiSpec) {
 
   console.log('OpenAPI documentation available at /docs and /api/openapi.json');
 }
+
+// Root endpoint placeholder for Render health checks
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'FUEP Post-UTME Portal API',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
+// Root health endpoint for Render health checks
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'FUEP Post-UTME Portal API',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
 
 // Health check endpoint (with fast caching)
 app.get(
@@ -179,7 +444,7 @@ app.get('/api/health/db', healthCheckRateLimit, async (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Database connection failed',
@@ -199,7 +464,7 @@ app.get('/api/admin/rate-limit-stats', (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get rate limit statistics',
@@ -219,7 +484,7 @@ app.get('/api/admin/metrics', (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get metrics',
@@ -239,7 +504,7 @@ app.get('/api/admin/cache-stats', (req, res) => {
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get cache statistics',
@@ -284,7 +549,7 @@ app.get('/api/health/detailed', createCacheMiddleware(cacheInstances.fast, 30000
       timestamp: new Date(),
     };
     res.json(response);
-  } catch (error) {
+  } catch (_error) {
     const response: ApiResponse = {
       success: false,
       error: 'Failed to get detailed health status',
@@ -713,9 +978,9 @@ try {
   console.log('Mounting payment routes...');
   app.use('/api/payments', paymentsModule.router);
   console.log('Payment routes mounted successfully');
-} catch (error) {
-  console.error('Error initializing payments module:', error);
-  throw error;
+} catch (_error) {
+  console.error('Error initializing payments module:', _error);
+  throw _error;
 }
 
 // Initialize and mount candidate module
@@ -728,13 +993,13 @@ try {
   console.log('Mounting candidate routes...');
   app.use('/api/candidates', candidateModule.router);
   console.log('Candidate routes mounted successfully');
-} catch (error) {
-  console.error('Error initializing candidate module:', error);
-  throw error;
+} catch (_error) {
+  console.error('Error initializing candidate module:', _error);
+  throw _error;
 }
 
 // Initialize and mount documents module
-let documentsModule;
+let _documentsModule;
 try {
   console.log('Initializing documents module...');
   const { DocumentsController } = await import('./modules/documents/documents.controller.js');
@@ -820,8 +1085,8 @@ try {
   app.use('/api/documents', documentsRouter);
 
   console.log('Document routes mounted successfully');
-} catch (error) {
-  console.error('Error initializing documents module:', error);
+} catch (_error) {
+  console.error('Error initializing documents module:', _error);
   // Don't throw error, continue without documents module
   console.log('Continuing without documents module...');
 }
@@ -833,14 +1098,14 @@ try {
   adminModule = createAdminModule();
   app.use('/api/admin', adminModule.router);
   console.log('Admin module initialized and mounted successfully');
-} catch (error) {
-  console.error('Error initializing admin module:', error);
+} catch (_error) {
+  console.error('Error initializing admin module:', _error);
   console.log('Continuing without admin module...');
 }
 
 // Global error handling middleware (must come after all routes)
 app.use(errorLoggingMiddleware);
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const errorResponse = {
     success: false,
     error: {
@@ -855,7 +1120,38 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(err.status || 500).json(errorResponse);
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Express API listening on http://localhost:${PORT}`);
+// Start server with error handling
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Express API listening on http://0.0.0.0:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Port:', PORT);
+});
+
+// Handle server errors
+server.on('error', (error: any) => {
+  console.error('Server startup error:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+  } else {
+    console.error('Unknown server error:', error);
+  }
+  process.exit(1);
+});
+
+// Handle process termination
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });

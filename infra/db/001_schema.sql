@@ -13,7 +13,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-    CREATE TYPE payment_provider AS ENUM ('remita', 'flutterwave', 'paystack');
+    CREATE TYPE payment_provider AS ENUM ('remita');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN

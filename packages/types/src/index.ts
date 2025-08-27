@@ -3,6 +3,7 @@
 // shared between the API and Web frontend applications.
 
 // Re-export all type definitions
+export * from './academic';
 export * from './auth';
 export * from './candidate';
 export * from './common';

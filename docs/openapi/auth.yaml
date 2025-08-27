@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: FUEP Post-UTME Portal - Authentication API
+  version: '1.0.0'
+  description: Authentication and authorization endpoints for candidates and admin users
+
+paths:
+  /api/auth/check-jamb:
+    post:
+      summary: Check if JAMB Reg No exists in preloaded list
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jambRegNo]
+              properties:
+                jambRegNo: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists: { type: boolean }
+                  biodata:
+                    $ref: '#/components/schemas/JambPrelistRecord'
+                  message: { type: string }
+        '400': { description: Invalid input }
+
+  /api/auth/login:
+    post:
+      summary: Candidate login
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, description: 'JAMB Reg No' }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: JWT tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401': { description: Invalid credentials }
+
+  /api/auth/change-password:
+    post:
+      summary: Change password (forced on first login)
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 6 }
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePasswordResponse'
+        '400': { description: Invalid current password }
+
+  /api/auth/refresh-token:
+    post:
+      summary: Refresh access token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: New access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '401': { description: Invalid refresh token }
+
+  /api/auth/logout:
+    post:
+      summary: Logout and invalidate tokens
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+
+components:
+  schemas:
+    JambPrelistRecord:
+      type: object
+      properties:
+        jambRegNo: { type: string }
+        surname: { type: string }
+        firstname: { type: string }
+        othernames: { type: string }
+        gender: { type: string }
+        programmeCode: { type: string }
+        departmentCode: { type: string }
+        faculty: { type: string }
+        stateOfOrigin: { type: string }
+        lgaOfOrigin: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        utmeScore: { type: integer }
+        session: { type: string }
+
+    LoginResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          $ref: '#/components/schemas/AuthTokens'
+        user:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            jambRegNo: { type: string }
+            email: { type: string }
+            phone: { type: string }
+            isActive: { type: boolean }
+            tempPasswordFlag: { type: boolean }
+        timestamp: { type: string, format: date-time }
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer }
+        tokenType: { type: string }
+
+    ChangePasswordResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { type: null }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    LogoutResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { type: null }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }

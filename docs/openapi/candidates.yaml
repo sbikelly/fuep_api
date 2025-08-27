@@ -1,0 +1,452 @@
+openapi: 3.0.3
+info:
+  title: FUEP Post-UTME Portal - Candidate Management API
+  version: '1.0.0'
+  description: Candidate registration, profile management, and application endpoints
+
+paths:
+  /api/candidates/jamb/{jambRegNo}:
+    get:
+      summary: Get candidate by JAMB registration number
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: jambRegNo
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Candidate details with program choices and related data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/status:
+    get:
+      summary: Get comprehensive candidate status
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Candidate status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/CandidateStatus' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/{candidateId}/application:
+    get:
+      summary: Get candidate application
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Application details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Application' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Application not found }
+    post:
+      summary: Create new application
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session]
+              properties:
+                session: { type: string, pattern: '^\\d{4}/\\d{4}$' }
+                programmeCode: { type: string }
+                departmentCode: { type: string }
+      responses:
+        '201':
+          description: Application created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationCreateResponse'
+
+  /api/profile:
+    put:
+      summary: Update biodata profile
+      tags: [Candidates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdateRequest' }
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileUpdateResponse'
+
+  /api/applications:
+    post:
+      summary: Create new application
+      tags: [Candidates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationCreateRequest'
+      responses:
+        '201':
+          description: Application created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationCreateResponse'
+
+  /api/education-records:
+    post:
+      summary: Create education record
+      tags: [Candidates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EducationRecordCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EducationRecord' }
+
+  /api/education-records/{id}:
+    put:
+      summary: Update education record
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EducationRecordUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EducationRecord' }
+
+  /api/next-of-kin:
+    post:
+      summary: Create next of kin record
+      tags: [Candidates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NextOfKinCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NextOfKin' }
+
+  /api/sponsors:
+    post:
+      summary: Create sponsor record
+      tags: [Candidates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SponsorCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sponsor' }
+
+  /api/dashboard:
+    get:
+      summary: Candidate dashboard summary
+      tags: [Candidates]
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardSummary' }
+
+components:
+  schemas:
+    Candidate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jambRegNo: { type: string }
+        username: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        programChoice1: { type: string }
+        programChoice2: { type: string }
+        programChoice3: { type: string }
+        jambScore: { type: integer }
+        stateOfOrigin: { type: string }
+        applicationStatus: { type: string }
+        paymentStatus: { type: string }
+        admissionStatus: { type: string }
+        profile: { $ref: '#/components/schemas/Profile' }
+        application: { $ref: '#/components/schemas/Application' }
+        admission: { $ref: '#/components/schemas/Admission' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CandidateStatus:
+      type: object
+      properties:
+        candidateId: { type: string, format: uuid }
+        jambRegNo: { type: string }
+        username: { type: string }
+        email: { type: string }
+        programChoice1: { type: string }
+        programChoice2: { type: string }
+        programChoice3: { type: string }
+        jambScore: { type: integer }
+        stateOfOrigin: { type: string }
+        applicationStatus: { type: string }
+        paymentStatus: { type: string }
+        admissionStatus: { type: string }
+        payments:
+          type: array
+          items:
+            type: object
+            properties:
+              purpose: { type: string }
+              amount: { type: number }
+              status: { type: string }
+              date: { type: string, format: date-time }
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              status: { type: string }
+              uploadedAt: { type: string, format: date-time }
+        education:
+          type: array
+          items:
+            type: object
+            properties:
+              level: { type: string }
+              examType: { type: string }
+              year: { type: string }
+              school: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Profile:
+      type: object
+      properties:
+        candidateId: { type: string, format: uuid }
+        surname: { type: string }
+        firstname: { type: string }
+        othernames: { type: string }
+        gender: { type: string }
+        dob: { type: string, format: date }
+        address: { type: string }
+        state: { type: string }
+        lga: { type: string }
+        city: { type: string }
+        nationality: { type: string }
+        maritalStatus: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        surname: { type: string, minLength: 1, maxLength: 100 }
+        firstname: { type: string, minLength: 1, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        gender: { type: string, maxLength: 10 }
+        dob: { type: string, pattern: '^\\d{4}-\\d{2}-\\d{2}$' }
+        address: { type: string, maxLength: 500 }
+        state: { type: string, maxLength: 64 }
+        lga: { type: string, maxLength: 64 }
+        city: { type: string, maxLength: 64 }
+        nationality: { type: string, maxLength: 64 }
+        maritalStatus: { type: string, maxLength: 32 }
+
+    ProfileUpdateResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/Profile' }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    Application:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        applicationNumber: { type: string }
+        session: { type: string }
+        status: { type: string, enum: ['draft', 'submitted', 'under_review', 'approved', 'rejected'] }
+        submittedAt: { type: string, format: date-time }
+        reviewedAt: { type: string, format: date-time }
+        reviewedBy: { type: string, format: uuid }
+        reviewNotes: { type: string }
+        paymentStatus: { type: string, enum: ['pending', 'paid', 'failed', 'refunded'] }
+        paymentReference: { type: string }
+        totalAmount: { type: number }
+        amountPaid: { type: number }
+        formPrinted: { type: boolean }
+        printedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ApplicationCreateRequest:
+      type: object
+      properties:
+        session: { type: string, pattern: '^\\d{4}/\\d{4}$' }
+        programmeCode: { type: string, maxLength: 32 }
+        departmentCode: { type: string, maxLength: 32 }
+
+    ApplicationCreateResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/Application' }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    Admission:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        decision: { type: string, enum: ['pending', 'admitted', 'rejected'] }
+        decidedAt: { type: string, format: date-time }
+        decidedBy: { type: string, format: uuid }
+        notes: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    EducationRecord:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        levelType: { type: string }
+        examType: { type: string }
+        year: { type: string }
+        schoolName: { type: string }
+        certificateNo: { type: string }
+        gradeSummary: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    EducationRecordCreate:
+      type: object
+      properties:
+        levelType: { type: string, required: true }
+        examType: { type: string }
+        year: { type: string }
+        schoolName: { type: string }
+        certificateNo: { type: string }
+        gradeSummary: { type: string }
+
+    EducationRecordUpdate:
+      type: object
+      properties:
+        levelType: { type: string }
+        examType: { type: string }
+        year: { type: string }
+        schoolName: { type: string }
+        certificateNo: { type: string }
+        gradeSummary: { type: string }
+
+    NextOfKin:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        name: { type: string }
+        relation: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    NextOfKinCreate:
+      type: object
+      properties:
+        name: { type: string, required: true }
+        relation: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+
+    Sponsor:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    SponsorCreate:
+      type: object
+      properties:
+        name: { type: string, required: true }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+
+    DashboardSummary:
+      type: object
+      properties:
+        candidate: { $ref: '#/components/schemas/Candidate' }
+        profileCompletion: { type: integer, minimum: 0, maximum: 100 }
+        nextStep: { type: string }
+        requiredDocuments: { type: array, items: { type: string } }
+        paymentStatus: { type: string }
+        applicationStatus: { type: string }

@@ -29,7 +29,11 @@
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "docker:ps": "docker compose ps"
+    "docker:ps": "docker compose ps",
+    "docker:dev": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml down",
+    "docker:dev:logs": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f",
+    "docker:dev:rebuild": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml build api && docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d api"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged",

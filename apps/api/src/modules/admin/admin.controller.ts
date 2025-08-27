@@ -1,10 +1,15 @@
 import express from 'express';
 
+import {
+  adminRateLimit,
+  authRateLimit,
+  healthCheckRateLimit,
+} from '../../middleware/rateLimiting.js';
 import { AdminService } from './admin.service.js';
 import { createAdminAuthMiddleware } from './admin-auth.middleware.js';
 import { AdminAuthService } from './admin-auth.service.js';
 import { AdminPermissionService } from './admin-permission.service.js';
-import { adminRateLimit, authRateLimit, healthCheckRateLimit } from '../../middleware/rateLimiting.js';
+import { AdminAcademicService } from './admin-academic.service.js';
 
 export class AdminController {
   public router: express.Router;
@@ -12,7 +17,8 @@ export class AdminController {
   constructor(
     private adminService: AdminService,
     private adminAuthService: AdminAuthService,
-    private adminPermissionService: AdminPermissionService
+    private adminPermissionService: AdminPermissionService,
+    private adminAcademicService: AdminAcademicService
   ) {
     this.router = express.Router();
     this.setupRoutes();
@@ -21,7 +27,7 @@ export class AdminController {
   private setupRoutes(): void {
     // Apply admin rate limiting to all routes
     this.router.use(adminRateLimit);
-    
+
     // Public admin authentication routes (with auth-specific rate limiting)
     this.router.post('/auth/login', authRateLimit, this.login.bind(this));
     this.router.post('/auth/refresh', authRateLimit, this.refreshToken.bind(this));
@@ -163,24 +169,24 @@ export class AdminController {
     // Payment management
     this.router.get('/payments', authMiddleware(['payments', 'read']), this.getPayments.bind(this));
     this.router.get(
-      '/payments/types',
-      authMiddleware(['payment_types', 'read']),
-      this.getPaymentTypes.bind(this)
+      '/payment-purposes',
+      authMiddleware(['payment_purposes', 'read']),
+      this.getPaymentPurposes.bind(this)
     );
     this.router.post(
-      '/payments/types',
-      authMiddleware(['payment_types', 'create']),
-      this.createPaymentType.bind(this)
+      '/payment-purposes',
+      authMiddleware(['payment_purposes', 'create']),
+      this.createPaymentPurpose.bind(this)
     );
     this.router.put(
-      '/payments/types/:id',
-      authMiddleware(['payment_types', 'update']),
-      this.updatePaymentType.bind(this)
+      '/payment-purposes/:id',
+      authMiddleware(['payment_purposes', 'update']),
+      this.updatePaymentPurpose.bind(this)
     );
     this.router.delete(
-      '/payments/types/:id',
-      authMiddleware(['payment_types', 'delete']),
-      this.deletePaymentType.bind(this)
+      '/payment-purposes/:id',
+      authMiddleware(['payment_purposes', 'delete']),
+      this.deletePaymentPurpose.bind(this)
     );
     this.router.get(
       '/payments/disputes',
@@ -286,6 +292,111 @@ export class AdminController {
       '/audit-logs/security-risk',
       authMiddleware(['audit_logs', 'read']),
       this.getSecurityRiskAssessment.bind(this)
+    );
+
+    // Academic Structure Management
+    this.router.get(
+      '/academic-structure',
+      authMiddleware(['academic_structure', 'read']),
+      this.getAcademicStructure.bind(this)
+    );
+
+    // Faculty Management
+    this.router.get(
+      '/faculties',
+      authMiddleware(['faculties', 'read']),
+      this.getFaculties.bind(this)
+    );
+    this.router.get(
+      '/faculties/:id',
+      authMiddleware(['faculties', 'read']),
+      this.getFacultyById.bind(this)
+    );
+    this.router.post(
+      '/faculties',
+      authMiddleware(['faculties', 'create']),
+      this.createFaculty.bind(this)
+    );
+    this.router.put(
+      '/faculties/:id',
+      authMiddleware(['faculties', 'update']),
+      this.updateFaculty.bind(this)
+    );
+    this.router.delete(
+      '/faculties/:id',
+      authMiddleware(['faculties', 'delete']),
+      this.deleteFaculty.bind(this)
+    );
+
+    // Department Management
+    this.router.get(
+      '/departments',
+      authMiddleware(['departments', 'read']),
+      this.getDepartments.bind(this)
+    );
+    this.router.get(
+      '/departments/:id',
+      authMiddleware(['departments', 'read']),
+      this.getDepartmentById.bind(this)
+    );
+    this.router.post(
+      '/departments',
+      authMiddleware(['departments', 'create']),
+      this.createDepartment.bind(this)
+    );
+    this.router.put(
+      '/departments/:id',
+      authMiddleware(['departments', 'update']),
+      this.updateDepartment.bind(this)
+    );
+    this.router.delete(
+      '/departments/:id',
+      authMiddleware(['departments', 'delete']),
+      this.deleteDepartment.bind(this)
+    );
+
+    // Program Management
+    this.router.get(
+      '/programs',
+      authMiddleware(['programs', 'read']),
+      this.getPrograms.bind(this)
+    );
+    this.router.get(
+      '/programs/:id',
+      authMiddleware(['programs', 'read']),
+      this.getProgramById.bind(this)
+    );
+    this.router.post(
+      '/programs',
+      authMiddleware(['programs', 'create']),
+      this.createProgram.bind(this)
+    );
+    this.router.put(
+      '/programs/:id',
+      authMiddleware(['programs', 'update']),
+      this.updateProgram.bind(this)
+    );
+    this.router.delete(
+      '/programs/:id',
+      authMiddleware(['programs', 'delete']),
+      this.deleteProgram.bind(this)
+    );
+
+    // Program-Department Linking
+    this.router.post(
+      '/program-departments',
+      authMiddleware(['faculties', 'create']),
+      this.linkProgramToDepartment.bind(this)
+    );
+    this.router.get(
+      '/departments/:id/programs',
+      authMiddleware(['faculties', 'read']),
+      this.getProgramsByDepartment.bind(this)
+    );
+    this.router.delete(
+      '/programs/:id/departments',
+      authMiddleware(['faculties', 'delete']),
+      this.getDepartmentsByProgram.bind(this)
     );
   }
 
@@ -426,16 +537,19 @@ export class AdminController {
       const deletedBy = (req as any).user.sub;
 
       await this.adminAuthService.deleteAdminUser(id, deletedBy);
-      
+
       res.json({
         success: true,
         message: 'Admin user deleted successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
-      const statusCode = error.message.includes('not found') ? 404 : 
-                        error.message.includes('Cannot delete') ? 400 : 500;
-      
+      const statusCode = error.message.includes('not found')
+        ? 404
+        : error.message.includes('Cannot delete')
+          ? 400
+          : 500;
+
       res.status(statusCode).json({
         success: false,
         error: error.message,
@@ -903,12 +1017,12 @@ export class AdminController {
   }
 
   // Payment types management
-  private async getPaymentTypes(req: express.Request, res: express.Response): Promise<void> {
+  private async getPaymentPurposes(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const paymentTypes = await this.adminService.getPaymentTypes();
+      const paymentPurposes = await this.adminService.getPaymentPurposes();
       res.json({
         success: true,
-        data: paymentTypes,
+        data: paymentPurposes,
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -920,16 +1034,19 @@ export class AdminController {
     }
   }
 
-  private async createPaymentType(req: express.Request, res: express.Response): Promise<void> {
+  private async createPaymentPurpose(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const paymentTypeData = req.body;
+      const paymentPurposeData = req.body;
       const createdBy = (req as any).user.sub;
 
-      const paymentType = await this.adminService.createPaymentType(paymentTypeData, createdBy);
+      const paymentPurpose = await this.adminService.createPaymentPurpose(
+        paymentPurposeData,
+        createdBy
+      );
       res.status(201).json({
         success: true,
-        data: paymentType,
-        message: 'Payment type created successfully',
+        data: paymentPurpose,
+        message: 'Payment purpose created successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -941,17 +1058,21 @@ export class AdminController {
     }
   }
 
-  private async updatePaymentType(req: express.Request, res: express.Response): Promise<void> {
+  private async updatePaymentPurpose(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { id } = req.params;
       const updateData = req.body;
       const updatedBy = (req as any).user.sub;
 
-      const paymentType = await this.adminService.updatePaymentType(id, updateData, updatedBy);
+      const paymentPurpose = await this.adminService.updatePaymentPurpose(
+        id,
+        updateData,
+        updatedBy
+      );
       res.json({
         success: true,
-        data: paymentType,
-        message: 'Payment type updated successfully',
+        data: paymentPurpose,
+        message: 'Payment purpose updated successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -963,15 +1084,15 @@ export class AdminController {
     }
   }
 
-  private async deletePaymentType(req: express.Request, res: express.Response): Promise<void> {
+  private async deletePaymentPurpose(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { id } = req.params;
       const deletedBy = (req as any).user.sub;
 
-      await this.adminService.deletePaymentType(id, deletedBy);
+      await this.adminService.deletePaymentPurpose(id, deletedBy);
       res.json({
         success: true,
-        message: 'Payment type deleted successfully',
+        message: 'Payment purpose deleted successfully',
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -1328,7 +1449,7 @@ export class AdminController {
     try {
       const timeRange = (req.query.timeRange as '7d' | '30d' | '90d' | '1y') || '30d';
       const auditAnalytics = await this.adminService.getAuditAnalytics(timeRange);
-      
+
       res.json({
         success: true,
         data: auditAnalytics,
@@ -1344,10 +1465,13 @@ export class AdminController {
     }
   }
 
-  private async getSecurityRiskAssessment(req: express.Request, res: express.Response): Promise<void> {
+  private async getSecurityRiskAssessment(
+    req: express.Request,
+    res: express.Response
+  ): Promise<void> {
     try {
       const securityAssessment = await this.adminService.getSecurityRiskAssessment();
-      
+
       res.json({
         success: true,
         data: securityAssessment,
@@ -1382,6 +1506,398 @@ export class AdminController {
       res.json({
         success: true,
         data: healthStatus,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  // Academic Structure Management Methods
+  private async getAcademicStructure(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const academicStructure = await this.adminAcademicService.getAcademicStructure();
+      res.json({
+        success: true,
+        data: academicStructure,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  // Faculty Management Methods
+  private async getFaculties(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const query = {
+        search: req.query.search as string,
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 10,
+      };
+      const result = await this.adminAcademicService.getFaculties(query);
+      res.json({
+        success: true,
+        data: result,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async getFacultyById(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const faculty = await this.adminAcademicService.getFacultyById(id);
+      if (!faculty) {
+        res.status(404).json({
+          success: false,
+          error: 'Faculty not found',
+          timestamp: new Date(),
+        });
+        return;
+      }
+      res.json({
+        success: true,
+        data: faculty,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async createFaculty(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const facultyData = req.body;
+      const faculty = await this.adminAcademicService.createFaculty(facultyData);
+      res.status(201).json({
+        success: true,
+        data: faculty,
+        message: 'Faculty created successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async updateFaculty(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const faculty = await this.adminAcademicService.updateFaculty(id, updateData);
+      res.json({
+        success: true,
+        data: faculty,
+        message: 'Faculty updated successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async deleteFaculty(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await this.adminAcademicService.deleteFaculty(id);
+      res.json({
+        success: true,
+        message: 'Faculty deleted successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  // Department Management Methods
+  private async getDepartments(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const query = {
+        search: req.query.search as string,
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.page as string) || 10,
+      };
+      const result = await this.adminAcademicService.getDepartments(query);
+      res.json({
+        success: true,
+        data: result,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async getDepartmentById(req: express.Request, res:express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const department = await this.adminAcademicService.getDepartmentById(id);
+      if (!department) {
+        res.status(404).json({
+          success: false,
+          error: 'Department not found',
+          timestamp: new Date(),
+        });
+        return;
+      }
+      res.json({
+        success: true,
+        data: department,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async createDepartment(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const departmentData = req.body;
+      const department = await this.adminAcademicService.createDepartment(departmentData);
+      res.status(201).json({
+        success: true,
+        data: department,
+        message: 'Department created successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async updateDepartment(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const department = await this.adminAcademicService.updateDepartment(id, updateData);
+      res.json({
+        success: true,
+        data: department,
+        message: 'Department updated successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async deleteDepartment(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await this.adminAcademicService.deleteDepartment(id);
+      res.json({
+        success: true,
+        message: 'Department deleted successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  // Program Management Methods
+  private async getPrograms(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const query = {
+        search: req.query.search as string,
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 10,
+      };
+      const result = await this.adminAcademicService.getPrograms(query);
+      res.json({
+        success: true,
+        data: result,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async getProgramById(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const program = await this.adminAcademicService.getProgramById(id);
+      if (!program) {
+        res.status(404).json({
+          success: false,
+          error: 'Program not found',
+          timestamp: new Date(),
+        });
+        return;
+      }
+      res.json({
+        success: true,
+        data: program,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async createProgram(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const programData = req.body;
+      const program = await this.adminAcademicService.createProgram(programData);
+      res.status(201).json({
+        success: true,
+        data: program,
+        message: 'Program created successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async updateProgram(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const program = await this.adminAcademicService.updateProgram(id, updateData);
+      res.json({
+        success: true,
+        data: program,
+        message: 'Program updated successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async deleteProgram(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await this.adminAcademicService.deleteProgram(id);
+      res.json({
+        success: true,
+        message: 'Program deleted successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  // Program-Department Linking Methods
+  private async linkProgramToDepartment(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const linkData = req.body;
+      const link = await this.adminAcademicService.linkProgramToDepartment(linkData);
+      res.status(201).json({
+        success: true,
+        data: link,
+        message: 'Program linked to department successfully',
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async getProgramsByDepartment(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const programs = await this.adminAcademicService.getProgramsByDepartment(id);
+      res.json({
+        success: true,
+        data: programs,
+        timestamp: new Date(),
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  private async getDepartmentsByProgram(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const departments = await this.adminAcademicService.getDepartmentsByProgram(id);
+      res.json({
+        success: true,
+        data: departments,
         timestamp: new Date(),
       });
     } catch (error: any) {

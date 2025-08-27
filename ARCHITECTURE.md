@@ -1,10 +1,10 @@
 # FUEP Post-UTME Portal - System Architecture
 
-## 🏗️ **System Overview**
+## System Overview
 
 The FUEP Post-UTME Portal is a comprehensive, microservices-based application designed to handle the complete Post-UTME application lifecycle. The system is built with modern web technologies, emphasizing security, scalability, and user experience.
 
-## 🎯 **Architecture Principles**
+## Architecture Principles
 
 ### **Core Design Principles**
 
@@ -24,21 +24,14 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Containerization**: Docker for consistent deployment environments
 - **Email**: Nodemailer with configurable SMTP providers
 
-## 🏛️ **System Architecture**
+## System Architecture
 
 ### **High-Level Architecture**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Client Layer                             │
-├─────────────────────────────────────────────────────────────────┤
-│  Web App (React)  │  Mobile App  │  Admin Panel  │  External   │
-│                   │               │               │  Systems    │
-└─────────────────────────────────────────────────────────────────┘
-                                │
                     ┌─────────────────┐
                     │   Load Balancer │
-                    │   (Nginx)       │
+                    │   (Render.com)  │
                     └─────────────────┘
                                 │
                     ┌─────────────────┐
@@ -96,7 +89,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
                     └─────────────────┘
 ```
 
-## 🔐 **Security Architecture**
+## Security Architecture
 
 ### **Authentication & Authorization**
 
@@ -133,7 +126,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Token Refresh**: Secure token renewal mechanism
 - **Logout Security**: Token invalidation and session cleanup
 
-## 📊 **Data Architecture**
+## Data Architecture
 
 ### **Database Design**
 
@@ -171,7 +164,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Academic Hierarchy**: Structured faculty → department → program relationships
 - **Many-to-Many Relationships**: Flexible program-department associations
 
-## 🎓 **Academic Structure Management**
+## Academic Structure Management
 
 ### **Academic Entity Relationships**
 
@@ -199,7 +192,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Validation System**: Ensure data integrity across academic entities
 - **Active/Inactive Status**: Soft management of academic entities
 
-## 💳 **Payment System Architecture**
+## Payment System Architecture
 
 ### **Payment Provider Integration**
 
@@ -207,7 +200,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Payment Gateway Layer                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  Remita        │  Flutterwave   │  Paystack      │  Mock       │
+│  Remita        │
 │  (Primary)     │  (Secondary)   │  (Secondary)   │  (Testing)  │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -226,16 +219,15 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 
 ### **Payment Features**
 
-- **Multi-Provider Support**: Remita, Flutterwave, and Paystack integration
+- **Remita Integration**: Comprehensive payment gateway integration
 - **Real Database Integration**: All payment data stored in PostgreSQL
 - **Transaction Tracking**: Comprehensive payment history and status
 - **Idempotency**: Prevents duplicate payment processing
 - **Webhook Support**: Real-time payment status updates
-- **Mock Provider**: Testing and development support
 - **Payment Types**: Dynamic payment type management per session
 - **Receipt Management**: Digital receipt generation and storage
 
-## 📧 **Email Service Architecture**
+## Email Service Architecture
 
 ### **Email Service Design**
 
@@ -269,7 +261,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Production Ready**: Configurable SMTP providers
 - **Template Management**: Centralized email template system
 
-## 🔄 **Candidate Registration Flow**
+## Candidate Registration Flow
 
 ### **Phase 1: JAMB Verification & Account Creation**
 
@@ -335,7 +327,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
          └─────────────────────────────────────────────────┘
 ```
 
-## 🚀 **Performance Architecture**
+## Performance Architecture
 
 ### **Caching Strategy**
 
@@ -361,7 +353,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Response Compression**: Gzip compression for API responses
 - **Static Asset Optimization**: CDN-ready static file serving
 
-## 📈 **Monitoring & Observability**
+## Monitoring & Observability
 
 ### **Logging Architecture**
 
@@ -389,16 +381,17 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Business Analytics**: Application statistics and user behavior
 - **Error Tracking**: Comprehensive error logging and alerting
 
-## 🔧 **Deployment Architecture**
+## Deployment Architecture
 
-### **Container Architecture**
+### **Cloud Deployment Architecture**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Docker Services                              │
+│                    Render.com Platform                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  API Service   │  Database      │  Cache        │  Storage     │
-│  (Node.js)     │  (PostgreSQL)  │  (Redis)      │  (MinIO)     │
+│  (Docker)      │  (PostgreSQL)  │  (Redis)      │  (MinIO)     │
+│  fuep-api      │  fuep-postgres │  External     │  External    │
 └─────────────────────────────────────────────────────────────────┘
                                 │
          ┌─────────────────────────────────────────────────┐
@@ -409,15 +402,43 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
          └─────────────────────────────────────────────────┘
 ```
 
+### **Deployment Configuration**
+
+#### **API Service (fuep-api)**
+- **Type**: Web service with Docker deployment
+- **Plan**: Free tier with automatic scaling
+- **Dockerfile**: `./apps/api/Dockerfile`
+- **Context**: Root directory for build context
+- **Health Check**: `/api/health` endpoint
+- **Auto-deploy**: Enabled for continuous deployment
+
+#### **Database Service (fuep-postgres)**
+- **Name**: `fuep_postgres`
+- **Database**: `fuep_portal`
+- **User**: `fuep_user`
+- **Plan**: Free tier managed PostgreSQL
+- **Connection**: Automatically provided via `DATABASE_URL` environment variable
+
+#### **External Services**
+- **Redis**: External Redis service via `REDIS_URL` environment variable
+- **MinIO**: External MinIO service for file storage
+- **Email**: External SMTP service for production emails
+
 ### **Deployment Features**
 
-- **Container Orchestration**: Docker Compose for local development
-- **Health Checks**: Comprehensive service health monitoring
-- **Environment Management**: Configurable environment variables
-- **Service Discovery**: Internal service communication
-- **Load Balancing**: Nginx-based load balancing and reverse proxy
+- **Docker-Based Deployment**: Containerized application deployment on Render.com
+- **Managed Cloud Platform**: Render.com handles infrastructure management and scaling
+- **Automatic Scaling**: Built-in horizontal scaling capabilities for Docker containers
+- **Health Checks**: Comprehensive service health monitoring via `/api/health`
+- **Environment Management**: Configurable environment variables with secure defaults
+- **Service Discovery**: Internal service communication with managed database
+- **SSL/TLS Management**: Automatic HTTPS certificate management
+- **Global CDN**: Built-in content delivery network
+- **Auto-deployment**: Git-based continuous deployment from Docker images
+- **Container Registry**: Integrated Docker image management
+- **Free Tier Support**: Cost-effective deployment with managed services
 
-## 🔄 **API Design Patterns**
+##  **API Design Patterns**
 
 ### **RESTful API Design**
 
@@ -435,25 +456,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Input Validation**: Comprehensive request validation using Zod schemas
 - **Output Sanitization**: Safe response data formatting
 
-## 📱 **Frontend Architecture**
-
-### **Component Architecture**
-
-- **Modular Design**: Reusable, maintainable components
-- **State Management**: Centralized application state
-- **Routing**: Client-side routing with deep linking
-- **Responsive Design**: Mobile-first, adaptive layouts
-- **Accessibility**: WCAG compliance and inclusive design
-
-### **Frontend Technologies**
-
-- **Framework**: React with TypeScript
-- **State Management**: Context API or Redux
-- **Styling**: CSS-in-JS or utility-first CSS
-- **Build Tools**: Vite for fast development
-- **Testing**: Jest and React Testing Library
-
-## 🔮 **Future Architecture Considerations**
+## Future Architecture Considerations
 
 ### **Scalability Improvements**
 

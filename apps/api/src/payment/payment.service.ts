@@ -50,21 +50,29 @@ export class PaymentService {
         throw new Error('No payment providers available');
       }
 
-      // Validate payment amount against configured payment types
-      const paymentTypes = await this.getPaymentTypes(request.session);
-      const configuredPaymentType = paymentTypes.find((pt) => pt.code === request.purpose);
+      // Validate payment amount against configured payment purposes
+      logger.info(`[PaymentService] Getting payment purposes for session: ${request.session}`);
+      const paymentPurposes = await this.getPaymentPurposes(request.session);
+      logger.info(`[PaymentService] Found ${paymentPurposes.length} payment purposes`);
+      
+      const configuredPaymentPurpose = paymentPurposes.find((pt) => pt.purpose === request.purpose);
+      logger.info(`[PaymentService] Looking for purpose: ${request.purpose}`);
+      logger.info(`[PaymentService] Configured payment purpose: ${JSON.stringify(configuredPaymentPurpose)}`);
 
-      if (!configuredPaymentType) {
+      if (!configuredPaymentPurpose) {
         throw new Error(
-          `Payment type '${request.purpose}' not configured for session '${request.session}'`
+          `Payment purpose '${request.purpose}' not configured for session '${request.session}'`
         );
       }
 
-      if (request.amount !== configuredPaymentType.amount) {
+      logger.info(`[PaymentService] Amount validation - Request: ${request.amount}, Configured: ${configuredPaymentPurpose.amount}`);
+      // Compare amounts with tolerance for decimal precision differences
+      if (Math.abs(request.amount - parseFloat(configuredPaymentPurpose.amount)) > 0.01) {
         throw new Error(
-          `Invalid amount. Expected ${configuredPaymentType.amount} for ${request.purpose}, got ${request.amount}`
+          `Invalid amount. Expected ${configuredPaymentPurpose.amount} for ${request.purpose}, got ${request.amount}`
         );
       }
+      logger.info(`[PaymentService] Amount validation passed`);
 
       // Create provider request
       const providerRequest: ProviderPaymentInitiationRequest = {
@@ -78,7 +86,7 @@ export class PaymentService {
         metadata: {
           session: request.session,
           purpose: request.purpose,
-          configuredAmount: configuredPaymentType.amount,
+          configuredAmount: configuredPaymentPurpose.amount,
         },
       };
 
@@ -603,28 +611,62 @@ export class PaymentService {
     }
   }
 
-  // Helper method to get payment types for a session
-  async getPaymentTypes(session: string): Promise<any[]> {
+  async getPaymentPurposes(session: string): Promise<any[]> {
     try {
-      const paymentTypes = await db('payment_types')
-        .where({ session: session, is_active: true })
-        .orderBy('name');
+      logger.info(`[PaymentService] getPaymentPurposes called with session: ${session}`);
+      
+      const paymentPurposes = await db('payment_purposes')
+        .where('session', session)
+        .andWhere('is_active', true)
+        .orderBy('name', 'asc');
 
-      return paymentTypes.map((pt) => ({
-        id: pt.id,
-        name: pt.name,
-        code: pt.code,
-        amount: parseFloat(pt.amount),
-        currency: pt.currency,
-        session: pt.session,
-        isActive: pt.is_active,
-        description: pt.description,
-        dueDate: pt.due_date ? new Date(pt.due_date) : undefined,
+      logger.info(`[PaymentService] Database query completed, found ${paymentPurposes.length} payment purposes`);
+      logger.info(`[PaymentService] Raw payment purposes: ${JSON.stringify(paymentPurposes)}`);
+
+      const mappedPurposes = paymentPurposes.map((pp) => ({
+        id: pp.id,
+        name: pp.name,
+        purpose: pp.purpose,
+        description: pp.description,
+        amount: pp.amount,
+        currency: pp.currency,
+        category: pp.category,
+        requiresVerification: pp.requires_verification,
+        session: pp.session,
+        dueDate: pp.due_date,
+        isActive: pp.is_active,
       }));
+
+      logger.info(`[PaymentService] Mapped payment purposes: ${JSON.stringify(mappedPurposes)}`);
+      return mappedPurposes;
     } catch (error) {
-      console.error('Error getting payment types:', error);
+      logger.error(`[PaymentService] Error in getPaymentPurposes: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
+  }
+
+  async getPaymentPurposeByPurpose(purpose: string): Promise<{
+    id: string;
+    name: string;
+    purpose: string;
+    amount: number;
+    currency: string;
+    session: string;
+    isActive: boolean;
+  } | null> {
+    const paymentPurpose = await db('payment_purposes').where('purpose', purpose).first();
+
+    if (!paymentPurpose) return null;
+
+    return {
+      id: paymentPurpose.id,
+      name: paymentPurpose.name,
+      purpose: paymentPurpose.purpose,
+      amount: paymentPurpose.amount,
+      currency: paymentPurpose.currency,
+      session: paymentPurpose.session,
+      isActive: paymentPurpose.is_active,
+    };
   }
 
   /**
@@ -644,8 +686,8 @@ export class PaymentService {
   }> {
     try {
       // Validate payment amount
-      const paymentType = await this.getPaymentTypeByPurpose(paymentData.purpose);
-      if (!paymentType) {
+      const paymentPurpose = await this.getPaymentPurposeByPurpose(paymentData.purpose);
+      if (!paymentPurpose) {
         return {
           success: false,
           message: 'Invalid payment purpose',
@@ -653,10 +695,10 @@ export class PaymentService {
         };
       }
 
-      if (paymentData.amount !== paymentType.amount) {
+      if (paymentData.amount !== paymentPurpose.amount) {
         return {
           success: false,
-          message: `Invalid payment amount. Expected: ₦${paymentType.amount}, Received: ₦${paymentData.amount}`,
+          message: `Invalid payment amount. Expected: ₦${paymentPurpose.amount}, Received: ₦${paymentData.amount}`,
           error: 'Amount mismatch',
         };
       }
@@ -744,30 +786,6 @@ export class PaymentService {
         message: 'Failed to create payment',
         error: error instanceof Error ? error.message : String(error),
       };
-    }
-  }
-
-  /**
-   * Get payment type by purpose
-   */
-  async getPaymentTypeByPurpose(purpose: string): Promise<{
-    id: string;
-    name: string;
-    amount: number;
-    description: string;
-  } | null> {
-    try {
-      const paymentType = await db('payment_types').where('code', purpose).first();
-
-      return paymentType || null;
-    } catch (error) {
-      logger.error('Failed to get payment type by purpose', {
-        module: 'payment',
-        operation: 'getPaymentTypeByPurpose',
-        metadata: { purpose },
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
     }
   }
 

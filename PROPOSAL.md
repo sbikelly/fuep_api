@@ -76,7 +76,7 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 #### **Phase 2: Payment & Authentication**
 
 1. **Post-UTME Payment**
-   - Integrated payment gateway (Remita/Flutterwave)
+   - Integrated payment gateway (Remita)
    - Secure payment processing and confirmation
    - Real-time payment status updates
 
@@ -135,7 +135,7 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 ### **Payment Gateway Integration**
 
 - **Primary Provider**: Remita (Nigerian payment gateway)
-- **Secondary Provider**: Flutterwave (International payments)
+
 - **Fallback Options**: Bank transfer, card payments
 - **Real-time Processing**: Instant payment confirmation
 
