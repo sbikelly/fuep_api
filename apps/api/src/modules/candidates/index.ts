@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
-import { candidateRateLimit } from '../../middleware/rateLimiting.js';
 import { CandidateController } from './candidate.controller.js';
 import { CandidateService } from './candidate.service.js';
+import { createCandidateRoutes } from './routes/index.js';
 
 export interface CandidateModuleDependencies {
   logger?: Console;
@@ -30,107 +30,9 @@ export function createCandidateModule(deps: CandidateModuleDependencies = {}): C
     const controller = new CandidateController(service, logger);
     logger.log('[CandidateModule] CandidateController created successfully');
 
-    // 3. Create router and bind routes
+    // 3. Create router using the new routes structure
     logger.log('[CandidateModule] Creating router and binding routes...');
-    const router = Router();
-
-    // Apply candidate-specific rate limiting to all routes
-    router.use(candidateRateLimit);
-
-    // JAMB verification and registration initiation (specific routes first)
-    router.post(
-      '/check-jamb',
-      candidateRateLimit,
-      controller.checkJambAndInitiateRegistration.bind(controller)
-    );
-
-    // Contact information completion
-    router.post(
-      '/:candidateId/complete-contact',
-      candidateRateLimit,
-      controller.completeContactInfo.bind(controller)
-    );
-
-    // Get next step in registration process
-    router.get(
-      '/:candidateId/next-step',
-      candidateRateLimit,
-      controller.getNextStep.bind(controller)
-    );
-
-    // Progressive profile completion
-    router.post(
-      '/:candidateId/biodata',
-      candidateRateLimit,
-      controller.completeBiodata.bind(controller)
-    );
-    router.post(
-      '/:candidateId/education',
-      candidateRateLimit,
-      controller.completeEducation.bind(controller)
-    );
-    router.post(
-      '/:candidateId/next-of-kin',
-      candidateRateLimit,
-      controller.completeNextOfKin.bind(controller)
-    );
-    router.post(
-      '/:candidateId/sponsor',
-      candidateRateLimit,
-      controller.completeSponsor.bind(controller)
-    );
-
-    // Registration finalization
-    router.post(
-      '/:candidateId/finalize',
-      candidateRateLimit,
-      controller.finalizeRegistration.bind(controller)
-    );
-
-    // Profile management
-    router.get('/profile/:jambRegNo', controller.getCandidateProfile.bind(controller));
-    router.put('/profile/:candidateId', controller.updateCandidateProfile.bind(controller));
-    router.get('/jamb/:jambRegNo', controller.getCandidateByJambRegNo.bind(controller));
-
-    // Next of Kin
-    router.get('/:candidateId/next-of-kin', controller.getNextOfKin.bind(controller));
-    router.put('/:candidateId/next-of-kin', controller.upsertNextOfKin.bind(controller));
-
-    // Sponsor
-    router.get('/:candidateId/sponsor', controller.getSponsor.bind(controller));
-    router.put('/:candidateId/sponsor', controller.upsertSponsor.bind(controller));
-
-    // Education records
-    router.get('/:candidateId/education', controller.getEducationRecords.bind(controller));
-    router.post('/:candidateId/education', controller.createEducationRecord.bind(controller));
-    router.put('/education/:recordId', controller.updateEducationRecord.bind(controller));
-    router.delete('/education/:recordId', controller.deleteEducationRecord.bind(controller));
-
-    // Profile completion and dashboard
-    router.get(
-      '/:candidateId/completion-status',
-      controller.getProfileCompletionStatus.bind(controller)
-    );
-    router.get('/:candidateId/dashboard', controller.getCandidateDashboard.bind(controller));
-    router.get('/:candidateId/status', controller.getCandidateStatus.bind(controller));
-
-    // New endpoints aligned with sequence diagrams
-    router.post('/:candidateId/application', controller.createApplication.bind(controller));
-    router.get('/:candidateId/application', controller.getApplication.bind(controller));
-    router.put('/:candidateId/application', controller.updateApplication.bind(controller));
-    router.get('/:candidateId/registration-form', controller.getRegistrationForm.bind(controller));
-    router.get(
-      '/:candidateId/registration-form.pdf',
-      controller.getRegistrationFormPDF.bind(controller)
-    );
-    router.get('/:candidateId/admission-status', controller.getAdmissionStatus.bind(controller));
-    router.get(
-      '/:candidateId/admission-letter.pdf',
-      controller.getAdmissionLetterPDF.bind(controller)
-    );
-    router.get('/:candidateId/matric-number', controller.getMatricNumber.bind(controller));
-    router.get('/:candidateId/migration-status', controller.getMigrationStatus.bind(controller));
-
+    const router = createCandidateRoutes(controller);
     logger.log('[CandidateModule] Router created and routes bound successfully');
 
     return {

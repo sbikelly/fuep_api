@@ -1,250 +1,109 @@
 import { z } from 'zod';
 
+import { Department, Faculty } from './academic';
 import { ApiResponse, BaseEntity, BaseEntitySchema } from './common';
 
-// Simplified Application interface development for Phase 6 (matches database schema)
-export interface SimpleApplication extends BaseEntity {
-  candidateId: string;
-  session: string;
-  programmeCode?: string;
-  departmentCode?: string;
-  status: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected';
-  submittedAt?: Date;
-}
+// ============================================
+// Simplified Candidate Types
+// ============================================
 
-export const SimpleApplicationSchema = BaseEntitySchema.extend({
-  candidateId: z.string().uuid(),
-  session: z.string().regex(/^\d{4}\/\d{4}$/),
-  programmeCode: z.string().max(32).optional(),
-  departmentCode: z.string().max(32).optional(),
-  status: z.enum(['pending', 'submitted', 'under_review', 'approved', 'rejected']),
-  submittedAt: z.date().optional(),
-});
-
-// Simplified Profile interface development for Phase 6 (matches database schema)
-export interface SimpleProfile extends BaseEntity {
-  candidateId: string;
-  surname?: string;
-  firstname?: string;
+// Main Candidate Interface - Simplified and streamlined
+export interface Candidate extends BaseEntity {
+  jambRegNo: string; // Will double as username
+  firstname: string;
+  surname: string;
   othernames?: string;
-  gender?: string;
-  dob?: Date;
-  address?: string;
+  gender?: 'male' | 'female' | 'other'; // Default to 'other'
+  dob?: string; // Date of birth in YYYY-MM-DD format
+  nationality?: string;
   state?: string;
   lga?: string;
-  city?: string;
-  nationality?: string;
-  maritalStatus?: string;
-}
-
-export const SimpleProfileSchema = BaseEntitySchema.extend({
-  candidateId: z.string().uuid(),
-  surname: z.string().max(100).optional(),
-  firstname: z.string().max(100).optional(),
-  othernames: z.string().max(100).optional(),
-  gender: z.string().max(10).optional(),
-  dob: z.date().optional(),
-  address: z.string().max(500).optional(),
-  state: z.string().max(64).optional(),
-  lga: z.string().max(64).optional(),
-  city: z.string().max(64).optional(),
-  nationality: z.string().max(64).optional(),
-  maritalStatus: z.string().max(32).optional(),
-});
-
-// Candidate profile types
-export interface Candidate extends BaseEntity {
-  userId: string;
-  jambRegNo: string;
-  surname: string;
-  firstname: string;
-  othernames?: string;
-  dateOfBirth: Date;
-  gender: 'male' | 'female';
-  maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
-  nationality: string;
-  stateOfOrigin: string;
-  lgaOfOrigin: string;
-  phoneNumber: string;
-  email: string;
-  address: string;
-  city: string;
-  state: string;
-  postalCode?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  department?: string; // Course of study (DEPRECATED - use departmentId)
+  departmentId?: string; // Foreign key to departments table
+  departmentInfo?: Department; // Full department information including faculty
+  modeOfEntry?: 'UTME' | 'DE'; // Default to 'UTME'
+  maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed'; // Default to 'single'
   passportPhotoUrl?: string;
   signatureUrl?: string;
-  profileComplete: boolean;
+
+  // Registration progress flags
+  registrationCompleted: boolean;
+  biodataCompleted: boolean;
+  educationCompleted: boolean;
+  nextOfKinCompleted: boolean;
+  sponsorCompleted: boolean;
+
+  // Status fields (derived from other tables)
+  admissionStatus?: 'pending' | 'admitted' | 'rejected'; // From Application table
+  paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded'; // From Application table
+  rrr?: string; // From Application table
+
+  // Authentication
+  passwordHash?: string;
 }
 
+// Candidate Schema for validation
 export const CandidateSchema = BaseEntitySchema.extend({
-  userId: z.string().uuid(),
-  jambRegNo: z.string().min(10).max(15),
-  surname: z.string().min(1).max(100),
+  jambRegNo: z.string().min(10).max(20),
   firstname: z.string().min(1).max(100),
+  surname: z.string().min(1).max(100),
   othernames: z.string().max(100).optional(),
-  dateOfBirth: z.date(),
-  gender: z.enum(['male', 'female']),
-  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']),
-  nationality: z.string().min(1).max(100),
-  stateOfOrigin: z.string().min(1).max(100),
-  lgaOfOrigin: z.string().min(1).max(100),
-  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/),
-  email: z.string().email(),
-  address: z.string().min(1).max(500),
-  city: z.string().min(1).max(100),
-  state: z.string().min(1).max(100),
-  postalCode: z.string().max(20).optional(),
-  passportPhotoUrl: z.string().url().optional(),
-  signatureUrl: z.string().url().optional(),
-  profileComplete: z.boolean(),
-});
-
-// Profile interface for database schema alignment
-export interface Profile extends BaseEntity {
-  candidateId: string;
-  surname?: string;
-  firstname?: string;
-  othernames?: string;
-  gender?: string;
-  dob?: Date;
-  address?: string;
-  state?: string;
-  lga?: string;
-  city?: string;
-  nationality?: string;
-  maritalStatus?: string;
-}
-
-export const ProfileSchema = BaseEntitySchema.extend({
-  candidateId: z.string().uuid(),
-  surname: z.string().max(100).optional(),
-  firstname: z.string().max(100).optional(),
-  othernames: z.string().max(100).optional(),
-  gender: z.string().max(10).optional(),
-  dob: z.date().optional(),
-  address: z.string().max(500).optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  dob: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(), // YYYY-MM-DD format
+  nationality: z.string().max(64).optional(),
   state: z.string().max(64).optional(),
   lga: z.string().max(64).optional(),
-  city: z.string().max(64).optional(),
-  nationality: z.string().max(64).optional(),
-  maritalStatus: z.string().max(32).optional(),
+  address: z.string().max(500).optional(),
+  email: z.string().email().max(160).optional(),
+  phone: z.string().max(32).optional(),
+  department: z.string().max(100).optional(), // DEPRECATED
+  departmentId: z.string().uuid().optional(),
+  modeOfEntry: z.enum(['UTME', 'DE']).optional(),
+  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
+  passportPhotoUrl: z.string().url().optional(),
+  signatureUrl: z.string().url().optional(),
+
+  // Registration progress flags
+  registrationCompleted: z.boolean(),
+  biodataCompleted: z.boolean(),
+  educationCompleted: z.boolean(),
+  nextOfKinCompleted: z.boolean(),
+  sponsorCompleted: z.boolean(),
+
+  // Status fields
+  admissionStatus: z.enum(['pending', 'admitted', 'rejected']).optional(),
+  paymentStatus: z.enum(['pending', 'paid', 'failed', 'refunded']).optional(),
+  rrr: z.string().max(100).optional(),
+
+  // Authentication
+  passwordHash: z.string().optional(),
 });
 
-// Next of Kin types
-export interface NextOfKin extends BaseEntity {
-  candidateId: string;
-  surname: string;
-  firstname: string;
-  othernames?: string;
-  relationship: string;
-  phoneNumber: string;
-  email?: string;
-  address: string;
-  city: string;
-  state: string;
-  occupation: string;
-  isEmergencyContact: boolean;
-}
+// ============================================
+// Simplified Application Types
+// ============================================
 
-export const NextOfKinSchema = BaseEntitySchema.extend({
-  candidateId: z.string().uuid(),
-  surname: z.string().min(1).max(100),
-  firstname: z.string().min(1).max(100),
-  othernames: z.string().max(100).optional(),
-  relationship: z.string().min(1).max(100),
-  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/),
-  email: z.string().email().optional(),
-  address: z.string().min(1).max(500),
-  city: z.string().min(1).max(100),
-  state: z.string().min(1).max(100),
-  occupation: z.string().min(1).max(100),
-  isEmergencyContact: z.boolean(),
-});
-
-// Sponsor types
-export interface Sponsor extends BaseEntity {
-  candidateId: string;
-  surname: string;
-  firstname: string;
-  othernames?: string;
-  relationship: string;
-  phoneNumber: string;
-  email?: string;
-  address: string;
-  city: string;
-  state: string;
-  occupation: string;
-  employer?: string;
-  annualIncome?: number;
-  canSponsor: boolean;
-}
-
-export const SponsorSchema = BaseEntitySchema.extend({
-  candidateId: z.string().uuid(),
-  surname: z.string().min(1).max(100),
-  firstname: z.string().min(1).max(100),
-  othernames: z.string().max(100).optional(),
-  relationship: z.string().min(1).max(100),
-  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/),
-  email: z.string().email().optional(),
-  address: z.string().min(1).max(500),
-  city: z.string().min(1).max(100),
-  state: z.string().min(1).max(100),
-  occupation: z.string().min(1).max(100),
-  employer: z.string().max(200).optional(),
-  annualIncome: z.number().positive().optional(),
-  canSponsor: z.boolean(),
-});
-
-// Education types
-export interface Education extends BaseEntity {
-  candidateId: string;
-  institutionName: string;
-  qualification: string;
-  fieldOfStudy: string;
-  startDate: Date;
-  endDate?: Date;
-  isCompleted: boolean;
-  grade?: string;
-  cgpa?: number;
-  maxCgpa?: number;
-  certificateUrl?: string;
-  transcriptUrl?: string;
-  verificationStatus: 'pending' | 'verified' | 'rejected';
-  verificationNotes?: string;
-}
-
-export const EducationSchema = BaseEntitySchema.extend({
-  candidateId: z.string().uuid(),
-  institutionName: z.string().min(1).max(200),
-  qualification: z.string().min(1).max(100),
-  fieldOfStudy: z.string().min(1).max(100),
-  startDate: z.date(),
-  endDate: z.date().optional(),
-  isCompleted: z.boolean(),
-  grade: z.string().max(10).optional(),
-  cgpa: z.number().min(0).max(5).optional(),
-  maxCgpa: z.number().min(0).max(5).optional(),
-  certificateUrl: z.string().url().optional(),
-  transcriptUrl: z.string().url().optional(),
-  verificationStatus: z.enum(['pending', 'verified', 'rejected']),
-  verificationNotes: z.string().max(1000).optional(),
-});
-
-// Application types
 export interface Application extends BaseEntity {
   candidateId: string;
   applicationNumber: string;
   session: string;
-  status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+  status: 'pending' | 'admitted' | 'rejected'; // Default to 'pending'
   submittedAt?: Date;
   reviewedAt?: Date;
   reviewedBy?: string;
   reviewNotes?: string;
-  paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
-  paymentReference?: string;
-  totalAmount: number;
-  amountPaid: number;
+
+  // Payment information
+  paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded'; // Post-UTME payment
+  paymentRRR?: string;
+
+  // Form status
   formPrinted: boolean;
   printedAt?: Date;
 }
@@ -253,152 +112,333 @@ export const ApplicationSchema = BaseEntitySchema.extend({
   candidateId: z.string().uuid(),
   applicationNumber: z.string().min(1).max(50),
   session: z.string().regex(/^\d{4}\/\d{4}$/),
-  status: z.enum(['draft', 'submitted', 'under_review', 'approved', 'rejected']),
+  status: z.enum(['pending', 'admitted', 'rejected']),
   submittedAt: z.date().optional(),
   reviewedAt: z.date().optional(),
   reviewedBy: z.string().uuid().optional(),
   reviewNotes: z.string().max(1000).optional(),
+
+  // Payment information
   paymentStatus: z.enum(['pending', 'paid', 'failed', 'refunded']),
-  paymentReference: z.string().max(100).optional(),
-  totalAmount: z.number().positive(),
-  amountPaid: z.number().min(0),
+  paymentRRR: z.string().max(100).optional(),
+
+  // Form status
   formPrinted: z.boolean(),
   printedAt: z.date().optional(),
 });
 
-// Candidate profile update request
-export interface CandidateProfileUpdateRequest {
-  surname?: string;
-  firstname?: string;
-  othernames?: string;
-  dateOfBirth?: string;
-  gender?: 'male' | 'female';
-  maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed';
-  nationality?: string;
-  stateOfOrigin?: string;
-  lgaOfOrigin?: string;
-  phoneNumber?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
+// ============================================
+// Simplified Education Record Types
+// ============================================
+
+export interface EducationRecord extends BaseEntity {
+  candidateId: string;
+
+  // Secondary School Information
+  secondarySchool?: string;
+  certificateType?: 'SSCE' | 'GCE';
+  examYear?: number;
+  examType?: 'WAEC' | 'NECO' | 'NABTEB';
+  seatingCount?: number;
+  examNumbers?: string[]; // Multiple exam numbers for multiple sittings
+
+  // Subject Results
+  subjects: Array<{
+    subject: string;
+    grade: string;
+  }>;
+
+  // UTME Information (for UTME candidates)
+  jambScore?: number;
+  jambSubjects?: Array<{
+    subject: string;
+    score: number;
+  }>;
+
+  // DE Information (for DE candidates)
+  certificateTypeDE?: 'NCE' | 'ND' | 'HND';
+  institutionName?: string;
+  fieldOfStudy?: string;
+  startDate?: string;
+  endDate?: string;
+  cgpa?: string;
+  certificateNumber?: string;
+  grade?: string; // A-Level grade
+  certificateUploadUrl?: string[]; // Multiple certificate uploads
+
+  // Verification
+  verificationStatus?: 'pending' | 'verified' | 'rejected';
+  verificationNotes?: string;
 }
 
-export const CandidateProfileUpdateRequestSchema = CandidateSchema.partial().pick({
-  surname: true,
-  firstname: true,
-  othernames: true,
-  dateOfBirth: true,
-  gender: true,
-  maritalStatus: true,
-  nationality: true,
-  stateOfOrigin: true,
-  lgaOfOrigin: true,
-  phoneNumber: true,
-  email: true,
-  address: true,
-  city: true,
-  state: true,
-  postalCode: true,
+export const EducationRecordSchema = BaseEntitySchema.extend({
+  candidateId: z.string().uuid(),
+
+  // Secondary School Information
+  secondarySchool: z.string().max(200).optional(),
+  certificateType: z.enum(['SSCE', 'GCE']).optional(),
+  examYear: z.number().int().positive().optional(),
+  examType: z.enum(['WAEC', 'NECO', 'NABTEB']).optional(),
+  seatingCount: z.number().int().positive().optional(),
+  examNumbers: z.array(z.string()).optional(),
+
+  // Subject Results
+  subjects: z.array(
+    z.object({
+      subject: z.string().min(1).max(100),
+      grade: z.string().min(1).max(10),
+    })
+  ),
+
+  // UTME Information
+  jambScore: z.number().int().min(0).max(400).optional(),
+  jambSubjects: z
+    .array(
+      z.object({
+        subject: z.string().min(1).max(100),
+        score: z.number().int().min(0).max(100),
+      })
+    )
+    .optional(),
+
+  // DE Information
+  certificateTypeDE: z.enum(['NCE', 'ND', 'HND']).optional(),
+  institutionName: z.string().max(200).optional(),
+  fieldOfStudy: z.string().max(100).optional(),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  cgpa: z.string().max(10).optional(),
+  certificateNumber: z.string().max(100).optional(),
+  grade: z.string().max(20).optional(),
+  certificateUploadUrl: z.array(z.string().url()).optional(),
+
+  // Verification
+  verificationStatus: z.enum(['pending', 'verified', 'rejected']).optional(),
+  verificationNotes: z.string().max(1000).optional(),
 });
 
-// Profile completion status
+// ============================================
+// Simplified Next of Kin Types
+// ============================================
+
+export interface NextOfKin extends BaseEntity {
+  candidateId: string;
+  surname: string;
+  firstname: string;
+  othernames?: string;
+  relationship: string;
+  phone: string;
+  email?: string;
+  address: string;
+  occupation: string;
+}
+
+export const NextOfKinSchema = BaseEntitySchema.extend({
+  candidateId: z.string().uuid(),
+  surname: z.string().min(1).max(100),
+  firstname: z.string().min(1).max(100),
+  othernames: z.string().max(100).optional(),
+  relationship: z.string().min(1).max(100),
+  phone: z.string().max(32),
+  email: z.string().email().max(160).optional(),
+  address: z.string().min(1).max(500),
+  occupation: z.string().min(1).max(100),
+});
+
+// ============================================
+// Simplified Sponsor Types
+// ============================================
+
+export interface Sponsor extends BaseEntity {
+  candidateId: string;
+  surname: string;
+  firstname: string;
+  othernames?: string;
+  relationship: string;
+  phone: string;
+  email?: string;
+  address: string;
+  occupation: string;
+  paymentResponsibility: boolean;
+}
+
+export const SponsorSchema = BaseEntitySchema.extend({
+  candidateId: z.string().uuid(),
+  surname: z.string().min(1).max(100),
+  firstname: z.string().min(1).max(100),
+  othernames: z.string().max(100).optional(),
+  relationship: z.string().min(1).max(100),
+  phone: z.string().max(32),
+  email: z.string().email().max(160).optional(),
+  address: z.string().min(1).max(500),
+  occupation: z.string().min(1).max(100),
+  paymentResponsibility: z.boolean(),
+});
+
+// ============================================
+// Simplified Upload Types
+// ============================================
+
+export interface Upload extends BaseEntity {
+  candidateId: string;
+  type: string; // passport, certificate, transcript, etc.
+  fileUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+}
+
+export const UploadSchema = BaseEntitySchema.extend({
+  candidateId: z.string().uuid(),
+  type: z.string().min(1).max(50),
+  fileUrl: z.string().url(),
+  fileName: z.string().max(255).optional(),
+  fileSize: z.number().int().positive().optional(),
+  mimeType: z.string().max(128).optional(),
+});
+
+// ============================================
+// Profile Completion Status Types
+// ============================================
+
 export interface ProfileCompletionStatus {
-  candidate: boolean;
+  biodata: boolean;
+  education: boolean;
   nextOfKin: boolean;
   sponsor: boolean;
-  education: boolean;
-  documents: boolean;
-  overall: number; // percentage 0-100
+  application: boolean;
+  payment: boolean;
+  overall: number; // Percentage 0-100
 }
 
 export const ProfileCompletionStatusSchema = z.object({
-  candidate: z.boolean(),
+  biodata: z.boolean(),
+  education: z.boolean(),
   nextOfKin: z.boolean(),
   sponsor: z.boolean(),
-  education: z.boolean(),
-  documents: z.boolean(),
+  application: z.boolean(),
+  payment: z.boolean(),
   overall: z.number().min(0).max(100),
 });
 
-// Profile Update Request
-export interface ProfileUpdateRequest {
-  surname?: string;
-  firstname?: string;
-  othernames?: string;
-  gender?: string;
-  dob?: string; // ISO date string
-  address?: string;
-  state?: string;
-  lga?: string;
-  city?: string;
-  nationality?: string;
-  maritalStatus?: string;
+// ============================================
+// Next Step Information Types
+// ============================================
+
+export interface NextStepInfo {
+  nextStep: string;
+  completedSteps: string[];
+  remainingSteps: string[];
+  candidateType: 'UTME' | 'DE';
+  progress: number; // Percentage 0-100
 }
 
-export const ProfileUpdateRequestSchema = z.object({
-  surname: z.string().min(1).max(100).optional(),
+export const NextStepInfoSchema = z.object({
+  nextStep: z.string(),
+  completedSteps: z.array(z.string()),
+  remainingSteps: z.array(z.string()),
+  candidateType: z.enum(['UTME', 'DE']),
+  progress: z.number().min(0).max(100),
+});
+
+// ============================================
+// Request/Response Types
+// ============================================
+
+// Candidate Profile Update Request
+export interface CandidateProfileUpdateRequest {
+  firstname?: string;
+  surname?: string;
+  othernames?: string;
+  gender?: 'male' | 'female' | 'other';
+  dob?: string; // YYYY-MM-DD format
+  nationality?: string;
+  state?: string;
+  lga?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  modeOfEntry?: 'UTME' | 'DE';
+  maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed';
+  passportPhotoUrl?: string;
+  signatureUrl?: string;
+}
+
+export const CandidateProfileUpdateRequestSchema = z.object({
   firstname: z.string().min(1).max(100).optional(),
+  surname: z.string().min(1).max(100).optional(),
   othernames: z.string().max(100).optional(),
-  gender: z.string().max(10).optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
   dob: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(), // YYYY-MM-DD format
-  address: z.string().max(500).optional(),
+    .optional(),
+  nationality: z.string().max(64).optional(),
   state: z.string().max(64).optional(),
   lga: z.string().max(64).optional(),
-  city: z.string().max(64).optional(),
-  nationality: z.string().max(64).optional(),
-  maritalStatus: z.string().max(32).optional(),
+  address: z.string().max(500).optional(),
+  email: z.string().email().max(160).optional(),
+  phone: z.string().max(32).optional(),
+  department: z.string().max(100).optional(),
+  modeOfEntry: z.enum(['UTME', 'DE']).optional(),
+  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
+  passportPhotoUrl: z.string().url().optional(),
+  signatureUrl: z.string().url().optional(),
 });
 
-// Profile Update Response
-export interface ProfileUpdateResponse extends ApiResponse<SimpleProfile> {
-  message: string;
-}
-
-export const ProfileUpdateResponseSchema = z.object({
-  success: z.boolean(),
-  data: SimpleProfileSchema,
-  message: z.string(),
-  timestamp: z.date(),
-});
-
-// Application Lifecycle
+// Application Create Request
 export interface ApplicationCreateRequest {
   session: string;
-  programmeCode?: string;
-  departmentCode?: string;
+  department?: string;
 }
 
 export const ApplicationCreateRequestSchema = z.object({
   session: z.string().regex(/^\d{4}\/\d{4}$/),
-  programmeCode: z.string().max(32).optional(),
-  departmentCode: z.string().max(32).optional(),
+  department: z.string().max(100).optional(),
 });
 
-export interface ApplicationCreateResponse extends ApiResponse<SimpleApplication> {
+// Application Status Update Request
+export interface ApplicationStatusUpdateRequest {
+  status: 'pending' | 'admitted' | 'rejected';
+  submittedAt?: string; // ISO date string
+}
+
+export const ApplicationStatusUpdateRequestSchema = z.object({
+  status: z.enum(['pending', 'admitted', 'rejected']),
+  submittedAt: z.string().datetime().optional(),
+});
+
+// ============================================
+// Response Types
+// ============================================
+
+export interface CandidateProfileUpdateResponse extends ApiResponse<Candidate> {
+  message: string;
+}
+
+export const CandidateProfileUpdateResponseSchema = z.object({
+  success: z.boolean(),
+  data: CandidateSchema,
+  message: z.string(),
+  timestamp: z.date(),
+});
+
+export interface ApplicationCreateResponse extends ApiResponse<Application> {
   message: string;
 }
 
 export const ApplicationCreateResponseSchema = z.object({
   success: z.boolean(),
-  data: SimpleApplicationSchema,
+  data: ApplicationSchema,
   message: z.string(),
   timestamp: z.date(),
-});
-
-// Application Status Update
-export interface ApplicationStatusUpdateRequest {
-  status: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected';
-  submittedAt?: string; // ISO date string
-}
-
-export const ApplicationStatusUpdateRequestSchema = z.object({
-  status: z.enum(['pending', 'submitted', 'under_review', 'approved', 'rejected']),
-  submittedAt: z.string().datetime().optional(),
 });
 
 export interface ApplicationStatusUpdateResponse extends ApiResponse<Application> {

@@ -71,58 +71,6 @@ export interface DepartmentQuery {
   limit: number;
 }
 
-// ==================== PROGRAM TYPES ====================
-
-export interface Program {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateProgramRequest {
-  name: string;
-  code: string;
-  description?: string;
-  isActive?: boolean;
-}
-
-export interface UpdateProgramRequest {
-  name?: string;
-  code?: string;
-  description?: string;
-  isActive?: boolean;
-}
-
-export interface ProgramQuery {
-  search?: string;
-  isActive?: boolean;
-  page: number;
-  limit: number;
-}
-
-// ==================== PROGRAM-DEPARTMENT LINKING TYPES ====================
-
-export interface ProgramDepartment {
-  id: string;
-  programId: string;
-  departmentId: string;
-  isActive: boolean;
-  program?: Program;
-  department?: Department;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CreateProgramDepartmentRequest {
-  programId: string;
-  departmentId: string;
-  isActive?: boolean;
-}
-
 // ==================== ZOD SCHEMAS ====================
 
 export const FacultySchema = z.object({
@@ -166,38 +114,17 @@ export const CreateDepartmentRequestSchema = z.object({
 
 export const UpdateDepartmentRequestSchema = CreateDepartmentRequestSchema.partial();
 
-export const ProgramSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1),
-  code: z.string().min(1),
-  description: z.string().optional(),
-  isActive: z.boolean(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+export const FacultyQuerySchema = z.object({
+  search: z.string().optional(),
+  isActive: z.boolean().optional(),
+  page: z.number().min(1).default(1),
+  limit: z.number().min(1).max(100).default(10),
 });
 
-export const CreateProgramRequestSchema = z.object({
-  name: z.string().min(1, 'Program name is required'),
-  code: z.string().min(1, 'Program code is required'),
-  description: z.string().optional(),
-  isActive: z.boolean().default(true),
-});
-
-export const UpdateProgramRequestSchema = CreateProgramRequestSchema.partial();
-
-export const ProgramDepartmentSchema = z.object({
-  id: z.string().uuid(),
-  programId: z.string().uuid(),
-  departmentId: z.string().uuid(),
-  isActive: z.boolean(),
-  program: ProgramSchema.optional(),
-  department: DepartmentSchema.optional(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-});
-
-export const CreateProgramDepartmentRequestSchema = z.object({
-  programId: z.string().uuid('Valid program ID is required'),
-  departmentId: z.string().uuid('Valid department ID is required'),
-  isActive: z.boolean().default(true),
+export const DepartmentQuerySchema = z.object({
+  search: z.string().optional(),
+  facultyId: z.string().uuid().optional(),
+  isActive: z.boolean().optional(),
+  page: z.number().min(1).default(1),
+  limit: z.number().min(1).max(100).default(10),
 });

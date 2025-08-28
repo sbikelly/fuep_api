@@ -61,11 +61,12 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 1. **JAMB Number Validation**
    - Verify JAMB registration number against prelist
    - Check existing candidate records
-   - Validate eligibility for Post-UTME application
+   - Request contact information(email and password)
+   - Update candidate information with the requested details
 
 2. **Account Creation**
-   - Generate secure temporary account credentials
-   - Create candidate and profile records
+   - Generate secure temporary password
+   - Create candidate and profile records with the temporary password and jamb number as username
    - Set up initial application status
 
 3. **Email Notification**
@@ -73,19 +74,12 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
    - Include security instructions and next steps
    - Provide portal access information
 
-#### **Phase 2: Payment & Authentication**
-
-1. **Post-UTME Payment**
-   - Integrated payment gateway (Remita)
-   - Secure payment processing and confirmation
-   - Real-time payment status updates
-
-2. **Account Activation**
-   - Enable full portal access after payment
+4. **Account Activation**
+   - Enable full portal access using the temporary password
    - Enforce password change on first login
    - Establish secure user sessions
 
-#### **Phase 3: Progressive Profile Completion**
+#### **Phase 2: Progressive Profile Completion**
 
 1. **Biodata Information**
    - Personal details and contact information
@@ -94,27 +88,40 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 
 2. **Educational Background**
    - Secondary school information
-   - Academic qualifications and certificates
-   - JAMB subject combinations
+   - Certificate obtained(SCCE, GCE)
+   - Number of seatings(maximum of 2)
+   - Subjects with grades, exam year, exam type(WAEC, NECO or NABTEB), and exam number
+   - Certificate upload (optional)
+     **for UTME (100 LEVEL)**
+   - JAMB subject combinations and scores(editable because it will come with the Jamb prelist)
+     **for DE (Direct Entry)**
+   - Certificate type and number(NCE, ND, HND)
+   - A-Level grade
+   - Certificate upload (optional)
 
 3. **Next of Kin Details**
-   - Guardian information
+   - Next-of-kin information
    - Relationship and contact details
-   - Emergency contact protocols
 
 4. **Sponsor Information**
    - Financial sponsor details
    - Payment responsibility
-   - Contact and verification information
+   - Contact information
 
-#### **Phase 4: Registration Finalization**
+#### **Phase 3: Registration Finalization**
 
 1. **Profile Validation**
    - Complete information verification
    - Document upload confirmation
    - Application completeness check
 
-2. **Registration Completion**
+2. **Payment & Authentication (POST-UTME)**
+   - Initiate Post-UTME Payment by generating RRR
+   - Continue to remita payment gateway to process payment
+   - Secure payment processing and confirmation
+   - Real-time payment status updates
+
+3. **Registration Completion**
    - Mark registration as complete
    - Send confirmation email
    - Enable dashboard access

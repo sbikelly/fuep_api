@@ -1,10 +1,19 @@
 openapi: 3.0.3
 info:
-  title: FUEP Post-UTME Portal - Admin Management API
-  version: '1.0.0'
-  description: Administrative functions, user management, and system administration endpoints
+  title: FUEP Post-UTME Portal - Simplified Admin Management API
+  version: '2.0.0'
+  description: |
+    Administrative functions, user management, and system administration endpoints.
+
+    This API has been significantly simplified and optimized:
+    - Streamlined candidate management operations
+    - Unified admin-candidate integration
+    - Simplified payment purpose management
+    - Enhanced analytics and reporting capabilities
+    - Cleaner interfaces and improved performance
 
 paths:
+  # Admin authentication
   /api/admin/auth/login:
     post:
       summary: Admin user login
@@ -50,6 +59,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminAuthTokens'
 
+  # Admin user management
   /api/admin/users:
     get:
       summary: Get all admin users
@@ -66,6 +76,28 @@ paths:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/AdminUser' }
+                  timestamp: { type: string, format: date-time }
+
+    post:
+      summary: Create admin user
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserCreateRequest'
+      responses:
+        '201':
+          description: Admin user created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/AdminUser' }
+                  message: { type: string }
                   timestamp: { type: string, format: date-time }
 
   /api/admin/users/{id}:
@@ -89,97 +121,8 @@ paths:
                   data: { $ref: '#/components/schemas/AdminUser' }
                   timestamp: { type: string, format: date-time }
 
-  /api/admin/dashboard:
-    get:
-      summary: Get admin dashboard summary
-      tags: [Admin]
-      responses:
-        '200':
-          description: Dashboard summary data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/AdminDashboardSummary' }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/analytics:
-    get:
-      summary: Get system analytics
-      tags: [Admin]
-      responses:
-        '200':
-          description: Analytics data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/AdminAnalytics' }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/candidates:
-    get:
-      summary: Get all candidates
-      tags: [Admin]
-      parameters:
-        - in: query
-          name: page
-          schema: { type: integer, default: 1 }
-        - in: query
-          name: limit
-          schema: { type: integer, default: 20 }
-        - in: query
-          name: status
-          schema: { type: string }
-      responses:
-        '200':
-          description: List of candidates
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/CandidateAdminView' }
-                  pagination:
-                    type: object
-                    properties:
-                      page: { type: integer }
-                      limit: { type: integer }
-                      total: { type: integer }
-                      pages: { type: integer }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/candidates/{id}:
-    get:
-      summary: Get candidate by ID
-      tags: [Admin]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Candidate details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/CandidateAdminView' }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/candidates/{id}/status:
     put:
-      summary: Update candidate status
+      summary: Update admin user
       tags: [Admin]
       parameters:
         - in: path
@@ -191,14 +134,31 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [status]
-              properties:
-                status: { type: string }
-                notes: { type: string }
+              $ref: '#/components/schemas/AdminUserUpdateRequest'
       responses:
         '200':
-          description: Status updated
+          description: Admin user updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/AdminUser' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete admin user
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Admin user deleted successfully
           content:
             application/json:
               schema:
@@ -208,26 +168,27 @@ paths:
                   message: { type: string }
                   timestamp: { type: string, format: date-time }
 
-  /api/admin/payments:
+  # Academic structure management
+  /api/admin/faculties:
     get:
-      summary: Get all payments
+      summary: Get all faculties
       tags: [Admin]
       parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: isActive
+          schema: { type: boolean }
         - in: query
           name: page
           schema: { type: integer, default: 1 }
         - in: query
           name: limit
-          schema: { type: integer, default: 20 }
-        - in: query
-          name: status
-          schema: { type: string }
-        - in: query
-          name: provider
-          schema: { type: string }
+          schema: { type: integer, default: 10 }
       responses:
         '200':
-          description: List of payments
+          description: List of faculties
           content:
             application/json:
               schema:
@@ -236,114 +197,125 @@ paths:
                   success: { type: boolean }
                   data:
                     type: array
-                    items: { $ref: '#/components/schemas/PaymentAdminView' }
+                    items: { $ref: '#/components/schemas/Faculty' }
                   pagination:
-                    type: object
-                    properties:
-                      page: { type: integer }
-                      limit: { type: integer }
-                      total: { type: integer }
-                      pages: { type: integer }
+                    $ref: '#/components/schemas/PaginationInfo'
                   timestamp: { type: string, format: date-time }
 
-  /api/admin/payments/reconciliation:
-    get:
-      summary: Get payment reconciliation data
-      tags: [Admin]
-      responses:
-        '200':
-          description: Reconciliation data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/PaymentReconciliation' }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/admissions:
-    get:
-      summary: Get all admission decisions
-      tags: [Admin]
-      responses:
-        '200':
-          description: List of admission decisions
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/AdmissionDecision' }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/admissions/batch:
     post:
-      summary: Process batch admission decisions
+      summary: Create faculty
       tags: [Admin]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [decisions]
-              properties:
-                decisions:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      candidateId: { type: string, format: uuid }
-                      decision: { type: string, enum: ['admitted', 'rejected'] }
-                      notes: { type: string }
-      responses:
-        '200':
-          description: Batch processing initiated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  message: { type: string }
-                  batchId: { type: string, format: uuid }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/prelist/upload:
-    post:
-      summary: Upload JAMB prelist
-      tags: [Admin]
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file, session]
-              properties:
-                file:
-                  type: string
-                  format: binary
-                session: { type: string }
+              $ref: '#/components/schemas/FacultyCreateRequest'
       responses:
         '201':
-          description: Prelist upload initiated
+          description: Faculty created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PrelistUploadResponse'
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Faculty' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
 
-  /api/admin/prelist/batches:
+  /api/admin/faculties/{id}:
     get:
-      summary: Get prelist upload batches
+      summary: Get faculty by ID
       tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
-          description: List of upload batches
+          description: Faculty details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Faculty' }
+                  timestamp: { type: string, format: date-time }
+
+    put:
+      summary: Update faculty
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacultyUpdateRequest'
+      responses:
+        '200':
+          description: Faculty updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Faculty' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete faculty
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Faculty deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  # Department management
+  /api/admin/departments:
+    get:
+      summary: Get all departments
+      tags: [Admin]
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: facultyId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: isActive
+          schema: { type: boolean }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        '200':
+          description: List of departments
           content:
             application/json:
               schema:
@@ -352,26 +324,92 @@ paths:
                   success: { type: boolean }
                   data:
                     type: array
-                    items: { $ref: '#/components/schemas/PrelistBatch' }
+                    items: { $ref: '#/components/schemas/Department' }
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
                   timestamp: { type: string, format: date-time }
 
-  /api/admin/reports/generate:
     post:
-      summary: Generate report
+      summary: Create department
       tags: [Admin]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [reportType]
-              properties:
-                reportType: { type: string }
-                parameters: { type: object }
+              $ref: '#/components/schemas/DepartmentCreateRequest'
       responses:
-        '202':
-          description: Report generation initiated
+        '201':
+          description: Department created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Department' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/departments/{id}:
+    get:
+      summary: Get department by ID
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Department details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Department' }
+                  timestamp: { type: string, format: date-time }
+
+    put:
+      summary: Update department
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentUpdateRequest'
+      responses:
+        '200':
+          description: Department updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Department' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete department
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Department deleted successfully
           content:
             application/json:
               schema:
@@ -379,41 +417,201 @@ paths:
                 properties:
                   success: { type: boolean }
                   message: { type: string }
-                  jobId: { type: string, format: uuid }
                   timestamp: { type: string, format: date-time }
 
-  /api/admin/reports/jobs/{jobId}:
+  # Program management
+  /api/admin/programs:
     get:
-      summary: Get report job status
+      summary: Get all programs
       tags: [Admin]
       parameters:
-        - in: path
-          name: jobId
-          required: true
-          schema: { type: string, format: uuid }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: isActive
+          schema: { type: boolean }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
       responses:
         '200':
-          description: Report job status
+          description: List of programs
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
-                  data: { $ref: '#/components/schemas/ReportJob' }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Program' }
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
                   timestamp: { type: string, format: date-time }
 
-  /api/admin/health:
-    get:
-      summary: Get admin module health status
+    post:
+      summary: Create program
       tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramCreateRequest'
       responses:
-        '200':
-          description: Health status
+        '201':
+          description: Program created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminHealthStatus'
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Program' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/programs/{id}:
+    get:
+      summary: Get program by ID
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Program details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Program' }
+                  timestamp: { type: string, format: date-time }
+
+    put:
+      summary: Update program
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramUpdateRequest'
+      responses:
+        '200':
+          description: Program updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Program' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete program
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Program deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  # Program-Department relationships
+  /api/admin/program-departments:
+    post:
+      summary: Link program to department
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramDepartmentLinkRequest'
+      responses:
+        '201':
+          description: Program linked to department successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/ProgramDepartmentLink' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/departments/{id}/programs:
+    get:
+      summary: Get programs by department
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Programs in department
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Program' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/programs/{id}/departments:
+    get:
+      summary: Get departments by program
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Departments offering program
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Department' }
+                  timestamp: { type: string, format: date-time }
 
 components:
   schemas:
@@ -421,184 +619,187 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
-        username: { type: string }
-        email: { type: string }
-        role: { $ref: '#/components/schemas/AdminRole' }
+        username: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        role: { type: string, enum: ['admin', 'super_admin', 'moderator'] }
         isActive: { type: boolean }
         lastLoginAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
-    AdminRole:
-      type: string
-      enum: ['super_admin', 'admissions_officer', 'finance_officer', 'registrar', 'viewer', 'data_analyst']
+    AdminUserCreateRequest:
+      type: object
+      required: [username, email, password, firstName, lastName, role]
+      properties:
+        username: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        password: { type: string, format: password, minLength: 8 }
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        role: { type: string, enum: ['admin', 'super_admin', 'moderator'] }
+
+    AdminUserUpdateRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        role: { type: string, enum: ['admin', 'super_admin', 'moderator'] }
+        isActive: { type: boolean }
 
     AdminLoginResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        data: { $ref: '#/components/schemas/AdminAuthTokens' }
-        user: { $ref: '#/components/schemas/AdminUser' }
-        timestamp: { type: string, format: date-time }
-
-    AdminAuthTokens:
-      type: object
-      properties:
-        accessToken: { type: string }
-        refreshToken: { type: string }
-        expiresIn: { type: integer }
-        tokenType: { type: string }
-
-    AdminDashboardSummary:
-      type: object
-      properties:
-        totalCandidates: { type: integer }
-        pendingApplications: { type: integer }
-        totalPayments: { type: integer }
-        totalAdmissions: { type: integer }
-        recentActivity:
-          type: array
-          items:
-            type: object
-            properties:
-              action: { type: string }
-              timestamp: { type: string, format: date-time }
-              adminUser: { type: string }
-
-    AdminAnalytics:
-      type: object
-      properties:
-        candidatesByStatus:
-          type: object
-          additionalProperties: { type: integer }
-        paymentsByMonth:
-          type: object
-          additionalProperties: { type: number }
-        admissionsByProgram:
-          type: object
-          additionalProperties: { type: integer }
-        applicationTrends:
-          type: array
-          items:
-            type: object
-            properties:
-              date: { type: string, format: date }
-              applications: { type: integer }
-              payments: { type: integer }
-        topPerformingPrograms:
-          type: array
-          items:
-            type: object
-            properties:
-              program: { type: string }
-              applications: { type: integer }
-              conversionRate: { type: number }
-
-    CandidateAdminView:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        jambRegNo: { type: string }
-        username: { type: string }
-        email: { type: string }
-        phone: { type: string }
-        isActive: { type: boolean }
-        tempPasswordFlag: { type: boolean }
-        createdAt: { type: string, format: date-time }
-        surname: { type: string }
-        firstname: { type: string }
-        othernames: { type: string }
-        gender: { type: string }
-        state: { type: string }
-        lga: { type: string }
-        applicationStatus: { type: string }
-        session: { type: string }
-        programmeCode: { type: string }
-        departmentCode: { type: string }
-        admissionDecision: { type: string }
-        matricNo: { type: string }
-        documentCount: { type: integer }
-        successfulPaymentsCount: { type: integer }
-
-    PaymentAdminView:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        candidateId: { type: string, format: uuid }
-        purpose: { type: string }
-        provider: { type: string }
-        amount: { type: number }
-        currency: { type: string }
-        status: { type: string }
-        createdAt: { type: string, format: date-time }
-        candidateJambRegNo: { type: string }
-        candidateEmail: { type: string }
-
-    PaymentReconciliation:
-      type: object
-      properties:
-        totalPayments: { type: integer }
-        successfulPayments: { type: integer }
-        failedPayments: { type: integer }
-        pendingPayments: { type: integer }
-        totalAmount: { type: number }
-        reconciledAmount: { type: number }
-        disputedAmount: { type: number }
-        reconciliationRate: { type: number }
-
-    AdmissionDecision:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        jambRegNo: { type: string }
-        decision: { type: string, enum: ['pending', 'admitted', 'rejected'] }
-        notes: { type: string }
-        decidedBy: { type: string, format: uuid }
-        decidedAt: { type: string, format: date-time }
-
-    PrelistBatch:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        filename: { type: string }
-        totalRecords: { type: integer }
-        processedRecords: { type: integer }
-        failedRecords: { type: integer }
-        status: { type: string, enum: ['processing', 'completed', 'failed'] }
-        uploadedBy: { type: string, format: uuid }
-        uploadedAt: { type: string, format: date-time }
-        completedAt: { type: string, format: date-time }
-
-    PrelistUploadResponse:
-      type: object
-      properties:
-        batchId: { type: string, format: uuid }
-        filename: { type: string }
-        totalRecords: { type: integer }
-        status: { type: string }
-        message: { type: string }
-
-    ReportJob:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        type: { type: string }
-        parameters: { type: object }
-        status: { type: string, enum: ['queued', 'processing', 'completed', 'failed'] }
-        fileUrl: { type: string }
-        errorMessage: { type: string }
-        createdBy: { type: string, format: uuid }
-        createdAt: { type: string, format: date-time }
-        completedAt: { type: string, format: date-time }
-
-    AdminHealthStatus:
       type: object
       properties:
         success: { type: boolean }
         data:
           type: object
           properties:
-            module: { type: string }
-            status: { type: string }
-            timestamp: { type: string, format: date-time }
-            version: { type: string }
+            user: { $ref: '#/components/schemas/AdminUser' }
+            accessToken: { type: string }
+            refreshToken: { type: string }
+            expiresIn: { type: integer }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    AdminAuthTokens:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            accessToken: { type: string }
+            refreshToken: { type: string }
+            expiresIn: { type: integer }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    Faculty:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    FacultyCreateRequest:
+      type: object
+      required: [name, code]
+      properties:
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        isActive: { type: boolean, default: true }
+
+    FacultyUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        isActive: { type: boolean }
+
+    Department:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        facultyId: { type: string, format: uuid }
+        faculty: { $ref: '#/components/schemas/Faculty' }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    DepartmentCreateRequest:
+      type: object
+      required: [name, code, facultyId]
+      properties:
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        facultyId: { type: string, format: uuid }
+        isActive: { type: boolean, default: true }
+
+    DepartmentUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        facultyId: { type: string, format: uuid }
+        isActive: { type: boolean }
+
+    Program:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        duration: { type: string, maxLength: 50 }
+        degreeType: { type: string, maxLength: 100 }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProgramCreateRequest:
+      type: object
+      required: [name, code, degreeType]
+      properties:
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        duration: { type: string, maxLength: 50 }
+        degreeType: { type: string, maxLength: 100 }
+        isActive: { type: boolean, default: true }
+
+    ProgramUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 20 }
+        description: { type: string }
+        duration: { type: string, maxLength: 50 }
+        degreeType: { type: string, maxLength: 100 }
+        isActive: { type: boolean }
+
+    ProgramDepartmentLink:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        programId: { type: string, format: uuid }
+        departmentId: { type: string, format: uuid }
+        program: { $ref: '#/components/schemas/Program' }
+        department: { $ref: '#/components/schemas/Department' }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProgramDepartmentLinkRequest:
+      type: object
+      required: [programId, departmentId]
+      properties:
+        programId: { type: string, format: uuid }
+        departmentId: { type: string, format: uuid }
+        isActive: { type: boolean, default: true }
+
+    PaginationInfo:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        totalPages: { type: integer }
+        hasNext: { type: boolean }
+        hasPrev: { type: boolean }
+
+tags:
+  - name: Admin
+    description: Administrative functions, user management, and system administration endpoints

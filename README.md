@@ -7,18 +7,19 @@ A comprehensive Post-UTME application and management system for Federal Universi
 ### Completed Features
 
 - **Core API Infrastructure** - Express.js with TypeScript, Docker containerization
-- **Database Management** - PostgreSQL with Knex.js, comprehensive schema design
+- **Database Management** - PostgreSQL with Knex.js, simplified and optimized schema design
 - **Authentication & Security** - JWT-based auth with refresh tokens, rate limiting, security headers
-- **Payment Integration** - Remita payment provider with real database integration
+- **Payment Integration** - Remita payment provider with simplified payment purpose management
 - **Document Management** - MinIO integration for file storage
 - **Advanced Analytics** - Comprehensive reporting and metrics
 - **Audit Logging** - Complete audit trail and security monitoring
 - **Email Service** - Automated email notifications with professional templates
-- **Advanced Candidate Management** - Progressive registration flow with email integration
+- **Simplified Candidate Management** - Progressive registration flow with streamlined data model
 - **Academic Structure Management** - Faculty, Department, and Program management system
 - **Enhanced Application Validation** - Real-time validation against academic entities
 - **Token Management** - Secure logout and token invalidation
 - **Cloud Deployment** - Production deployment on Render.com using Docker containers
+- **Admin Module Integration** - Simplified admin-candidate operations with clean interfaces
 
 ### �� **In Progress**
 
@@ -66,6 +67,35 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Security**: JWT with refresh tokens, bcrypt, helmet, rate limiting
 - **Monitoring**: Winston logging, metrics collection
 - **Validation**: Zod schemas for type-safe API requests
+
+## Simplified Candidate System
+
+### **Key Improvements**
+
+- **Eliminated Complexity**: Removed 35+ redundant fields and complex interfaces
+- **Progressive Registration**: Multi-phase registration flow with clear progress tracking
+- **Unified Data Model**: Single source of truth for candidate information
+- **Better Performance**: Optimized database schema with proper indexing
+- **Cleaner Code**: Simplified operations and easier maintenance
+
+### **Registration Flow**
+
+1. **JAMB Verification**: Check JAMB registration and initiate registration
+2. **Contact Information**: Complete basic contact details
+3. **Biodata**: Personal information and demographics
+4. **Education**: Academic background and qualifications
+5. **Next of Kin**: Emergency contact information
+6. **Sponsor**: Financial sponsor details
+7. **Application Submission**: Final application review and submission
+
+### **Database Schema**
+
+- **candidates**: Core profile with progress flags
+- **applications**: Application lifecycle and payment status
+- **education_records**: Educational background (UTME/DE)
+- **next_of_kin**: Emergency contacts
+- **sponsors**: Financial sponsors
+- **uploads**: Document management
 
 ## Academic Structure Management
 
@@ -231,6 +261,7 @@ docker compose up -d
 The application is automatically deployed to production on Render.com using Docker containers:
 
 #### **API Service (fuep-api)**
+
 - **Service Type**: Web service with Docker deployment
 - **Plan**: Free tier with automatic scaling
 - **Dockerfile**: `./apps/api/Dockerfile`
@@ -239,6 +270,7 @@ The application is automatically deployed to production on Render.com using Dock
 - **URL**: https://fuep-api.onrender.com
 
 #### **Database Service (fuep-postgres)**
+
 - **Name**: `fuep_postgres`
 - **Database**: `fuep_portal`
 - **User**: `fuep_user`
@@ -246,11 +278,13 @@ The application is automatically deployed to production on Render.com using Dock
 - **Connection**: Automatically managed via `DATABASE_URL` environment variable
 
 #### **External Services**
+
 - **Redis**: External Redis service via `REDIS_URL` environment variable
 - **MinIO**: External MinIO service for file storage
 - **Email**: External SMTP service for production emails
 
 #### **Deployment Features**
+
 - **Container Management**: Docker-based deployment with automatic scaling
 - **SSL/TLS**: Automatic HTTPS certificate management
 - **Scaling**: Automatic horizontal scaling of Docker containers based on load
@@ -290,6 +324,7 @@ databases:
 ```
 
 **Key Configuration Points:**
+
 - **Docker Deployment**: Uses `./apps/api/Dockerfile` for containerization
 - **Health Checks**: Monitors `/api/health` endpoint for service health
 - **Auto-deploy**: Automatically deploys from main branch

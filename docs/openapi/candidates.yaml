@@ -1,22 +1,34 @@
 openapi: 3.0.3
 info:
-  title: FUEP Post-UTME Portal - Candidate Management API
-  version: '1.0.0'
-  description: Candidate registration, profile management, and application endpoints
+  title: FUEP Post-UTME Portal - Simplified Candidate Management API
+  version: '2.0.0'
+  description: |
+    Simplified candidate registration, profile management, and application endpoints.
+
+    This API has been significantly refactored to eliminate complexity while maintaining full functionality:
+    - Progressive registration flow with clear progress tracking
+    - Unified data model with streamlined database operations
+    - Simplified interfaces and improved performance
+    - Enhanced admin integration and analytics
 
 paths:
-  /api/candidates/jamb/{jambRegNo}:
-    get:
-      summary: Get candidate by JAMB registration number
+  # JAMB verification and registration initiation
+  /api/candidates/check-jamb:
+    post:
+      summary: Check JAMB registration and initiate candidate registration
       tags: [Candidates]
-      parameters:
-        - in: path
-          name: jambRegNo
-          required: true
-          schema: { type: string, maxLength: 20 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jambRegNo]
+              properties:
+                jambRegNo: { type: string, maxLength: 20 }
       responses:
         '200':
-          description: Candidate details with program choices and related data
+          description: JAMB verification successful, registration initiated
           content:
             application/json:
               schema:
@@ -24,54 +36,15 @@ paths:
                 properties:
                   success: { type: boolean }
                   data: { $ref: '#/components/schemas/Candidate' }
+                  message: { type: string }
                   timestamp: { type: string, format: date-time }
-        '404': { description: Candidate not found }
+        '404': { description: JAMB registration not found }
+        '400': { description: Invalid JAMB registration number }
 
-  /api/candidates/{candidateId}/status:
-    get:
-      summary: Get comprehensive candidate status
-      tags: [Candidates]
-      parameters:
-        - in: path
-          name: candidateId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Candidate status information
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/CandidateStatus' }
-                  timestamp: { type: string, format: date-time }
-        '404': { description: Candidate not found }
-
-  /api/candidates/{candidateId}/application:
-    get:
-      summary: Get candidate application
-      tags: [Candidates]
-      parameters:
-        - in: path
-          name: candidateId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Application details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Application' }
-                  timestamp: { type: string, format: date-time }
-        '404': { description: Application not found }
+  # Progressive profile completion
+  /api/candidates/{candidateId}/complete-contact:
     post:
-      summary: Create new application
+      summary: Complete candidate contact information
       tags: [Candidates]
       parameters:
         - in: path
@@ -84,40 +57,166 @@ paths:
           application/json:
             schema:
               type: object
-              required: [session]
+              required: [email, phone]
               properties:
-                session: { type: string, pattern: '^\\d{4}/\\d{4}$' }
-                programmeCode: { type: string }
-                departmentCode: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
       responses:
-        '201':
-          description: Application created
+        '200':
+          description: Contact information completed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApplicationCreateResponse'
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
 
-  /api/profile:
-    put:
-      summary: Update biodata profile
+  /api/candidates/{candidateId}/next-step:
+    get:
+      summary: Get next step in registration process
       tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Next step information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/NextStepInfo' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/candidates/{candidateId}/biodata:
+    post:
+      summary: Complete candidate biodata
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ProfileUpdateRequest' }
+            schema:
+              $ref: '#/components/schemas/CandidateBiodataRequest'
       responses:
         '200':
-          description: Profile updated successfully
+          description: Biodata completed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProfileUpdateResponse'
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
 
-  /api/applications:
+  /api/candidates/{candidateId}/education:
     post:
-      summary: Create new application
+      summary: Complete candidate education information
       tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EducationRecordRequest'
+      responses:
+        '200':
+          description: Education information completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/EducationRecord' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/candidates/{candidateId}/next-of-kin:
+    post:
+      summary: Complete candidate next of kin information
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NextOfKinRequest'
+      responses:
+        '200':
+          description: Next of kin information completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/NextOfKin' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/candidates/{candidateId}/sponsor:
+    post:
+      summary: Complete candidate sponsor information
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SponsorRequest'
+      responses:
+        '200':
+          description: Sponsor information completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Sponsor' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  # Application submission
+  /api/candidates/{candidateId}/application:
+    post:
+      summary: Submit candidate application
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -125,92 +224,169 @@ paths:
             schema:
               $ref: '#/components/schemas/ApplicationCreateRequest'
       responses:
-        '201':
-          description: Application created successfully
+        '200':
+          description: Application submitted successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApplicationCreateResponse'
 
-  /api/education-records:
-    post:
-      summary: Create education record
-      tags: [Candidates]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/EducationRecordCreate' }
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/EducationRecord' }
-
-  /api/education-records/{id}:
-    put:
-      summary: Update education record
+  # Payment integration endpoints
+  /api/candidates/{candidateId}/payment/purposes:
+    get:
+      summary: Get available payment purposes for candidate
       tags: [Candidates]
       parameters:
         - in: path
-          name: id
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Available payment purposes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaymentPurpose' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/candidates/{candidateId}/payment/history:
+    get:
+      summary: Get candidate payment history
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaymentTransaction' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/candidates/{candidateId}/payment/summary:
+    get:
+      summary: Get candidate payment summary
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentSummary' }
+                  timestamp: { type: string, format: date-time }
+
+  # Profile management
+  /api/candidates/profile/{jambRegNo}:
+    get:
+      summary: Get candidate profile by JAMB registration number
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: jambRegNo
+          required: true
+          schema: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Candidate profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+  /api/candidates/profile/{candidateId}:
+    put:
+      summary: Update candidate profile
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
           required: true
           schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/EducationRecordUpdate' }
+            schema:
+              $ref: '#/components/schemas/CandidateProfileUpdateRequest'
       responses:
         '200':
-          description: Updated
+          description: Profile updated successfully
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/EducationRecord' }
+              schema:
+                $ref: '#/components/schemas/CandidateProfileUpdateResponse'
 
-  /api/next-of-kin:
-    post:
-      summary: Create next of kin record
-      tags: [Candidates]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/NextOfKinCreate' }
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/NextOfKin' }
-
-  /api/sponsors:
-    post:
-      summary: Create sponsor record
-      tags: [Candidates]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/SponsorCreate' }
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Sponsor' }
-
-  /api/dashboard:
+  # Profile completion and dashboard
+  /api/candidates/{candidateId}/completion-status:
     get:
-      summary: Candidate dashboard summary
+      summary: Get candidate profile completion status
       tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Summary
+          description: Profile completion status
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DashboardSummary' }
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/ProfileCompletionStatus' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/candidates/{candidateId}/dashboard:
+    get:
+      summary: Get candidate dashboard
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Candidate dashboard information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/CandidateDashboard' }
+                  timestamp: { type: string, format: date-time }
 
 components:
   schemas:
@@ -218,135 +394,246 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
-        jambRegNo: { type: string }
-        username: { type: string }
-        email: { type: string }
-        phone: { type: string }
-        programChoice1: { type: string }
-        programChoice2: { type: string }
-        programChoice3: { type: string }
-        jambScore: { type: integer }
-        stateOfOrigin: { type: string }
-        applicationStatus: { type: string }
-        paymentStatus: { type: string }
-        admissionStatus: { type: string }
-        profile: { $ref: '#/components/schemas/Profile' }
-        application: { $ref: '#/components/schemas/Application' }
-        admission: { $ref: '#/components/schemas/Admission' }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    CandidateStatus:
-      type: object
-      properties:
-        candidateId: { type: string, format: uuid }
-        jambRegNo: { type: string }
-        username: { type: string }
-        email: { type: string }
-        programChoice1: { type: string }
-        programChoice2: { type: string }
-        programChoice3: { type: string }
-        jambScore: { type: integer }
-        stateOfOrigin: { type: string }
-        applicationStatus: { type: string }
-        paymentStatus: { type: string }
-        admissionStatus: { type: string }
-        payments:
-          type: array
-          items:
-            type: object
-            properties:
-              purpose: { type: string }
-              amount: { type: number }
-              status: { type: string }
-              date: { type: string, format: date-time }
-        documents:
-          type: array
-          items:
-            type: object
-            properties:
-              type: { type: string }
-              status: { type: string }
-              uploadedAt: { type: string, format: date-time }
-        education:
-          type: array
-          items:
-            type: object
-            properties:
-              level: { type: string }
-              examType: { type: string }
-              year: { type: string }
-              school: { type: string }
-        createdAt: { type: string, format: date-time }
-
-    Profile:
-      type: object
-      properties:
-        candidateId: { type: string, format: uuid }
-        surname: { type: string }
-        firstname: { type: string }
-        othernames: { type: string }
-        gender: { type: string }
-        dob: { type: string, format: date }
-        address: { type: string }
-        state: { type: string }
-        lga: { type: string }
-        city: { type: string }
-        nationality: { type: string }
-        maritalStatus: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    ProfileUpdateRequest:
-      type: object
-      properties:
-        surname: { type: string, minLength: 1, maxLength: 100 }
-        firstname: { type: string, minLength: 1, maxLength: 100 }
+        jambRegNo: { type: string, maxLength: 20 }
+        firstname: { type: string, maxLength: 100 }
+        surname: { type: string, maxLength: 100 }
         othernames: { type: string, maxLength: 100 }
-        gender: { type: string, maxLength: 10 }
-        dob: { type: string, pattern: '^\\d{4}-\\d{2}-\\d{2}$' }
-        address: { type: string, maxLength: 500 }
+        gender: { type: string, enum: ['male', 'female', 'other'] }
+        dob: { type: string, format: date }
+        nationality: { type: string, maxLength: 64 }
         state: { type: string, maxLength: 64 }
         lga: { type: string, maxLength: 64 }
-        city: { type: string, maxLength: 64 }
-        nationality: { type: string, maxLength: 64 }
-        maritalStatus: { type: string, maxLength: 32 }
-
-    ProfileUpdateResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        data: { $ref: '#/components/schemas/Profile' }
-        message: { type: string }
-        timestamp: { type: string, format: date-time }
+        address: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 32 }
+        department: { type: string, maxLength: 100 }
+        modeOfEntry: { type: string, enum: ['UTME', 'DE'] }
+        maritalStatus: { type: string, enum: ['single', 'married', 'divorced', 'widowed'] }
+        passportPhotoUrl: { type: string }
+        signatureUrl: { type: string }
+        registrationCompleted: { type: boolean }
+        biodataCompleted: { type: boolean }
+        educationCompleted: { type: boolean }
+        nextOfKinCompleted: { type: boolean }
+        sponsorCompleted: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     Application:
       type: object
       properties:
         id: { type: string, format: uuid }
         candidateId: { type: string, format: uuid }
-        applicationNumber: { type: string }
-        session: { type: string }
-        status: { type: string, enum: ['draft', 'submitted', 'under_review', 'approved', 'rejected'] }
+        applicationNumber: { type: string, maxLength: 50 }
+        session: { type: string, maxLength: 16 }
+        status: { type: string, enum: ['pending', 'admitted', 'rejected'] }
         submittedAt: { type: string, format: date-time }
         reviewedAt: { type: string, format: date-time }
         reviewedBy: { type: string, format: uuid }
         reviewNotes: { type: string }
         paymentStatus: { type: string, enum: ['pending', 'paid', 'failed', 'refunded'] }
-        paymentReference: { type: string }
-        totalAmount: { type: number }
-        amountPaid: { type: number }
+        paymentRrr: { type: string, maxLength: 100 }
         formPrinted: { type: boolean }
         printedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
-    ApplicationCreateRequest:
+    EducationRecord:
       type: object
       properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        secondarySchool: { type: string, maxLength: 200 }
+        certificateType: { type: string, maxLength: 20 }
+        examYear: { type: integer }
+        examType: { type: string, maxLength: 20 }
+        seatingCount: { type: integer }
+        examNumbers:
+          type: array
+          items: { type: string }
+        subjects: { type: object }
+        jambScore: { type: integer }
+        jambSubjects: { type: object }
+        certificateTypeDe: { type: string, maxLength: 20 }
+        institutionName: { type: string, maxLength: 200 }
+        fieldOfStudy: { type: string, maxLength: 100 }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        cgpa: { type: string, maxLength: 10 }
+        certificateNumber: { type: string, maxLength: 100 }
+        grade: { type: string, maxLength: 20 }
+        certificateUploadUrls:
+          type: array
+          items: { type: string }
+        verificationStatus: { type: string, enum: ['pending', 'verified', 'rejected'] }
+        verificationNotes: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    NextOfKin:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        surname: { type: string, maxLength: 100 }
+        firstname: { type: string, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        relationship: { type: string, maxLength: 100 }
+        phone: { type: string, maxLength: 32 }
+        email: { type: string, format: email }
+        address: { type: string }
+        occupation: { type: string, maxLength: 100 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Sponsor:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        surname: { type: string, maxLength: 100 }
+        firstname: { type: string, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        relationship: { type: string, maxLength: 100 }
+        phone: { type: string, maxLength: 32 }
+        email: { type: string, format: email }
+        address: { type: string }
+        occupation: { type: string, maxLength: 100 }
+        paymentResponsibility: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProfileCompletionStatus:
+      type: object
+      properties:
+        candidateId: { type: string, format: uuid }
+        biodataCompleted: { type: boolean }
+        educationCompleted: { type: boolean }
+        nextOfKinCompleted: { type: boolean }
+        sponsorCompleted: { type: boolean }
+        registrationCompleted: { type: boolean }
+        nextStep: { type: string }
+        progressPercentage: { type: number }
+
+    NextStepInfo:
+      type: object
+      properties:
+        currentStep: { type: string }
+        nextStep: { type: string }
+        isCompleted: { type: boolean }
+        message: { type: string }
+        requiredFields:
+          type: array
+          items: { type: string }
+
+    PaymentPurpose:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 100 }
+        purpose: { type: string, maxLength: 50 }
+        description: { type: string }
+        amount: { type: number, format: float }
+        isActive: { type: boolean }
+        session: { type: string, maxLength: 16 }
+        level: { type: string, maxLength: 10 }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentTransaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        candidateId: { type: string, format: uuid }
+        purposeId: { type: string, format: uuid }
+        amount: { type: number, format: float }
+        status: { type: string, enum: ['pending', 'paid', 'failed', 'refunded'] }
+        rrr: { type: string, maxLength: 100 }
+        provider: { type: string }
+        providerReference: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentSummary:
+      type: object
+      properties:
+        totalAmount: { type: number, format: float }
+        paidAmount: { type: number, format: float }
+        pendingAmount: { type: number, format: float }
+        totalTransactions: { type: integer }
+        paidTransactions: { type: integer }
+        pendingTransactions: { type: integer }
+
+    # Request/Response schemas
+    CandidateBiodataRequest:
+      type: object
+      required: [dob, gender, nationality, state, lga, address, maritalStatus]
+      properties:
+        dob: { type: string, format: date }
+        gender: { type: string, enum: ['male', 'female', 'other'] }
+        nationality: { type: string, maxLength: 64 }
+        state: { type: string, maxLength: 64 }
+        lga: { type: string, maxLength: 64 }
+        address: { type: string }
+        maritalStatus: { type: string, enum: ['single', 'married', 'divorced', 'widowed'] }
+
+    EducationRecordRequest:
+      type: object
+      properties:
+        secondarySchool: { type: string, maxLength: 200 }
+        certificateType: { type: string, maxLength: 20 }
+        examYear: { type: integer }
+        examType: { type: string, maxLength: 20 }
+        seatingCount: { type: integer }
+        examNumbers:
+          type: array
+          items: { type: string }
+        subjects: { type: object }
+        jambScore: { type: integer }
+        jambSubjects: { type: object }
+        certificateTypeDe: { type: string, maxLength: 20 }
+        institutionName: { type: string, maxLength: 200 }
+        fieldOfStudy: { type: string, maxLength: 100 }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        cgpa: { type: string, maxLength: 10 }
+        certificateNumber: { type: string, maxLength: 100 }
+        grade: { type: string, maxLength: 20 }
+
+    NextOfKinRequest:
+      type: object
+      required: [surname, firstname, relationship, phone, address, occupation]
+      properties:
+        surname: { type: string, maxLength: 100 }
+        firstname: { type: string, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        relationship: { type: string, maxLength: 100 }
+        phone: { type: string, maxLength: 32 }
+        email: { type: string, format: email }
+        address: { type: string }
+        occupation: { type: string, maxLength: 100 }
+
+    SponsorRequest:
+      type: object
+      required: [surname, firstname, relationship, phone, address, occupation]
+      properties:
+        surname: { type: string, maxLength: 100 }
+        firstname: { type: string, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        relationship: { type: string, maxLength: 100 }
+        phone: { type: string, maxLength: 32 }
+        email: { type: string, format: email }
+        address: { type: string }
+        occupation: { type: string, maxLength: 100 }
+        paymentResponsibility: { type: boolean }
+
+    ApplicationCreateRequest:
+      type: object
+      required: [session, department]
+      properties:
         session: { type: string, pattern: '^\\d{4}/\\d{4}$' }
-        programmeCode: { type: string, maxLength: 32 }
-        departmentCode: { type: string, maxLength: 32 }
+        department: { type: string, maxLength: 100 }
 
     ApplicationCreateResponse:
       type: object
@@ -356,97 +643,33 @@ components:
         message: { type: string }
         timestamp: { type: string, format: date-time }
 
-    Admission:
+    CandidateProfileUpdateRequest:
       type: object
       properties:
-        id: { type: string, format: uuid }
-        candidateId: { type: string, format: uuid }
-        decision: { type: string, enum: ['pending', 'admitted', 'rejected'] }
-        decidedAt: { type: string, format: date-time }
-        decidedBy: { type: string, format: uuid }
-        notes: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    EducationRecord:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        candidateId: { type: string, format: uuid }
-        levelType: { type: string }
-        examType: { type: string }
-        year: { type: string }
-        schoolName: { type: string }
-        certificateNo: { type: string }
-        gradeSummary: { type: string }
-        createdAt: { type: string, format: date-time }
-
-    EducationRecordCreate:
-      type: object
-      properties:
-        levelType: { type: string, required: true }
-        examType: { type: string }
-        year: { type: string }
-        schoolName: { type: string }
-        certificateNo: { type: string }
-        gradeSummary: { type: string }
-
-    EducationRecordUpdate:
-      type: object
-      properties:
-        levelType: { type: string }
-        examType: { type: string }
-        year: { type: string }
-        schoolName: { type: string }
-        certificateNo: { type: string }
-        gradeSummary: { type: string }
-
-    NextOfKin:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        candidateId: { type: string, format: uuid }
-        name: { type: string }
-        relation: { type: string }
-        phone: { type: string }
-        email: { type: string }
+        firstname: { type: string, maxLength: 100 }
+        surname: { type: string, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 32 }
         address: { type: string }
-        createdAt: { type: string, format: date-time }
+        department: { type: string, maxLength: 100 }
 
-    NextOfKinCreate:
+    CandidateProfileUpdateResponse:
       type: object
       properties:
-        name: { type: string, required: true }
-        relation: { type: string }
-        phone: { type: string }
-        email: { type: string }
-        address: { type: string }
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/Candidate' }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
 
-    Sponsor:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        candidateId: { type: string, format: uuid }
-        name: { type: string }
-        phone: { type: string }
-        email: { type: string }
-        address: { type: string }
-        createdAt: { type: string, format: date-time }
-
-    SponsorCreate:
-      type: object
-      properties:
-        name: { type: string, required: true }
-        phone: { type: string }
-        email: { type: string }
-        address: { type: string }
-
-    DashboardSummary:
+    CandidateDashboard:
       type: object
       properties:
         candidate: { $ref: '#/components/schemas/Candidate' }
-        profileCompletion: { type: integer, minimum: 0, maximum: 100 }
-        nextStep: { type: string }
-        requiredDocuments: { type: array, items: { type: string } }
-        paymentStatus: { type: string }
-        applicationStatus: { type: string }
+        application: { $ref: '#/components/schemas/Application' }
+        completionStatus: { $ref: '#/components/schemas/ProfileCompletionStatus' }
+        nextStep: { $ref: '#/components/schemas/NextStepInfo' }
+
+tags:
+  - name: Candidates
+    description: Candidate registration, profile management, and application endpoints

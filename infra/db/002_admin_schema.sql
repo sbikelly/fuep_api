@@ -32,41 +32,6 @@ CREATE TABLE IF NOT EXISTS admin_permissions (
   UNIQUE(role, resource, action)
 );
 
--- ---------- Payment Purposes & Configurations ----------
-
--- Payment purposes table
-CREATE TABLE IF NOT EXISTS payment_purposes (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name                 varchar(100) NOT NULL,
-  purpose              varchar(50) NOT NULL,
-  description          text,
-  amount               numeric(14,2) NOT NULL,
-  currency             varchar(8) NOT NULL DEFAULT 'NGN',
-  category             varchar(32) DEFAULT 'academic',
-  requires_verification boolean DEFAULT false,
-  is_active            boolean NOT NULL DEFAULT true,
-  session              varchar(16) NOT NULL,
-  due_date             date,
-  created_by           uuid REFERENCES admin_users(id),
-  created_at           timestamptz NOT NULL DEFAULT NOW(),
-  updated_at           timestamptz NOT NULL DEFAULT NOW(),
-  UNIQUE(purpose, session)
-);
-
--- Payment purpose amounts by session
-CREATE TABLE IF NOT EXISTS payment_purpose_amounts (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_purpose_id   uuid NOT NULL REFERENCES payment_purposes(id) ON DELETE CASCADE,
-  session              varchar(16) NOT NULL,
-  amount               numeric(14,2) NOT NULL,
-  currency             varchar(8) DEFAULT 'NGN',
-  effective_from       date NOT NULL,
-  effective_to         date,
-  created_by           uuid REFERENCES admin_users(id),
-  created_at           timestamptz NOT NULL DEFAULT NOW(),
-  UNIQUE(payment_purpose_id, session, effective_from)
-);
-
 -- ---------- Enhanced Audit Logging ----------
 
 -- Admin action audit logs
@@ -134,40 +99,14 @@ CREATE TABLE IF NOT EXISTS candidate_status_changes (
   created_at           timestamptz NOT NULL DEFAULT NOW()
 );
 
--- ---------- Enhanced Payment Management ----------
-
--- Payment disputes
-CREATE TABLE IF NOT EXISTS payment_disputes (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id           uuid NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
-  reported_by          uuid NOT NULL REFERENCES candidates(id),
-  dispute_type         varchar(32) NOT NULL,
-  description          text NOT NULL,
-  status               varchar(32) NOT NULL DEFAULT 'open',
-  resolved_by          uuid REFERENCES admin_users(id),
-  resolution_notes     text,
-  resolved_at          timestamptz,
-  created_at           timestamptz NOT NULL DEFAULT NOW(),
-  updated_at           timestamptz NOT NULL DEFAULT NOW()
-);
-
--- Payment reconciliation logs
-CREATE TABLE IF NOT EXISTS payment_reconciliation_logs (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id           uuid NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
-  admin_user_id        uuid NOT NULL REFERENCES admin_users(id),
-  action               varchar(32) NOT NULL,
-  details              jsonb,
-  created_at           timestamptz NOT NULL DEFAULT NOW()
-);
-
--- ---------- Enhanced Admissions Management ----------
+-- ---------- Admission Management ----------
 
 -- Admission decision templates
 CREATE TABLE IF NOT EXISTS admission_decision_templates (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name                 varchar(100) NOT NULL,
   template_type        varchar(32) NOT NULL,
+  subject              varchar(200),
   content              text NOT NULL,
   variables            jsonb,
   is_active            boolean NOT NULL DEFAULT true,
@@ -180,37 +119,51 @@ CREATE TABLE IF NOT EXISTS admission_decision_templates (
 CREATE TABLE IF NOT EXISTS batch_admission_operations (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   operation_type       varchar(32) NOT NULL,
-  description          text,
+  status               varchar(32) NOT NULL DEFAULT 'pending',
   total_candidates     integer NOT NULL,
   processed_candidates integer NOT NULL DEFAULT 0,
   failed_candidates    integer NOT NULL DEFAULT 0,
-  status               varchar(32) NOT NULL DEFAULT 'processing',
-  initiated_by         uuid NOT NULL REFERENCES admin_users(id),
-  processing_started_at timestamptz,
-  processing_completed_at timestamptz,
+  parameters           jsonb,
+  results              jsonb,
   error_log            text,
+  initiated_by         uuid NOT NULL REFERENCES admin_users(id),
+  started_at           timestamptz,
+  completed_at         timestamptz,
   created_at           timestamptz NOT NULL DEFAULT NOW()
 );
 
--- ---------- Reporting & Analytics ----------
+-- ---------- Payment Disputes ----------
 
--- Report generation jobs
+-- Payment dispute tracking
+CREATE TABLE IF NOT EXISTS payment_disputes (
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  payment_id           uuid NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  dispute_type         varchar(32) NOT NULL,
+  status               varchar(32) NOT NULL DEFAULT 'open',
+  description          text NOT NULL,
+  resolution           text,
+  resolved_by          uuid REFERENCES admin_users(id),
+  resolved_at          timestamptz,
+  created_at           timestamptz NOT NULL DEFAULT NOW(),
+  updated_at           timestamptz NOT NULL DEFAULT NOW()
+);
+
+-- ---------- Report Generation ----------
+
+-- Asynchronous report generation jobs
 CREATE TABLE IF NOT EXISTS report_generation_jobs (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name                 varchar(255) NOT NULL,
-  description          text,
   report_type          varchar(64) NOT NULL,
-  parameters           jsonb,
-  format               varchar(16) NOT NULL,
   status               varchar(32) NOT NULL DEFAULT 'pending',
+  parameters           jsonb,
   file_path            text,
   file_size            bigint,
-  total_records        integer NOT NULL DEFAULT 0,
-  processed_records    integer NOT NULL DEFAULT 0,
+  error_message        text,
+  progress             integer DEFAULT 0,
+  initiated_by         uuid NOT NULL REFERENCES admin_users(id),
   started_at           timestamptz,
   completed_at         timestamptz,
-  error_message        text,
-  created_by           uuid NOT NULL REFERENCES admin_users(id),
+  expires_at           timestamptz,
   created_at           timestamptz NOT NULL DEFAULT NOW(),
   updated_at           timestamptz NOT NULL DEFAULT NOW()
 );
@@ -220,13 +173,6 @@ CREATE TABLE IF NOT EXISTS report_generation_jobs (
 CREATE INDEX IF NOT EXISTS idx_admin_users_role ON admin_users(role);
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);
-
-CREATE INDEX IF NOT EXISTS idx_payment_purposes_session ON payment_purposes(session);
-CREATE INDEX IF NOT EXISTS idx_payment_purposes_purpose ON payment_purposes(purpose);
-CREATE INDEX IF NOT EXISTS idx_payment_purposes_active ON payment_purposes(is_active);
-
-CREATE INDEX IF NOT EXISTS idx_payment_purpose_amounts_session ON payment_purpose_amounts(session);
-CREATE INDEX IF NOT EXISTS idx_payment_purpose_amounts_effective ON payment_purpose_amounts(effective_from, effective_to);
 
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_admin ON admin_audit_logs(admin_user_id);
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_resource ON admin_audit_logs(resource, resource_id);
@@ -254,10 +200,6 @@ CREATE TRIGGER admin_users_set_updated_at
 BEFORE UPDATE ON admin_users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER payment_purposes_set_updated_at
-BEFORE UPDATE ON payment_purposes
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER candidate_notes_set_updated_at
 BEFORE UPDATE ON candidate_notes
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -281,16 +223,6 @@ INSERT INTO admin_users (username, email, password_hash, role) VALUES
 ('admin', 'admin@fuep.edu.ng', crypt('admin123', gen_salt('bf')), 'super_admin')
 ON CONFLICT (username) DO NOTHING;
 
--- Insert default payment purposes
-INSERT INTO payment_purposes (name, purpose, description, amount, session, created_by) VALUES 
-('Post-UTME Application Fee', 'POST_UTME', 'Application fee for Post-UTME examination', 2500.00, '2025/2026', 
- (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1)),
-('Acceptance Fee', 'ACCEPTANCE', 'Acceptance fee for admitted candidates', 50000.00, '2025/2026',
- (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1)),
-('School Fees', 'SCHOOL_FEES', 'Annual school fees for admitted students', 150000.00, '2025/2026',
- (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1))
-ON CONFLICT (purpose, session) DO NOTHING;
-
 -- Insert default admin permissions
 INSERT INTO admin_permissions (role, resource, action) VALUES
 -- Super Admin - Full access
@@ -306,8 +238,6 @@ INSERT INTO admin_permissions (role, resource, action) VALUES
 -- Finance Officer
 ('finance_officer', 'payments', 'read'),
 ('finance_officer', 'payments', 'update'),
-('finance_officer', 'payment_purposes', 'read'),
-('finance_officer', 'payment_purposes', 'update'),
 ('finance_officer', 'disputes', 'read'),
 ('finance_officer', 'disputes', 'update'),
 ('finance_officer', 'reconciliation', 'read'),
@@ -319,29 +249,15 @@ INSERT INTO admin_permissions (role, resource, action) VALUES
 ('registrar', 'admissions', 'update'),
 ('registrar', 'matriculation', 'read'),
 ('registrar', 'matriculation', 'update'),
-('registrar', 'migration', 'read'),
-('registrar', 'migration', 'update'),
 ('registrar', 'reports', 'read'),
--- Viewer - Read-only access
+-- Viewer
 ('viewer', 'candidates', 'read'),
-('viewer', 'payments', 'read'),
 ('viewer', 'admissions', 'read'),
+('viewer', 'payments', 'read'),
 ('viewer', 'reports', 'read')
 ON CONFLICT (role, resource, action) DO NOTHING;
 
--- Insert default admission decision templates
-INSERT INTO admission_decision_templates (name, template_type, content, variables, created_by) VALUES
-('Standard Admission Letter', 'admission_letter', 
- 'Dear {{candidate_name}},\n\nCongratulations! You have been offered admission to study {{programme}} in the {{department}} of {{faculty}} for the {{session}} academic session.\n\nPlease complete your acceptance process by paying the acceptance fee within 14 days.\n\nBest regards,\nAdmissions Office\nFUEP',
- '{"candidate_name": "string", "programme": "string", "department": "string", "faculty": "string", "session": "string"}',
- (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1)),
-('Rejection Letter', 'rejection_letter',
- 'Dear {{candidate_name}},\n\nThank you for your application to study {{programme}} at FUEP for the {{session}} academic session.\n\nAfter careful consideration, we regret to inform you that we are unable to offer you admission at this time.\n\nWe wish you success in your future endeavors.\n\nBest regards,\nAdmissions Office\nFUEP',
- '{"candidate_name": "string", "programme": "string", "session": "string"}',
- (SELECT id FROM admin_users WHERE username = 'admin' LIMIT 1))
-ON CONFLICT DO NOTHING;
-
--- ---------- Views for Admin Dashboard ----------
+-- ---------- Views for Admin Portal ----------
 
 -- Admin dashboard summary view
 CREATE OR REPLACE VIEW v_admin_dashboard_summary AS
@@ -383,12 +299,10 @@ SELECT
   c.jamb_reg_no,
   c.email,
   c.phone,
-  pt.name as payment_purpose_name,
   pd.status as dispute_status,
   pd.description as dispute_description
 FROM payments p
 JOIN candidates c ON p.candidate_id = c.id
-LEFT JOIN payment_purposes pt ON p.purpose::text = pt.purpose
 LEFT JOIN payment_disputes pd ON p.id = pd.payment_id
 ORDER BY p.created_at DESC;
 
@@ -428,8 +342,6 @@ ORDER BY c.created_at DESC;
 
 COMMENT ON TABLE admin_users IS 'Administrative users with role-based access control';
 COMMENT ON TABLE admin_permissions IS 'Permissions matrix for different admin roles';
-COMMENT ON TABLE payment_purposes IS 'Configurable payment purposes and amounts by session';
-COMMENT ON TABLE payment_purpose_amounts IS 'Historical payment amounts with effective dates';
 COMMENT ON TABLE admin_audit_logs IS 'Audit trail for all administrative actions';
 COMMENT ON TABLE prelist_upload_batches IS 'Bulk JAMB prelist upload processing';
 COMMENT ON TABLE candidate_notes IS 'Internal notes and comments about candidates';

@@ -1,42 +1,98 @@
 openapi: 3.0.3
 info:
-  title: FUEP Post-UTME Portal - Academic Structure API
-  version: '1.0.0'
-  description: Faculty, department, and program management endpoints
+  title: Simplified Academic Management API
+  version: 2.0.0
+  description: |
+    Simplified Academic Management API for FUEP Post-UTME Portal
+
+    This API has been completely refactored to simplify the academic structure:
+    - **Faculties**: University faculties (e.g., Engineering, Sciences, Arts)
+    - **Departments**: Academic departments within faculties (e.g., Computer Science, Mathematics)
+
+    **Simplification Benefits:**
+    - Removed complex program-department relationships
+    - Candidate course of study directly maps to department
+    - Cleaner, more maintainable academic structure
+    - Reduced complexity and improved performance
+
+servers:
+  - url: http://localhost:4000/api
+    description: Development server
+  - url: https://api.fuep.edu.ng/api
+    description: Production server
 
 paths:
+  # ==================== FACULTY ENDPOINTS ====================
+
   /api/admin/faculties:
     get:
       summary: Get all faculties
-      tags: [Academic]
+      description: Retrieve all faculties with pagination and filtering
+      tags: [Faculties]
+      parameters:
+        - name: search
+          in: query
+          description: Search term for faculty name, code, or description
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
       responses:
         '200':
-          description: List of faculties
+          description: Faculties retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
-                    items: { $ref: '#/components/schemas/Faculty' }
-                  timestamp: { type: string, format: date-time }
+                    items:
+                      $ref: '#/components/schemas/Faculty'
+                  total:
+                    type: integer
+                    example: 5
+                  page:
+                    type: integer
+                    example: 1
+                  limit:
+                    type: integer
+                    example: 10
+                  timestamp:
+                    type: string
+                    format: date-time
 
     post:
-      summary: Create new faculty
-      tags: [Academic]
+      summary: Create a new faculty
+      description: Create a new faculty with the provided information
+      tags: [Faculties]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [name, code]
-              properties:
-                name: { type: string, maxLength: 200 }
-                code: { type: string, maxLength: 20 }
-                description: { type: string }
+              $ref: '#/components/schemas/CreateFacultyRequest'
       responses:
         '201':
           description: Faculty created successfully
@@ -45,51 +101,65 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Faculty' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Faculty'
+                  message:
+                    type: string
+                    example: Faculty created successfully
+                  timestamp:
+                    type: string
+                    format: date-time
+        '409':
+          description: Faculty with the same code already exists
+        '400':
+          description: Invalid request data
 
   /api/admin/faculties/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Faculty ID
+        schema:
+          type: string
+          format: uuid
+
     get:
       summary: Get faculty by ID
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      description: Retrieve a specific faculty by its ID
+      tags: [Faculties]
       responses:
         '200':
-          description: Faculty details
+          description: Faculty retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Faculty' }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Faculty'
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Faculty not found
 
     put:
       summary: Update faculty
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      description: Update an existing faculty with the provided information
+      tags: [Faculties]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name: { type: string, maxLength: 200 }
-                code: { type: string, maxLength: 20 }
-                description: { type: string }
-                isActive: { type: boolean }
+              $ref: '#/components/schemas/UpdateFacultyRequest'
       responses:
         '200':
           description: Faculty updated successfully
@@ -98,19 +168,26 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Faculty' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Faculty'
+                  message:
+                    type: string
+                    example: Faculty updated successfully
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Faculty not found
+        '409':
+          description: Faculty with the same code already exists
 
     delete:
       summary: Delete faculty
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      description: Soft delete a faculty (sets isActive to false)
+      tags: [Faculties]
       responses:
         '200':
           description: Faculty deleted successfully
@@ -119,47 +196,97 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Faculty deleted successfully
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Faculty not found
+        '400':
+          description: Cannot delete faculty with active departments
+
+  # ==================== DEPARTMENT ENDPOINTS ====================
 
   /api/admin/departments:
     get:
       summary: Get all departments
-      tags: [Academic]
+      description: Retrieve all departments with pagination and filtering
+      tags: [Departments]
       parameters:
-        - in: query
-          name: facultyId
-          schema: { type: string, format: uuid }
+        - name: search
+          in: query
+          description: Search term for department name, code, description, or faculty name
+          schema:
+            type: string
+        - name: facultyId
+          in: query
+          description: Filter by faculty ID
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
       responses:
         '200':
-          description: List of departments
+          description: Departments retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
-                    items: { $ref: '#/components/schemas/Department' }
-                  timestamp: { type: string, format: date-time }
+                    items:
+                      $ref: '#/components/schemas/Department'
+                  total:
+                    type: integer
+                    example: 15
+                  page:
+                    type: integer
+                    example: 1
+                  limit:
+                    type: integer
+                    example: 10
+                  timestamp:
+                    type: string
+                    format: date-time
 
     post:
-      summary: Create new department
-      tags: [Academic]
+      summary: Create a new department
+      description: Create a new department within a faculty
+      tags: [Departments]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [name, code, facultyId]
-              properties:
-                name: { type: string, maxLength: 200 }
-                code: { type: string, maxLength: 20 }
-                description: { type: string }
-                facultyId: { type: string, format: uuid }
+              $ref: '#/components/schemas/CreateDepartmentRequest'
       responses:
         '201':
           description: Department created successfully
@@ -168,52 +295,67 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Department' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Department'
+                  message:
+                    type: string
+                    example: Department created successfully
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Faculty not found
+        '409':
+          description: Department with the same code already exists
+        '400':
+          description: Invalid request data
 
   /api/admin/departments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Department ID
+        schema:
+          type: string
+          format: uuid
+
     get:
       summary: Get department by ID
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      description: Retrieve a specific department by its ID
+      tags: [Departments]
       responses:
         '200':
-          description: Department details
+          description: Department retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Department' }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Department'
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Department not found
 
     put:
       summary: Update department
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      description: Update an existing department with the provided information
+      tags: [Departments]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name: { type: string, maxLength: 200 }
-                code: { type: string, maxLength: 20 }
-                description: { type: string }
-                facultyId: { type: string, format: uuid }
-                isActive: { type: boolean }
+              $ref: '#/components/schemas/UpdateDepartmentRequest'
       responses:
         '200':
           description: Department updated successfully
@@ -222,19 +364,26 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Department' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Department'
+                  message:
+                    type: string
+                    example: Department updated successfully
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Department or faculty not found
+        '409':
+          description: Department with the same code already exists
 
     delete:
       summary: Delete department
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
+      description: Soft delete a department (sets isActive to false)
+      tags: [Departments]
       responses:
         '200':
           description: Department deleted successfully
@@ -243,273 +392,233 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Department deleted successfully
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Department not found
+        '400':
+          description: Cannot delete department with active applications
 
-  /api/admin/programs:
+  # ==================== SIMPLIFIED ACADEMIC STRUCTURE ENDPOINTS ====================
+
+  /api/admin/academic/structure:
     get:
-      summary: Get all programs
-      tags: [Academic]
+      summary: Get simplified academic structure
+      description: Retrieve the complete simplified academic structure (faculties and departments only)
+      tags: [Academic Structure]
       responses:
         '200':
-          description: List of programs
+          description: Academic structure retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Program' }
-                  timestamp: { type: string, format: date-time }
-
-    post:
-      summary: Create new program
-      tags: [Academic]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, code]
-              properties:
-                name: { type: string, maxLength: 200 }
-                code: { type: string, maxLength: 20 }
-                description: { type: string }
-      responses:
-        '201':
-          description: Program created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Program' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/programs/{id}:
-    get:
-      summary: Get program by ID
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Program details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Program' }
-                  timestamp: { type: string, format: date-time }
-
-    put:
-      summary: Update program
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name: { type: string, maxLength: 200 }
-                code: { type: string, maxLength: 20 }
-                description: { type: string }
-                isActive: { type: boolean }
-      responses:
-        '200':
-          description: Program updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Program' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-    delete:
-      summary: Delete program
-      tags: [Academic]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Program deleted successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/program-departments:
-    get:
-      summary: Get program-department relationships
-      tags: [Academic]
-      parameters:
-        - in: query
-          name: programId
-          schema: { type: string, format: uuid }
-        - in: query
-          name: departmentId
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: List of program-department relationships
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/ProgramDepartment' }
-                  timestamp: { type: string, format: date-time }
-
-    post:
-      summary: Create program-department relationship
-      tags: [Academic]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [programId, departmentId]
-              properties:
-                programId: { type: string, format: uuid }
-                departmentId: { type: string, format: uuid }
-      responses:
-        '201':
-          description: Relationship created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/ProgramDepartment' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/academic-structure:
-    get:
-      summary: Get complete academic structure
-      tags: [Academic]
-      responses:
-        '200':
-          description: Complete academic structure
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: object
                     properties:
                       faculties:
                         type: array
                         items:
-                          type: object
-                          properties:
-                            faculty: { $ref: '#/components/schemas/Faculty' }
-                            departments:
-                              type: array
-                              items:
-                                type: object
-                                properties:
-                                  department: { $ref: '#/components/schemas/Department' }
-                                  programs:
-                                    type: array
-                                    items: { $ref: '#/components/schemas/Program' }
-                  timestamp: { type: string, format: date-time }
+                          $ref: '#/components/schemas/Faculty'
+                      departments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Department'
+                  message:
+                    type: string
+                    example: Simplified academic structure retrieved successfully
+                  timestamp:
+                    type: string
+                    format: date-time
 
 components:
   schemas:
+    # ==================== FACULTY SCHEMAS ====================
+
     Faculty:
       type: object
       properties:
-        id: { type: string, format: uuid }
-        name: { type: string, maxLength: 200 }
-        code: { type: string, maxLength: 20 }
-        description: { type: string }
-        isActive: { type: boolean }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+        id:
+          type: string
+          format: uuid
+          description: Unique faculty identifier
+        name:
+          type: string
+          description: Faculty name (e.g., "Faculty of Engineering")
+        code:
+          type: string
+          description: Faculty code (e.g., "ENG")
+        description:
+          type: string
+          description: Optional description of the faculty
+        isActive:
+          type: boolean
+          description: Whether the faculty is currently active
+        createdAt:
+          type: string
+          format: date-time
+          description: When the faculty was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the faculty was last updated
+      required:
+        - id
+        - name
+        - code
+        - isActive
+        - createdAt
+        - updatedAt
+
+    CreateFacultyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Faculty name
+          minLength: 1
+        code:
+          type: string
+          description: Faculty code
+          minLength: 1
+        description:
+          type: string
+          description: Optional description
+        isActive:
+          type: boolean
+          description: Whether the faculty should be active
+          default: true
+      required:
+        - name
+        - code
+
+    UpdateFacultyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Faculty name
+          minLength: 1
+        code:
+          type: string
+          description: Faculty code
+          minLength: 1
+        description:
+          type: string
+          description: Optional description
+        isActive:
+          type: boolean
+          description: Whether the faculty should be active
+
+    # ==================== DEPARTMENT SCHEMAS ====================
 
     Department:
       type: object
       properties:
-        id: { type: string, format: uuid }
-        facultyId: { type: string, format: uuid }
-        name: { type: string, maxLength: 200 }
-        code: { type: string, maxLength: 20 }
-        description: { type: string }
-        isActive: { type: boolean }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+        id:
+          type: string
+          format: uuid
+          description: Unique department identifier
+        facultyId:
+          type: string
+          format: uuid
+          description: ID of the faculty this department belongs to
+        name:
+          type: string
+          description: Department name (e.g., "Computer Science")
+        code:
+          type: string
+          description: Department code (e.g., "CSC")
+        description:
+          type: string
+          description: Optional description of the department
+        isActive:
+          type: boolean
+          description: Whether the department is currently active
+        faculty:
+          $ref: '#/components/schemas/Faculty'
+          description: Faculty information (included when retrieving department)
+        createdAt:
+          type: string
+          format: date-time
+          description: When the department was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the department was last updated
+      required:
+        - id
+        - facultyId
+        - name
+        - code
+        - isActive
+        - createdAt
+        - updatedAt
 
-    Program:
+    CreateDepartmentRequest:
       type: object
       properties:
-        id: { type: string, format: uuid }
-        name: { type: string, maxLength: 200 }
-        code: { type: string, maxLength: 20 }
-        description: { type: string }
-        isActive: { type: boolean }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+        facultyId:
+          type: string
+          format: uuid
+          description: ID of the faculty this department belongs to
+        name:
+          type: string
+          description: Department name
+          minLength: 1
+        code:
+          type: string
+          description: Department code
+          minLength: 1
+        description:
+          type: string
+          description: Optional description
+        isActive:
+          type: boolean
+          description: Whether the department should be active
+          default: true
+      required:
+        - facultyId
+        - name
+        - code
 
-    ProgramDepartment:
+    UpdateDepartmentRequest:
       type: object
       properties:
-        id: { type: string, format: uuid }
-        programId: { type: string, format: uuid }
-        departmentId: { type: string, format: uuid }
-        isActive: { type: boolean }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+        facultyId:
+          type: string
+          format: uuid
+          description: ID of the faculty this department belongs to
+        name:
+          type: string
+          description: Department name
+          minLength: 1
+        code:
+          type: string
+          description: Department code
+          minLength: 1
+        description:
+          type: string
+          description: Optional description
+        isActive:
+          type: boolean
+          description: Whether the department should be active
 
-    AcademicStructure:
-      type: object
-      properties:
-        faculties:
-          type: array
-          items:
-            type: object
-            properties:
-              faculty: { $ref: '#/components/schemas/Faculty' }
-              departments:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    department: { $ref: '#/components/schemas/Department' }
-                    programs:
-                      type: array
-                      items: { $ref: '#/components/schemas/Program' }
+tags:
+  - name: Faculties
+    description: Faculty management operations
+  - name: Departments
+    description: Department management operations
+  - name: Academic Structure
+    description: Simplified academic structure operations

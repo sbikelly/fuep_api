@@ -1,15 +1,39 @@
 openapi: 3.0.3
 info:
-  title: FUEP Post-UTME Portal API
-  version: '1.0.0'
-  description: Comprehensive REST API for candidate and admin workflows, payments, admissions, matriculation, and migration
+  title: FUEP Post-UTME Portal - Simplified API
+  version: '2.0.0'
+  description: |
+    Comprehensive REST API for candidate and admin workflows, payments, admissions, and system management.
+
+    This API has been significantly simplified and optimized:
+    - Streamlined candidate registration and management
+    - Unified admin-candidate integration
+    - Simplified payment system with direct Remita integration
+    - Enhanced performance and maintainability
+    - Cleaner interfaces and improved developer experience
 
 security:
   - bearerAuth: []
 
 paths:
-  # Health check endpoints
-  /health:
+  # System health endpoints (mounted at /api/system)
+  /api/system:
+    get:
+      summary: Root system health check
+      tags: [System]
+      responses:
+        '200':
+          description: Basic system health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  service: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/system/health:
     get:
       summary: Health check endpoint
       tags: [System]
@@ -27,7 +51,7 @@ paths:
                   uptime: { type: number }
                   environment: { type: string }
 
-  /health/db:
+  /api/system/health/db:
     get:
       summary: Database health check
       tags: [System]
@@ -46,7 +70,7 @@ paths:
                       status: { type: string }
                       timestamp: { type: string, format: date-time }
 
-  /health/detailed:
+  /api/system/health/detailed:
     get:
       summary: Detailed system health status
       tags: [System]
@@ -71,13 +95,13 @@ paths:
                       timestamp: { type: string, format: date-time }
 
   # Admin monitoring endpoints
-  /admin/rate-limit-stats:
+  /api/system/admin/rate-limit-stats:
     get:
       summary: Get rate limiting statistics
-      tags: [System]
+      tags: [System, Admin]
       responses:
         '200':
-          description: Rate limiting statistics
+          description: Current rate limiting statistics
           content:
             application/json:
               schema:
@@ -85,15 +109,14 @@ paths:
                 properties:
                   success: { type: boolean }
                   data: { type: object }
-                  timestamp: { type: string, format: date-time }
 
-  /admin/metrics:
+  /api/system/admin/metrics:
     get:
       summary: Get system metrics
-      tags: [System]
+      tags: [System, Admin]
       responses:
         '200':
-          description: System metrics
+          description: Comprehensive system metrics
           content:
             application/json:
               schema:
@@ -101,15 +124,14 @@ paths:
                 properties:
                   success: { type: boolean }
                   data: { type: object }
-                  timestamp: { type: string, format: date-time }
 
-  /admin/cache-stats:
+  /api/system/admin/cache-stats:
     get:
       summary: Get cache statistics
-      tags: [System]
+      tags: [System, Admin]
       responses:
         '200':
-          description: Cache health and statistics
+          description: Current cache statistics
           content:
             application/json:
               schema:
@@ -117,7 +139,6 @@ paths:
                 properties:
                   success: { type: boolean }
                   data: { type: object }
-                  timestamp: { type: string, format: date-time }
 
 components:
   securitySchemes:
@@ -127,39 +148,7 @@ components:
       bearerFormat: JWT
 
   schemas:
-    # Common response schemas
-    ApiResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        data: { type: object }
-        error: { type: string }
-        timestamp: { type: string, format: date-time }
-
-    # Common entity schemas
-    BaseEntity:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
-    # Error schemas
-    ErrorResponse:
-      type: object
-      properties:
-        success: { type: boolean, default: false }
-        error:
-          type: object
-          properties:
-            code: { type: integer }
-            message: { type: string }
-            details: { type: string }
-            traceId: { type: string }
-        timestamp: { type: string, format: date-time }
-
-    # Health check schemas
-    HealthStatus:
+    HealthResponse:
       type: object
       properties:
         status: { type: string }
@@ -168,37 +157,21 @@ components:
         uptime: { type: number }
         environment: { type: string }
 
-    DatabaseHealth:
+    SystemHealthResponse:
       type: object
       properties:
-        status: { type: string }
+        success: { type: boolean }
+        data:
+          $ref: '#/components/schemas/HealthResponse'
         timestamp: { type: string, format: date-time }
 
-    SystemMetrics:
+    ErrorResponse:
       type: object
       properties:
-        memory: { type: object }
-        requests: { type: object }
-        database: { type: object }
-        payments: { type: object }
+        success: { type: boolean }
+        error: { type: string }
         timestamp: { type: string, format: date-time }
 
-    CacheHealth:
-      type: object
-      properties:
-        status: { type: string }
-        instances: { type: object }
-        timestamp: { type: string, format: date-time }
-
-    RateLimitStats:
-      type: object
-      properties:
-        general: { type: object }
-        auth: { type: object }
-        admin: { type: object }
-        upload: { type: object }
-        health: { type: object }
-        timestamp: { type: string, format: date-time }
-
-# Import domain-specific OpenAPI files
-# These will be merged by the main.ts file to create the complete API specification
+tags:
+  - name: System
+    description: System health and monitoring endpoints

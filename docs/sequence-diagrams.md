@@ -38,14 +38,14 @@ sequenceDiagram
 
     CS->>DB: Query candidates table
     alt JAMB Number Found
+        CS-->>A: Contact info required
         CS->>DB: Update existing candidate
-        CS->>ES: sendTemporaryPassword()
         ES->>PS: generateTemporaryPassword()
+        CS->>ES: sendTemporaryPassword()
         PS-->>ES: temporaryPassword
         ES->>M: Send email with temp password
         M-->>ES: Email sent successfully
         ES-->>CS: Email sent
-        CS-->>A: Contact info required
         A-->>F: Response: requires contact update
         F-->>C: Show contact form
     else JAMB Number Not Found
@@ -651,10 +651,10 @@ sequenceDiagram
     C->>F: Select document to upload
     F->>API: POST /api/documents/upload
     API->>DS: uploadDocument(file, metadata)
-    
+
     DS->>VS: Scan file for viruses
     VS-->>DS: Scan result (clean/infected)
-    
+
     alt File is clean
         DS->>M: Store file in MinIO
         M-->>DS: File stored successfully
@@ -684,18 +684,18 @@ sequenceDiagram
 
     PG->>API: POST /api/payments/webhook/remita
     API->>PS: processWebhook(webhookData)
-    
+
     PS->>PS: Verify webhook signature
     PS->>DB: Update payment status
     DB-->>PS: Payment updated
-    
+
     PS->>ES: Send payment confirmation email
     ES-->>PS: Email sent
-    
+
     PS->>DB: Log payment event
     PS-->>API: Webhook processed
     API-->>PG: 200 OK response
-    
+
     PS->>C: Send SMS notification (optional)
 ```
 
@@ -715,19 +715,19 @@ sequenceDiagram
     A->>F: Request report generation
     F->>API: POST /api/admin/reports/generate
     API->>RS: generateReport(reportType, params)
-    
+
     RS->>DB: Query data for report
     DB-->>RS: Report data
-    
+
     RS->>RS: Process and format data
     RS->>FS: Store generated report
     FS-->>RS: Report stored
-    
+
     RS->>DB: Update report job status
     RS-->>API: Report generation initiated
     API-->>F: Job ID returned
     F-->>A: Report generation started
-    
+
     A->>F: Check report status
     F->>API: GET /api/admin/reports/jobs/{jobId}
     API->>RS: getReportStatus(jobId)

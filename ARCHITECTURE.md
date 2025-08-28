@@ -2,7 +2,7 @@
 
 ## System Overview
 
-The FUEP Post-UTME Portal is a comprehensive, microservices-based application designed to handle the complete Post-UTME application lifecycle. The system is built with modern web technologies, emphasizing security, scalability, and user experience.
+The FUEP Post-UTME Portal is a comprehensive, microservices-based application designed to handle the complete Post-UTME application lifecycle. The system has been significantly simplified and optimized, eliminating unnecessary complexity while maintaining full functionality. Built with modern web technologies, emphasizing security, scalability, user experience, and maintainability.
 
 ## Architecture Principles
 
@@ -23,6 +23,14 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Cache**: Redis for session management and performance optimization
 - **Containerization**: Docker for consistent deployment environments
 - **Email**: Nodemailer with configurable SMTP providers
+
+### **Simplified Architecture Benefits**
+
+- **Reduced Complexity**: Eliminated 35+ redundant fields and complex interfaces
+- **Better Performance**: Optimized database schema with proper indexing
+- **Improved Maintainability**: Cleaner code and easier debugging
+- **Enhanced Scalability**: Streamlined data operations and reduced overhead
+- **Future-Proof Design**: Easy to extend and modify without breaking existing functionality
 
 ## System Architecture
 
@@ -88,6 +96,59 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
                     │   (Knex.js)     │
                     └─────────────────┘
 ```
+
+## Simplified Candidate System Architecture
+
+### **System Design Principles**
+
+The candidate system has been completely refactored to eliminate unnecessary complexity while maintaining full functionality:
+
+- **Unified Data Model**: Single source of truth for candidate information
+- **Progressive Registration**: Multi-phase flow with clear progress tracking
+- **Streamlined Database**: Optimized schema with proper relationships
+- **Clean Interfaces**: Simplified TypeScript interfaces and validation schemas
+
+### **Database Schema Design**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Candidate Core                              │
+├─────────────────────────────────────────────────────────────────┤
+│  candidates: Core profile with progress flags                  │
+│  applications: Application lifecycle and payment status        │
+│  education_records: Educational background (UTME/DE)           │
+│  next_of_kin: Emergency contacts                              │
+│  sponsors: Financial sponsors                                  │
+│  uploads: Document management                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### **Registration Flow Architecture**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   JAMB Check    │ -> │ Contact Info    │ -> │   Biodata       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Education     │ -> │   Next of Kin   │ -> │    Sponsor      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Application   │ -> │   Payment       │ -> │   Submission    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### **Admin Integration**
+
+The admin module has been fully integrated with the simplified candidate system:
+
+- **Unified Operations**: Single interface for all candidate management
+- **Simplified Queries**: Clean database operations with proper indexing
+- **Progress Tracking**: Real-time monitoring of registration completion
+- **Analytics**: Comprehensive reporting on candidate progress
 
 ## Security Architecture
 
@@ -405,6 +466,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 ### **Deployment Configuration**
 
 #### **API Service (fuep-api)**
+
 - **Type**: Web service with Docker deployment
 - **Plan**: Free tier with automatic scaling
 - **Dockerfile**: `./apps/api/Dockerfile`
@@ -413,6 +475,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Auto-deploy**: Enabled for continuous deployment
 
 #### **Database Service (fuep-postgres)**
+
 - **Name**: `fuep_postgres`
 - **Database**: `fuep_portal`
 - **User**: `fuep_user`
@@ -420,6 +483,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Connection**: Automatically provided via `DATABASE_URL` environment variable
 
 #### **External Services**
+
 - **Redis**: External Redis service via `REDIS_URL` environment variable
 - **MinIO**: External MinIO service for file storage
 - **Email**: External SMTP service for production emails
@@ -438,7 +502,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
 - **Container Registry**: Integrated Docker image management
 - **Free Tier Support**: Cost-effective deployment with managed services
 
-##  **API Design Patterns**
+## **API Design Patterns**
 
 ### **RESTful API Design**
 

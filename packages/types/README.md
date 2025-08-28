@@ -12,6 +12,7 @@ This package provides a centralized location for all shared types, interfaces, a
 - **Validation Schemas**: Zod schemas for runtime validation and type inference
 - **Common Utilities**: Shared validation patterns, error handling, and helper functions
 - **Nigerian Context**: Localized validation for Nigerian phone numbers, states, and academic patterns
+- **Simplified Architecture**: Clean, focused interfaces that eliminate complexity and improve maintainability
 
 ## Package Structure
 
@@ -20,8 +21,9 @@ src/
 ├── index.ts          # Main exports
 ├── common.ts         # Base entities and common types
 ├── auth.ts           # Authentication and user types
-├── candidate.ts      # Candidate profile and application types
+├── candidate.ts      # Simplified candidate profile and application types
 ├── payment.ts        # Payment and transaction types
+├── academic.ts       # Academic structure types
 └── validation.ts     # Validation utilities and patterns
 ```
 
@@ -82,20 +84,31 @@ const stateSchema = CustomValidators.nigerianState;
 - `LoginRequest` & `LoginResponse`: Authentication flows
 - `JwtPayload`: JWT token contents
 
-### Candidate Types
+### Candidate Types (Simplified)
 
-- `Candidate`: Candidate profile information
+- `Candidate`: Core candidate profile with registration progress flags
+- `Application`: Application lifecycle and payment status
+- `EducationRecord`: Educational background (UTME/DE support)
 - `NextOfKin`: Emergency contact details
 - `Sponsor`: Financial sponsor information
-- `Education`: Educational background
-- `Application`: Application lifecycle
+- `Upload`: Document upload management
+- `ProfileCompletionStatus`: Registration progress tracking
+- `NextStepInfo`: Progressive registration flow guidance
 
 ### Payment Types
 
 - `PaymentTransaction`: Payment transaction records
+- `PaymentPurpose`: Simplified payment purpose management
 - `PaymentInitiationRequest` & `Response`: Payment flow
 - `WebhookPayload`: Payment provider webhooks
 - `RemitaPaymentData`: Provider-specific data
+
+### Academic Types
+
+- `Faculty`: Academic faculty structure
+- `Department`: Department within faculties
+- `Program`: Specific degree programs
+- `ProgramDepartmentLink`: Flexible program-department relationships
 
 ### Validation Types
 
@@ -103,6 +116,35 @@ const stateSchema = CustomValidators.nigerianState;
 - `ValidationResult<T>`: Validation operation results
 - `CommonValidationPatterns`: Regex patterns and constraints
 - `CustomValidators`: Pre-built Zod validators
+
+## Simplified Candidate System
+
+### **Key Improvements**
+
+- **Eliminated Complexity**: Removed 35+ redundant fields and complex interfaces
+- **Progressive Registration**: Multi-phase registration flow with clear progress tracking
+- **Unified Data Model**: Single source of truth for candidate information
+- **Better Performance**: Optimized database schema with proper indexing
+- **Cleaner Code**: Simplified operations and easier maintenance
+
+### **Registration Flow**
+
+1. **JAMB Verification**: Check JAMB registration and initiate registration
+2. **Contact Information**: Complete basic contact details
+3. **Biodata**: Personal information and demographics
+4. **Education**: Academic background and qualifications
+5. **Next of Kin**: Emergency contact information
+6. **Sponsor**: Financial sponsor details
+7. **Application Submission**: Final application review and submission
+
+### **Database Schema**
+
+- **candidates**: Core profile with progress flags
+- **applications**: Application lifecycle and payment status
+- **education_records**: Educational background (UTME/DE)
+- **next_of_kin**: Emergency contacts
+- **sponsors**: Financial sponsors
+- **uploads**: Document management
 
 ## Development
 
@@ -138,7 +180,9 @@ When adding new types:
 3. Add comprehensive JSDoc comments
 4. Update this README if adding new categories
 5. Ensure all exports are included in `src/index.ts`
+6. Maintain simplicity and avoid unnecessary complexity
 
 ## Version History
 
+- **2.0.0**: Major simplification and refactoring of candidate system
 - **1.0.0**: Initial release with core types and validation schemas

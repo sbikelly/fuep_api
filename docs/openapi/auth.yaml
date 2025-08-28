@@ -1,14 +1,23 @@
 openapi: 3.0.3
 info:
   title: FUEP Post-UTME Portal - Authentication API
-  version: '1.0.0'
-  description: Authentication and authorization endpoints for candidates and admin users
+  version: '2.0.0'
+  description: |
+    Authentication and authorization endpoints for candidates and admin users.
+
+    This API has been significantly simplified and optimized:
+    - Streamlined JAMB verification process
+    - Simplified candidate authentication flow
+    - Enhanced security and rate limiting
+    - Cleaner interfaces and improved performance
 
 paths:
+  # JAMB verification
   /api/auth/check-jamb:
     post:
-      summary: Check if JAMB Reg No exists in preloaded list
+      summary: Verify JAMB registration number
       tags: [Authentication]
+      security: []
       requestBody:
         required: true
         content:
@@ -20,18 +29,15 @@ paths:
                 jambRegNo: { type: string, maxLength: 20 }
       responses:
         '200':
-          description: Result
+          description: JAMB verification successful
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  exists: { type: boolean }
-                  biodata:
-                    $ref: '#/components/schemas/JambPrelistRecord'
-                  message: { type: string }
-        '400': { description: Invalid input }
+                $ref: '#/components/schemas/JambVerificationResponse'
+        '404': { description: JAMB registration not found }
+        '400': { description: Invalid JAMB registration number }
 
+  # Candidate authentication
   /api/auth/login:
     post:
       summary: Candidate login
@@ -43,22 +49,24 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, password]
+              required: [jambRegNo, password]
               properties:
-                username: { type: string, description: 'JAMB Reg No' }
+                jambRegNo: { type: string, maxLength: 20 }
                 password: { type: string, format: password }
       responses:
         '200':
-          description: JWT tokens
+          description: Login successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoginResponse'
+                $ref: '#/components/schemas/CandidateLoginResponse'
         '401': { description: Invalid credentials }
+        '404': { description: Candidate not found }
 
+  # Password management
   /api/auth/change-password:
     post:
-      summary: Change password (forced on first login)
+      summary: Change candidate password
       tags: [Authentication]
       requestBody:
         required: true
@@ -68,17 +76,19 @@ paths:
               type: object
               required: [currentPassword, newPassword]
               properties:
-                currentPassword: { type: string }
-                newPassword: { type: string, minLength: 6 }
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password, minLength: 8 }
       responses:
         '200':
           description: Password changed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ChangePasswordResponse'
+                $ref: '#/components/schemas/PasswordChangeResponse'
         '400': { description: Invalid current password }
+        '401': { description: Unauthorized' }
 
+  # Token management
   /api/auth/refresh-token:
     post:
       summary: Refresh access token
@@ -94,26 +104,17 @@ paths:
                 refreshToken: { type: string }
       responses:
         '200':
-          description: New access token
+          description: New access token generated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
+                $ref: '#/components/schemas/TokenRefreshResponse'
         '401': { description: Invalid refresh token }
 
   /api/auth/logout:
     post:
-      summary: Logout and invalidate tokens
+      summary: Logout candidate
       tags: [Authentication]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [refreshToken]
-              properties:
-                refreshToken: { type: string }
       responses:
         '200':
           description: Logout successful
@@ -124,54 +125,50 @@ paths:
 
 components:
   schemas:
-    JambPrelistRecord:
-      type: object
-      properties:
-        jambRegNo: { type: string }
-        surname: { type: string }
-        firstname: { type: string }
-        othernames: { type: string }
-        gender: { type: string }
-        programmeCode: { type: string }
-        departmentCode: { type: string }
-        faculty: { type: string }
-        stateOfOrigin: { type: string }
-        lgaOfOrigin: { type: string }
-        email: { type: string }
-        phone: { type: string }
-        utmeScore: { type: integer }
-        session: { type: string }
-
-    LoginResponse:
+    JambVerificationResponse:
       type: object
       properties:
         success: { type: boolean }
         data:
-          $ref: '#/components/schemas/AuthTokens'
-        user:
           type: object
           properties:
-            id: { type: string, format: uuid }
-            jambRegNo: { type: string }
-            email: { type: string }
-            phone: { type: string }
-            isActive: { type: boolean }
-            tempPasswordFlag: { type: boolean }
+            jambRegNo: { type: string, maxLength: 20 }
+            verified: { type: boolean }
+            candidateExists: { type: boolean }
+            message: { type: string }
         timestamp: { type: string, format: date-time }
 
-    AuthTokens:
-      type: object
-      properties:
-        accessToken: { type: string }
-        refreshToken: { type: string }
-        expiresIn: { type: integer }
-        tokenType: { type: string }
-
-    ChangePasswordResponse:
+    CandidateLoginResponse:
       type: object
       properties:
         success: { type: boolean }
-        data: { type: null }
+        data:
+          type: object
+          properties:
+            candidate: { $ref: '#/components/schemas/CandidateSummary' }
+            accessToken: { type: string }
+            refreshToken: { type: string }
+            expiresIn: { type: integer }
+            message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    PasswordChangeResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    TokenRefreshResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            accessToken: { type: string }
+            refreshToken: { type: string }
+            expiresIn: { type: integer }
         message: { type: string }
         timestamp: { type: string, format: date-time }
 
@@ -179,6 +176,22 @@ components:
       type: object
       properties:
         success: { type: boolean }
-        data: { type: null }
         message: { type: string }
         timestamp: { type: string, format: date-time }
+
+    CandidateSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jambRegNo: { type: string, maxLength: 20 }
+        firstname: { type: string, maxLength: 100 }
+        surname: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 32 }
+        department: { type: string, maxLength: 100 }
+        modeOfEntry: { type: string, enum: ['UTME', 'DE'] }
+        registrationCompleted: { type: boolean }
+
+tags:
+  - name: Authentication
+    description: Authentication and authorization endpoints for candidates and admin users

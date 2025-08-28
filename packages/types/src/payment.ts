@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { ApiResponse, BaseEntity, BaseEntitySchema } from './common';
 
-// Payment provider types
+// Payment provider types - simplified to just Remita
 export type PaymentProvider = 'remita';
 
 export const PaymentProviderSchema = z.enum(['remita']);
@@ -51,72 +51,45 @@ export const PaymentPurposeSchema = z.enum([
   'other',
 ]);
 
-// Enhanced Payment Transaction interface for Phase 7
+// Simplified Payment Transaction interface
 export interface PaymentTransaction extends BaseEntity {
   candidateId: string;
+  rrr: string; // Remita Retrieval Reference
   purpose: PaymentPurpose;
-  provider?: string;
-  providerRef?: string;
   amount: number;
-  currency: string;
+  session: string;
   status: PaymentStatus;
-  // Payment level and session for admin management
   paymentLevel?: string; // e.g., '100', '200', '100L', etc.
-  session: string; // e.g., '2024/2025'
-  idempotencyKey?: string; // Will be removed in future durable implementation
-  requestHash?: string; // Will be removed in future durable implementation
-  responseSnapshot?: any;
-  statusCode?: number;
-  firstRequestAt?: Date;
-  lastRequestAt?: Date;
-  replayCount?: number;
-  externalReference?: string;
-  metadata?: Record<string, any>;
+  paymentUrl?: string;
   expiresAt?: Date;
-  rawPayload?: any;
-  receiptUrl?: string;
   webhookReceivedAt?: Date;
   verifiedAt?: Date;
 }
 
 export const PaymentTransactionSchema = BaseEntitySchema.extend({
   candidateId: z.string().uuid(),
+  rrr: z.string().min(1).max(50),
   purpose: PaymentPurposeSchema,
-  provider: z.string().optional(),
-  providerRef: z.string().optional(),
   amount: z.number().positive(),
-  currency: z.string().min(3).max(3),
+  session: z.string().max(16),
   status: PaymentStatusSchema,
-  // Payment level and session for admin management
-  paymentLevel: z.string().max(16).optional(), // e.g., '100', '200', '100L', etc.
-  session: z.string().max(16), // e.g., '2024/2025'
-  idempotencyKey: z.string().max(128).optional(), // Will be removed in future durable implementation
-  requestHash: z.string().max(128).optional(), // Will be removed in future durable implementation
-  responseSnapshot: z.any().optional(),
-  statusCode: z.number().optional(),
-  firstRequestAt: z.date().optional(),
-  lastRequestAt: z.date().optional(),
-  replayCount: z.number().optional(),
-  externalReference: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  paymentLevel: z.string().max(16).optional(),
+  paymentUrl: z.string().url().optional(),
   expiresAt: z.date().optional(),
-  rawPayload: z.any().optional(),
-  receiptUrl: z.string().optional(),
   webhookReceivedAt: z.date().optional(),
   verifiedAt: z.date().optional(),
 });
 
-// Payment Purpose Configuration (for admin management)
+// Payment purpose configuration - simplified structure
 export interface PaymentPurposeConfig extends BaseEntity {
-  name: string; // e.g., 'Post-UTME Application Fee'
-  purpose: PaymentPurpose; // equals payment purpose for clarity
+  name: string;
+  purpose: PaymentPurpose;
   description?: string;
   amount: number;
-  currency: string;
   isActive: boolean;
-  session: string; // e.g., '2024/2025'
-  dueDate?: Date;
-  createdBy?: string; // admin user ID
+  session: string;
+  level: string;
+  createdBy?: string;
 }
 
 export const PaymentPurposeConfigSchema = BaseEntitySchema.extend({
@@ -124,274 +97,172 @@ export const PaymentPurposeConfigSchema = BaseEntitySchema.extend({
   purpose: PaymentPurposeSchema,
   description: z.string().optional(),
   amount: z.number().positive(),
-  currency: z.string().min(3).max(3),
   isActive: z.boolean(),
   session: z.string().max(16),
-  dueDate: z.date().optional(),
+  level: z.string().max(10),
   createdBy: z.string().uuid().optional(),
 });
 
-// Payment Event for audit trail
-export interface PaymentEvent extends BaseEntity {
-  paymentId: string;
-  eventType: string;
-  fromStatus?: PaymentStatus;
-  toStatus?: PaymentStatus;
-  providerEventId?: string;
-  signatureHash?: string;
-  providerData?: any;
-  metadata?: Record<string, any>;
-}
-
-export const PaymentEventSchema = BaseEntitySchema.extend({
-  paymentId: z.string().uuid(),
-  eventType: z.string().max(100),
-  fromStatus: PaymentStatusSchema.optional(),
-  toStatus: PaymentStatusSchema.optional(),
-  providerEventId: z.string().max(128).optional(),
-  signatureHash: z.string().max(128).optional(),
-  providerData: z.any().optional(),
-  metadata: z.record(z.any()).optional(),
-});
-
-// Payment initiation request (for API compatibility)
+// Payment initiation request
 export interface PaymentInitiationRequest {
+  candidateId: string;
   purpose: PaymentPurpose;
   amount: number;
-  currency?: string;
   session: string;
-  email?: string;
-  phone?: string;
-  preferredProvider?: string;
-  jambRegNo?: string; // JAMB registration number for candidate lookup
+  email: string;
+  phone: string;
 }
 
 export const PaymentInitiationRequestSchema = z.object({
-  purpose: PaymentPurposeSchema,
-  amount: z.number().positive(),
-  currency: z.string().optional(),
-  session: z.string().regex(/^\d{4}\/\d{4}$/),
-  email: z.string().email().optional(),
-  phone: z
-    .string()
-    .regex(/^\+?[1-9]\d{1,14}$/)
-    .optional(),
-  preferredProvider: z.string().optional(),
-  jambRegNo: z.string().min(7).max(10).optional(), // JAMB registration number for candidate lookup (7-10 chars for testing)
-});
-
-// Simplified PaymentTransaction interface for backward compatibility
-export interface SimplePaymentTransaction extends BaseEntity {
-  candidateId: string;
-  purpose: PaymentPurpose;
-  provider?: PaymentProvider;
-  providerRef?: string;
-  amount: number;
-  currency: string;
-  status: PaymentStatus;
-  idempotencyKey: string;
-  rawPayload?: any;
-}
-
-export const SimplePaymentTransactionSchema = BaseEntitySchema.extend({
   candidateId: z.string().uuid(),
   purpose: PaymentPurposeSchema,
-  provider: PaymentProviderSchema.optional(),
-  providerRef: z.string().max(128).optional(),
   amount: z.number().positive(),
-  currency: z.string().max(8).default('NGN'),
-  status: PaymentStatusSchema,
-  idempotencyKey: z.string().max(128),
-  rawPayload: z.any().optional(),
+  session: z.string().max(16),
+  email: z.string().email(),
+  phone: z.string().min(10).max(15),
 });
 
-// Enhanced Payment initiation response
-export interface PaymentInitiationResponse extends ApiResponse<PaymentTransaction> {
-  paymentUrl?: string; // Provider payment URL
-  providerRef?: string; // Provider reference (RRR, etc.)
-  expiresAt: string; // ISO date string
-  redirectUrl?: string; // URL to redirect user for payment
-  inlineParams?: Record<string, any>; // Parameters for inline payment forms
-  clientPollUrl?: string; // URL for client to poll payment status
+// Payment initiation response
+export interface PaymentInitiationResponse {
+  success: boolean;
+  rrr: string;
+  paymentUrl: string;
+  expiresAt: Date;
+  paymentId: string;
 }
 
 export const PaymentInitiationResponseSchema = z.object({
   success: z.boolean(),
-  data: PaymentTransactionSchema,
-  paymentUrl: z.string().url().optional(),
-  providerRef: z.string().optional(),
-  expiresAt: z.string().datetime(),
-  redirectUrl: z.string().url().optional(),
-  inlineParams: z.record(z.any()).optional(),
-  clientPollUrl: z.string().url().optional(),
-  timestamp: z.date(),
-});
-
-// Payment verification request
-export interface PaymentVerificationRequest {
-  transactionId: string;
-  providerReference: string;
-}
-
-export const PaymentVerificationRequestSchema = z.object({
-  transactionId: z.string().uuid(),
-  providerReference: z.string().min(1).max(100),
-});
-
-// Payment verification response
-export interface PaymentVerificationResponse {
-  transactionId: string;
-  status: PaymentStatus;
-  amount: number;
-  currency: string;
-  providerReference: string;
-  providerData: Record<string, any>;
-  verifiedAt: Date;
-}
-
-export const PaymentVerificationResponseSchema = z.object({
-  transactionId: z.string().uuid(),
-  status: PaymentStatusSchema,
-  amount: z.number().positive(),
-  currency: z.string().length(3),
-  providerReference: z.string().min(1).max(100),
-  providerData: z.record(z.any()),
-  verifiedAt: z.date(),
-});
-
-// Webhook payload types
-export interface WebhookPayload {
-  provider: PaymentProvider;
-  signature: string;
-  timestamp: string;
-  data: Record<string, any>;
-}
-
-export const WebhookPayloadSchema = z.object({
-  provider: PaymentProviderSchema,
-  signature: z.string(),
-  timestamp: z.string(),
-  data: z.record(z.any()),
-});
-
-// Remita-specific types
-export interface RemitaPaymentData {
-  rrr: string;
-  orderId: string;
-  amount: number;
-  status: string;
-  transactionId: string;
-  paymentDate: string;
-  channel: string;
-  bankCode?: string;
-  bankName?: string;
-}
-
-export const RemitaPaymentDataSchema = z.object({
   rrr: z.string(),
-  orderId: z.string(),
-  amount: z.number().positive(),
-  status: z.string(),
-  transactionId: z.string(),
-  paymentDate: z.string(),
-  channel: z.string(),
-  bankCode: z.string().optional(),
-  bankName: z.string().optional(),
-});
-
-// Payment fees configuration
-export interface PaymentFees {
-  postUtme: number;
-  acceptance: number;
-  schoolFees: number;
-  processingFee: number;
-  processingFeePercentage: number;
-}
-
-export const PaymentFeesSchema = z.object({
-  postUtme: z.number().positive(),
-  acceptance: z.number().positive(),
-  schoolFees: z.number().positive(),
-  processingFee: z.number().min(0),
-  processingFeePercentage: z.number().min(0).max(100),
-});
-
-// Payment reconciliation types
-export interface PaymentReconciliation {
-  transactionId: string;
-  providerReference: string;
-  expectedAmount: number;
-  actualAmount: number;
-  status: 'pending' | 'reconciled' | 'disputed' | 'failed';
-  discrepancyAmount?: number;
-  discrepancyReason?: string;
-  reconciledAt?: Date;
-  reconciledBy?: string;
-  notes?: string;
-}
-
-export const PaymentReconciliationSchema = BaseEntitySchema.extend({
-  transactionId: z.string().uuid(),
-  providerReference: z.string().min(1).max(100),
-  expectedAmount: z.number().positive(),
-  actualAmount: z.number().positive(),
-  status: z.enum(['pending', 'reconciled', 'disputed', 'failed']),
-  discrepancyAmount: z.number().optional(),
-  discrepancyReason: z.string().max(1000).optional(),
-  reconciledAt: z.date().optional(),
-  reconciledBy: z.string().uuid().optional(),
-  notes: z.string().max(1000).optional(),
-});
-
-// Payment Status Check
-export interface PaymentStatusCheckRequest {
-  paymentId: string;
-}
-
-export const PaymentStatusCheckRequestSchema = z.object({
+  paymentUrl: z.string().url(),
+  expiresAt: z.date(),
   paymentId: z.string().uuid(),
 });
 
-export interface PaymentStatusCheckResponse extends ApiResponse<PaymentTransaction> {
-  message: string;
+// Payment status check request
+export interface PaymentStatusCheckRequest {
+  rrr: string;
+}
+
+export const PaymentStatusCheckRequestSchema = z.object({
+  rrr: z.string().min(1).max(50),
+});
+
+// Payment status check response
+export interface PaymentStatusCheckResponse {
+  success: boolean;
+  rrr: string;
+  status: PaymentStatus;
+  amount: number;
+  purpose: PaymentPurpose;
+  session: string;
+  candidateId: string;
+  verifiedAt?: Date;
 }
 
 export const PaymentStatusCheckResponseSchema = z.object({
   success: z.boolean(),
-  data: PaymentTransactionSchema,
-  message: z.string(),
-  timestamp: z.date(),
+  rrr: z.string(),
+  status: PaymentStatusSchema,
+  amount: z.number().positive(),
+  purpose: PaymentPurposeSchema,
+  session: z.string(),
+  candidateId: z.string().uuid(),
+  verifiedAt: z.date().optional(),
 });
 
-// Payment Receipt
-export interface PaymentReceipt {
-  id: string;
-  paymentId: string;
-  serial: string;
-  qrToken: string;
-  pdfUrl: string;
-  contentHash: string;
-  createdAt: Date;
-}
-
-export const PaymentReceiptSchema = BaseEntitySchema.extend({
-  paymentId: z.string().uuid(),
-  serial: z.string().max(32),
-  qrToken: z.string().max(64),
-  pdfUrl: z.string().url(),
-  contentHash: z.string().max(64),
-});
-
-// Payment Receipt Response
-export interface PaymentReceiptResponse extends ApiResponse<PaymentReceipt> {
-  downloadUrl: string;
-  verificationUrl: string;
+// Payment receipt response
+export interface PaymentReceiptResponse {
+  success: boolean;
+  rrr: string;
+  amount: number;
+  purpose: PaymentPurpose;
+  session: string;
+  candidateId: string;
+  status: PaymentStatus;
+  paidAt?: Date;
+  receiptUrl?: string;
 }
 
 export const PaymentReceiptResponseSchema = z.object({
   success: z.boolean(),
-  data: PaymentReceiptSchema,
-  downloadUrl: z.string().url(),
-  verificationUrl: z.string().url(),
-  timestamp: z.date(),
+  rrr: z.string(),
+  amount: z.number().positive(),
+  purpose: PaymentPurposeSchema,
+  session: z.string(),
+  candidateId: z.string().uuid(),
+  status: PaymentStatusSchema,
+  paidAt: z.date().optional(),
+  receiptUrl: z.string().url().optional(),
 });
+
+// Payment statistics
+export interface PaymentStatistics {
+  totalPayments: number;
+  totalAmount: number;
+  successfulPayments: number;
+  pendingPayments: number;
+  failedPayments: number;
+  averageAmount: number;
+}
+
+export const PaymentStatisticsSchema = z.object({
+  totalPayments: z.number(),
+  totalAmount: z.number(),
+  successfulPayments: z.number(),
+  pendingPayments: z.number(),
+  failedPayments: z.number(),
+  averageAmount: z.number(),
+});
+
+// Payment history response
+export interface PaymentHistoryResponse {
+  success: boolean;
+  data: PaymentTransaction[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export const PaymentHistoryResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.array(PaymentTransactionSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+});
+
+// Webhook payload from Remita
+export interface RemitaWebhookPayload {
+  rrr: string;
+  status: string;
+  amount: string;
+  transactionId: string;
+  orderId: string;
+  message: string;
+  timestamp: string;
+}
+
+export const RemitaWebhookPayloadSchema = z.object({
+  rrr: z.string(),
+  status: z.string(),
+  amount: z.string(),
+  transactionId: z.string(),
+  orderId: z.string(),
+  message: z.string(),
+  timestamp: z.string(),
+});
+
+// Export all schemas
+export const PaymentSchemas = {
+  PaymentTransactionSchema,
+  PaymentPurposeConfigSchema,
+  PaymentInitiationRequestSchema,
+  PaymentInitiationResponseSchema,
+  PaymentStatusCheckRequestSchema,
+  PaymentStatusCheckResponseSchema,
+  PaymentReceiptResponseSchema,
+  PaymentStatisticsSchema,
+  PaymentHistoryResponseSchema,
+  RemitaWebhookPayloadSchema,
+} as const;

@@ -1,9 +1,9 @@
 import {
-  EducationSchema,
+  CandidateProfileUpdateRequestSchema,
+  CandidateProfileUpdateResponseSchema,
+  EducationRecordSchema,
   NextOfKinSchema,
   ProfileCompletionStatusSchema,
-  ProfileUpdateRequestSchema,
-  ProfileUpdateResponseSchema,
   SponsorSchema,
 } from '@fuep/types';
 import { Request, Response } from 'express';
@@ -77,7 +77,7 @@ export class CandidateController {
         return;
       }
 
-      const profile = await this.candidateService.getCandidateProfile(jambRegNo);
+      const profile = await this.candidateService.getCandidate(jambRegNo);
 
       if (!profile) {
         res.status(404).json({
@@ -112,7 +112,7 @@ export class CandidateController {
       this.logger.log(`[CandidateController] Updating profile for candidate: ${candidateId}`);
 
       // Validate request body
-      const validationResult = ProfileUpdateRequestSchema.safeParse(requestData);
+      const validationResult = CandidateProfileUpdateRequestSchema.safeParse(requestData);
       if (!validationResult.success) {
         res.status(400).json({
           success: false,
@@ -128,13 +128,10 @@ export class CandidateController {
         dob: validationResult.data.dob ? new Date(validationResult.data.dob) : undefined,
       };
 
-      const updatedProfile = await this.candidateService.updateCandidateProfile(
-        candidateId,
-        profileData
-      );
+      const updatedProfile = await this.candidateService.updateCandidate(candidateId, profileData);
 
       // Format response
-      const response = ProfileUpdateResponseSchema.parse({
+      const response = CandidateProfileUpdateResponseSchema.parse({
         success: true,
         data: updatedProfile,
         message: 'Profile updated successfully',
@@ -148,6 +145,203 @@ export class CandidateController {
         success: false,
         error: 'Failed to update candidate profile',
       });
+    }
+  }
+
+  /**
+   * Update candidate profile (legacy route for backward compatibility)
+   */
+  async updateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      // Validate request body
+      const validationResult = CandidateProfileUpdateRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const response = {
+          success: false,
+          error: 'Invalid request data',
+          timestamp: new Date(),
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      const profileData = validationResult.data;
+
+      // TODO: Get candidate ID from authenticated user session when JWT middleware is implemented
+      // For now, we'll use a real candidate ID
+      const candidateId = '0009c312-3e0d-415b-8d7d-65f4d9124518';
+
+      // Update candidate profile in database using the profiles table
+      const updateData = {
+        surname: profileData.surname,
+        firstname: profileData.firstname,
+        othernames: profileData.othernames,
+        gender: profileData.gender,
+        dob: profileData.dob,
+        address: profileData.address,
+        state: profileData.state,
+        lga: profileData.lga,
+        nationality: profileData.nationality,
+        marital_status: profileData.maritalStatus,
+      };
+
+      // Update candidate directly (simplified schema)
+      const { db } = await import('../../db/knex.js');
+      await db('candidates').where({ id: candidateId }).update(updateData);
+
+      // Get updated candidate
+      const updatedProfile = await db('candidates').where({ id: candidateId }).first();
+
+      if (!updatedProfile) {
+        const response = {
+          success: false,
+          error: 'Profile not found after update',
+          timestamp: new Date(),
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      // Return updated candidate
+      const profile = {
+        id: updatedProfile.id,
+        candidateId: updatedProfile.id,
+        surname: updatedProfile.surname,
+        firstname: updatedProfile.firstname,
+        othernames: updatedProfile.othernames,
+        gender: updatedProfile.gender,
+        dob: updatedProfile.dob,
+        address: updatedProfile.address,
+        state: updatedProfile.state,
+        lga: updatedProfile.lga,
+        nationality: updatedProfile.nationality,
+        maritalStatus: updatedProfile.marital_status,
+        createdAt: updatedProfile.created_at,
+        updatedAt: updatedProfile.updated_at,
+      };
+
+      const response = {
+        success: true,
+        data: profile,
+        message: 'Profile updated successfully',
+        timestamp: new Date(),
+      };
+
+      res.json(response);
+    } catch (err: any) {
+      this.logger.error('[profile-update] error:', err?.message || err);
+      const response = {
+        success: false,
+        error: 'Internal server error',
+        timestamp: new Date(),
+      };
+      res.status(500).json(response);
+    }
+  }
+
+  /**
+   * Create application (legacy route for backward compatibility)
+   */
+  async createApplicationLegacy(req: Request, res: Response): Promise<void> {
+    try {
+      // Validate request body
+      const { ApplicationCreateRequestSchema } = await import('@fuep/types');
+      const validationResult = ApplicationCreateRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const response = {
+          success: false,
+          error: 'Invalid request data',
+          timestamp: new Date(),
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      const appData = validationResult.data;
+
+      // TODO: Get candidate ID from authenticated user session when JWT middleware is implemented
+      // For now, we'll use a real candidate ID
+      const candidateId = '0009c312-3e0d-415b-8d7d-65f4d9124518';
+
+      // Check if candidate already has an application for this session
+      const { db } = await import('../../db/knex.js');
+      const existingApplication = await db('applications')
+        .where({
+          candidate_id: candidateId,
+          session: appData.session,
+        })
+        .first();
+
+      if (existingApplication) {
+        const response = {
+          success: false,
+          error: 'Candidate already has an application for this session',
+          timestamp: new Date(),
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      // TODO: Add programme and department validation when those tables are created
+      // For now, we'll accept any programme and department codes
+
+      // Create application in database
+      const [applicationId] = await db('applications')
+        .insert({
+          candidate_id: candidateId,
+          session: appData.session,
+          department: appData.department,
+          status: 'pending',
+          submitted_at: null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .returning('id');
+
+      // Get created application
+      const createdApplication = await db('applications').where({ id: applicationId }).first();
+
+      if (!createdApplication) {
+        const response = {
+          success: false,
+          error: 'Failed to create application',
+          timestamp: new Date(),
+        };
+        res.status(500).json(response);
+        return;
+      }
+
+      // Return created application
+      const application = {
+        id: createdApplication.id,
+        candidateId: createdApplication.candidate_id,
+        session: createdApplication.session,
+        programmeCode: createdApplication.programme_code,
+        departmentCode: createdApplication.department_code,
+        status: createdApplication.status,
+        submittedAt: createdApplication.submitted_at
+          ? new Date(createdApplication.submitted_at)
+          : undefined,
+        createdAt: createdApplication.created_at,
+        updatedAt: createdApplication.updated_at,
+      };
+
+      const response = {
+        success: true,
+        data: application,
+        message: 'Application created successfully',
+        timestamp: new Date(),
+      };
+
+      res.json(response);
+    } catch (err: any) {
+      this.logger.error('[application-create] error:', err?.message || err);
+      const response = {
+        success: false,
+        error: 'Internal server error',
+        timestamp: new Date(),
+      };
+      res.status(500).json(response);
     }
   }
 
@@ -333,7 +527,7 @@ export class CandidateController {
       );
 
       // Validate request body
-      const validationResult = EducationSchema.partial().safeParse(educationData);
+      const validationResult = EducationRecordSchema.partial().safeParse(educationData);
       if (!validationResult.success) {
         res.status(400).json({
           success: false,
@@ -374,7 +568,7 @@ export class CandidateController {
       this.logger.log(`[CandidateController] Updating education record: ${recordId}`);
 
       // Validate request body
-      const validationResult = EducationSchema.partial().safeParse(educationData);
+      const validationResult = EducationRecordSchema.partial().safeParse(educationData);
       if (!validationResult.success) {
         res.status(400).json({
           success: false,
@@ -841,204 +1035,273 @@ export class CandidateController {
   }
 
   /**
-   * Complete biodata information
+   * Phase 1: Complete biodata information
    */
-  async completeBiodata(req: Request, res: Response) {
+  async completeBiodata(req: Request, res: Response): Promise<void> {
     try {
       const { candidateId } = req.params;
       const biodata = req.body;
 
-      // Validate required fields
-      const requiredFields = [
-        'first_name',
-        'last_name',
-        'date_of_birth',
-        'gender',
-        'state',
-        'lga',
-        'address',
-        'nationality',
-      ];
-      for (const field of requiredFields) {
-        if (!biodata[field]) {
-          return res.status(400).json({
-            success: false,
-            error: `${field} is required`,
-          });
-        }
-      }
-
       const result = await this.candidateService.completeBiodata(candidateId, biodata);
 
-      return res.json({
-        success: result.success,
-        message: result.message,
-        data: {
-          nextStep: result.nextStep,
-        },
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Biodata completed successfully',
+        nextStep: result.nextStep,
+        timestamp: new Date(),
       });
     } catch (error) {
-      this.logger.error('[CandidateController] Error completing biodata:', error);
-      return res.status(500).json({
+      this.logger.error(`[CandidateController] Failed to complete biodata: ${error}`);
+      res.status(400).json({
         success: false,
-        error: 'Failed to complete biodata information',
+        error: error instanceof Error ? error.message : 'Failed to complete biodata',
+        timestamp: new Date(),
       });
     }
   }
 
   /**
-   * Complete education information
+   * Phase 2: Complete educational background
    */
-  async completeEducation(req: Request, res: Response) {
+  async completeEducation(req: Request, res: Response): Promise<void> {
     try {
       const { candidateId } = req.params;
       const education = req.body;
 
-      // Validate required fields
-      const requiredFields = [
-        'secondary_school',
-        'secondary_school_year',
-        'secondary_school_certificate',
-        'jamb_subject_1',
-        'jamb_subject_2',
-        'jamb_subject_3',
-        'jamb_subject_4',
-        'jamb_score',
-      ];
-      for (const field of requiredFields) {
-        if (!education[field]) {
-          return res.status(400).json({
-            success: false,
-            error: `${field} is required`,
-          });
-        }
-      }
-
       const result = await this.candidateService.completeEducation(candidateId, education);
 
-      return res.json({
-        success: result.success,
-        message: result.message,
-        data: {
-          nextStep: result.nextStep,
-        },
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Education completed successfully',
+        nextStep: result.nextStep,
+        timestamp: new Date(),
       });
     } catch (error) {
-      this.logger.error('[CandidateController] Error completing education:', error);
-      return res.status(500).json({
+      this.logger.error(`[CandidateController] Failed to complete education: ${error}`);
+      res.status(400).json({
         success: false,
-        error: 'Failed to complete education information',
+        error: error instanceof Error ? error.message : 'Failed to complete education',
+        timestamp: new Date(),
       });
     }
   }
 
   /**
-   * Complete next of kin information
+   * Phase 2: Complete next of kin information
    */
-  async completeNextOfKin(req: Request, res: Response) {
+  async completeNextOfKin(req: Request, res: Response): Promise<void> {
     try {
       const { candidateId } = req.params;
       const nextOfKin = req.body;
 
-      // Validate required fields
-      const requiredFields = [
-        'next_of_kin_name',
-        'next_of_kin_relationship',
-        'next_of_kin_phone',
-        'next_of_kin_address',
-      ];
-      for (const field of requiredFields) {
-        if (!nextOfKin[field]) {
-          return res.status(400).json({
-            success: false,
-            error: `${field} is required`,
-          });
-        }
-      }
-
       const result = await this.candidateService.completeNextOfKin(candidateId, nextOfKin);
 
-      return res.json({
-        success: result.success,
-        message: result.message,
-        data: {
-          nextStep: result.nextStep,
-        },
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Next of kin completed successfully',
+        nextStep: result.nextStep,
+        timestamp: new Date(),
       });
     } catch (error) {
-      this.logger.error('[CandidateController] Error completing next of kin:', error);
-      return res.status(500).json({
+      this.logger.error(`[CandidateController] Failed to complete next of kin: ${error}`);
+      res.status(400).json({
         success: false,
-        error: 'Failed to complete next of kin information',
+        error: error instanceof Error ? error.message : 'Failed to complete next of kin',
+        timestamp: new Date(),
       });
     }
   }
 
   /**
-   * Complete sponsor information
+   * Phase 2: Complete sponsor information
    */
-  async completeSponsor(req: Request, res: Response) {
+  async completeSponsor(req: Request, res: Response): Promise<void> {
     try {
       const { candidateId } = req.params;
       const sponsor = req.body;
 
-      // Validate required fields
-      const requiredFields = [
-        'sponsor_name',
-        'sponsor_relationship',
-        'sponsor_phone',
-        'sponsor_address',
-        'sponsor_occupation',
-        'sponsor_income_range',
-      ];
-      for (const field of requiredFields) {
-        if (!sponsor[field]) {
-          return res.status(400).json({
-            success: false,
-            error: `${field} is required`,
-          });
-        }
-      }
-
       const result = await this.candidateService.completeSponsor(candidateId, sponsor);
 
-      return res.json({
-        success: result.success,
-        message: result.message,
-        data: {
-          nextStep: result.nextStep,
-        },
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Sponsor completed successfully',
+        nextStep: result.nextStep,
+        timestamp: new Date(),
       });
     } catch (error) {
-      this.logger.error('[CandidateController] Error completing sponsor:', error);
-      return res.status(500).json({
+      this.logger.error(`[CandidateController] Failed to complete sponsor: ${error}`);
+      res.status(400).json({
         success: false,
-        error: 'Failed to complete sponsor information',
+        error: error instanceof Error ? error.message : 'Failed to complete sponsor',
+        timestamp: new Date(),
       });
     }
   }
 
   /**
-   * Finalize registration
+   * Phase 2: Submit application
    */
-  async finalizeRegistration(req: Request, res: Response) {
+  async submitApplication(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+      const application = req.body;
+
+      const result = await this.candidateService.submitApplication(candidateId, application);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Application submitted successfully',
+        nextStep: result.nextStep,
+        applicationId: result.applicationId,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error(`[CandidateController] Failed to submit application: ${error}`);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to submit application',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Get available payment purposes for candidate
+   */
+  async getAvailablePaymentPurposes(req: Request, res: Response): Promise<void> {
     try {
       const { candidateId } = req.params;
 
-      const result = await this.candidateService.finalizeRegistration(candidateId);
+      const result = await this.candidateService.getAvailablePaymentPurposes(candidateId);
 
-      return res.json({
-        success: result.success,
-        message: result.message,
-        data: {
-          applicationId: result.applicationId,
+      if (result.success) {
+        res.status(200).json({
+          success: true,
+          data: result.data,
+          message: result.message,
+          timestamp: new Date(),
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.message,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      this.logger.error(`[CandidateController] Failed to get available payment purposes: ${error}`);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve payment purposes',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Get candidate's payment history
+   */
+  async getPaymentHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      const result = await this.candidateService.getCandidatePaymentHistory(
+        candidateId,
+        page,
+        limit
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result.data,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: Math.ceil(result.total / result.limit),
         },
+        message: result.message,
+        timestamp: new Date(),
       });
     } catch (error) {
-      this.logger.error('[CandidateController] Error finalizing registration:', error);
-      return res.status(500).json({
+      this.logger.error(`[CandidateController] Failed to get payment history: ${error}`);
+      res.status(500).json({
         success: false,
-        error: 'Failed to finalize registration',
+        error: 'Failed to retrieve payment history',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Check payment status
+   */
+  async checkPaymentStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { paymentId } = req.params;
+
+      const result = await this.candidateService.checkPaymentStatus(paymentId);
+
+      if (result.success) {
+        res.status(200).json({
+          success: true,
+          data: result.data,
+          message: result.message,
+          timestamp: new Date(),
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: result.message,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      this.logger.error(`[CandidateController] Failed to check payment status: ${error}`);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check payment status',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Get payment summary for candidate
+   */
+  async getPaymentSummary(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+
+      const result = await this.candidateService.getPaymentSummary(candidateId);
+
+      if (result.success) {
+        res.status(200).json({
+          success: true,
+          data: result.data,
+          message: result.message,
+          timestamp: new Date(),
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.message,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      this.logger.error(`[CandidateController] Failed to get payment summary: ${error}`);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve payment summary',
+        timestamp: new Date(),
       });
     }
   }

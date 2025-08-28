@@ -1,10 +1,18 @@
 openapi: 3.0.3
 info:
-  title: FUEP Post-UTME Portal - Document Management API
-  version: '1.0.0'
-  description: Document upload, storage, and management endpoints
+  title: FUEP Post-UTME Portal - Documents Management API
+  version: '2.0.0'
+  description: |
+    Document upload, storage, and management endpoints.
+
+    This API has been significantly simplified and optimized:
+    - Streamlined document upload and storage
+    - Enhanced MinIO integration for scalable storage
+    - Simplified document retrieval and management
+    - Cleaner interfaces and improved performance
 
 paths:
+  # Document upload
   /api/documents/upload:
     post:
       summary: Upload a document
@@ -15,32 +23,37 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [type, file]
+              required: [file, candidateId, documentType]
               properties:
-                type: { $ref: '#/components/schemas/UploadType' }
                 file:
                   type: string
                   format: binary
-                candidateId: { type: string, format: uuid }
-                description: { type: string }
+                  description: Document file to upload
+                candidateId:
+                  type: string
+                  format: uuid
+                  description: ID of the candidate uploading the document
+                documentType:
+                  type: string
+                  enum: ['passport_photo', 'signature', 'certificate', 'transcript', 'other']
+                  description: Type of document being uploaded
+                description:
+                  type: string
+                  description: Optional description of the document
       responses:
         '201':
           description: Document uploaded successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Upload' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-        '400': { description: Invalid file or missing required fields }
-        '413': { description: File too large' }
+                $ref: '#/components/schemas/DocumentUploadResponse'
+        '400': { description: Invalid file or metadata }
+        '413': { description: File too large }
 
+  # Document retrieval
   /api/documents/{documentId}:
     get:
-      summary: Get document details
+      summary: Get document metadata
       tags: [Documents]
       parameters:
         - in: path
@@ -49,40 +62,31 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Document details
+          description: Document metadata
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Upload' }
-                  timestamp: { type: string, format: date-time }
+                $ref: '#/components/schemas/DocumentMetadataResponse'
         '404': { description: Document not found }
 
-  /api/documents/candidate/{candidateId}:
-    get:
-      summary: Get all documents for a candidate
+    delete:
+      summary: Delete document
       tags: [Documents]
       parameters:
         - in: path
-          name: candidateId
+          name: documentId
           required: true
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: List of candidate documents
+          description: Document deleted successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Upload' }
-                  timestamp: { type: string, format: date-time }
+                $ref: '#/components/schemas/DocumentDeleteResponse'
+        '404': { description: Document not found }
 
+  # Document download
   /api/documents/{documentId}/download:
     get:
       summary: Download document
@@ -102,74 +106,66 @@ paths:
                 format: binary
         '404': { description: Document not found }
 
+  # Secure download URL
   /api/documents/{documentId}/secure-url:
     get:
-      summary: Get secure download URL for document
+      summary: Get secure download URL
       tags: [Documents]
       parameters:
         - in: path
           name: documentId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: expiresIn
+          schema: { type: integer, default: 3600 }
+          description: URL expiration time in seconds
       responses:
         '200':
           description: Secure download URL
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: object
-                    properties:
-                      downloadUrl: { type: string, format: uri }
-                      expiresAt: { type: string, format: date-time }
-                  timestamp: { type: string, format: date-time }
+                $ref: '#/components/schemas/SecureUrlResponse'
+        '404': { description: Document not found }
 
-  /api/documents/{documentId}:
-    delete:
-      summary: Delete document
+  # Candidate documents
+  /api/documents/candidate/{candidateId}:
+    get:
+      summary: Get all documents for a candidate
       tags: [Documents]
       parameters:
         - in: path
-          name: documentId
+          name: candidateId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: documentType
+          schema: { type: string }
+          description: Filter by document type
       responses:
         '200':
-          description: Document deleted successfully
+          description: List of candidate documents
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-        '404': { description: Document not found }
+                $ref: '#/components/schemas/CandidateDocumentsResponse'
+        '404': { description: Candidate not found }
 
+  # Document health status
   /api/documents/health/status:
     get:
-      summary: Get document service health status
+      summary: Get documents service health status
       tags: [Documents]
       responses:
         '200':
-          description: Health status
+          description: Service health status
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: object
-                    properties:
-                      status: { type: string }
-                      storage: { type: string }
-                      scanService: { type: string }
-                      timestamp: { type: string, format: date-time }
+                $ref: '#/components/schemas/DocumentsHealthResponse'
 
+  # Document scan status update
   /api/documents/{documentId}/scan-status:
     post:
       summary: Update document scan status
@@ -187,73 +183,107 @@ paths:
               type: object
               required: [scanStatus]
               properties:
-                scanStatus: { $ref: '#/components/schemas/ScanStatus' }
+                scanStatus: { type: string, enum: ['pending', 'scanning', 'completed', 'failed'] }
                 scanNotes: { type: string }
                 scannedAt: { type: string, format: date-time }
       responses:
         '200':
-          description: Scan status updated
+          description: Scan status updated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
+                $ref: '#/components/schemas/ScanStatusUpdateResponse'
+        '404': { description: Document not found }
 
 components:
   schemas:
-    UploadType:
-      type: string
-      enum: ['passport', 'ssce', 'alevel', 'transcript', 'utme_result', 'other']
-
-    ScanStatus:
-      type: string
-      enum: ['pending', 'clean', 'infected', 'failed']
-
-    Upload:
+    Document:
       type: object
       properties:
         id: { type: string, format: uuid }
         candidateId: { type: string, format: uuid }
-        type: { $ref: '#/components/schemas/UploadType' }
-        s3Url: { type: string }
-        checksumSha256: { type: string }
-        sizeBytes: { type: integer }
-        mimeType: { type: string }
-        scanStatus: { $ref: '#/components/schemas/ScanStatus' }
+        filename: { type: string, maxLength: 255 }
+        originalName: { type: string, maxLength: 255 }
+        documentType:
+          {
+            type: string,
+            enum: ['passport_photo', 'signature', 'certificate', 'transcript', 'other'],
+          }
+        mimeType: { type: string, maxLength: 100 }
+        size: { type: integer }
         description: { type: string }
-        uploadedAt: { type: string, format: date-time }
+        bucketName: { type: string, maxLength: 100 }
+        objectKey: { type: string, maxLength: 500 }
+        scanStatus: { type: string, enum: ['pending', 'scanning', 'completed', 'failed'] }
+        scanNotes: { type: string }
         scannedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
-
-    DocumentUploadRequest:
-      type: object
-      properties:
-        type: { $ref: '#/components/schemas/UploadType' }
-        candidateId: { type: string, format: uuid }
-        description: { type: string }
+        updatedAt: { type: string, format: date-time }
 
     DocumentUploadResponse:
       type: object
       properties:
         success: { type: boolean }
-        data: { $ref: '#/components/schemas/Upload' }
+        data: { $ref: '#/components/schemas/Document' }
         message: { type: string }
         timestamp: { type: string, format: date-time }
 
-    DocumentScanUpdate:
+    DocumentMetadataResponse:
       type: object
       properties:
-        scanStatus: { $ref: '#/components/schemas/ScanStatus' }
-        scanNotes: { type: string }
-        scannedAt: { type: string, format: date-time }
-
-    DocumentHealthStatus:
-      type: object
-      properties:
-        status: { type: string }
-        storage: { type: string }
-        scanService: { type: string }
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/Document' }
         timestamp: { type: string, format: date-time }
+
+    DocumentDeleteResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    SecureUrlResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            secureUrl: { type: string, format: uri }
+            expiresAt: { type: string, format: date-time }
+            documentId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+
+    CandidateDocumentsResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Document' }
+        timestamp: { type: string, format: date-time }
+
+    DocumentsHealthResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            status: { type: string, enum: ['healthy', 'degraded', 'unhealthy'] }
+            minioStatus: { type: string, enum: ['online', 'offline'] }
+            storageUsage: { type: object }
+            lastCheck: { type: string, format: date-time }
+        timestamp: { type: string, format: date-time }
+
+    ScanStatusUpdateResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/Document' }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+
+tags:
+  - name: Documents
+    description: Document upload, storage, and management endpoints

@@ -11,7 +11,7 @@ export class DocumentsController {
 
   async uploadDocument(req: Request, res: Response): Promise<void> {
     try {
-      const file = req.file;
+      const file = (req as any).file;
       if (!file) {
         res.status(400).json({
           success: false,

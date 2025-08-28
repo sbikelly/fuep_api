@@ -1,113 +1,745 @@
-import { Education, NextOfKin, Profile, ProfileCompletionStatus, Sponsor } from '@fuep/types';
+import {
+  Application,
+  ApplicationCreateRequest,
+  Candidate,
+  CandidateProfileUpdateRequest,
+  EducationRecord,
+  NextOfKin,
+  NextStepInfo,
+  ProfileCompletionStatus,
+  Sponsor,
+  Upload,
+} from '@fuep/types';
 
 import { db } from '../../db/knex.js';
-import { logger, withDatabaseLogging, withPerformanceLogging } from '../../middleware/logging.js';
+import { logger } from '../../middleware/logging.js';
+import { withDatabaseLogging, withPerformanceLogging } from '../../middleware/logging.js';
 import { EmailService } from '../../services/email.service.js';
 import { PasswordUtils } from '../../utils/password.utils.js';
 
-// Additional interfaces for candidate module
-export interface Candidate {
-  id: string;
-  jambRegNo: string;
-  username: string;
-  email: string;
-  phone: string;
-  programChoice1?: string;
-  programChoice2?: string;
-  programChoice3?: string;
-  jambScore?: number;
-  stateOfOrigin?: string;
-  applicationStatus?: string;
-  paymentStatus?: string;
-  admissionStatus?: string;
-  profile?: {
-    surname?: string;
-    firstname?: string;
-    othernames?: string;
-    gender?: string;
-    dateOfBirth?: Date;
-    address?: string;
-    state?: string;
-    lga?: string;
-    city?: string;
-    nationality?: string;
-    maritalStatus?: string;
-  } | null;
-  application?: {
-    id: string;
-    session: string;
-    programmeCode?: string;
-    departmentCode?: string;
-    status: string;
-  } | null;
-  admission?: {
-    id: string;
-    decision: string;
-    decidedAt?: Date;
-    notes?: string;
-  } | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Application {
-  id: string;
-  candidate_id: string;
-  session: string;
-  programme_code?: string;
-  department_code?: string;
-  status: string;
-  submitted_at?: Date;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface CandidateStatus {
-  candidateId: string;
-  jambRegNo: string;
-  username: string;
-  email: string;
-  programChoice1?: string;
-  programChoice2?: string;
-  programChoice3?: string;
-  jambScore?: number;
-  stateOfOrigin?: string;
-  applicationStatus?: string;
-  paymentStatus?: string;
-  admissionStatus?: string;
-  payments: Array<{
-    purpose: string;
-    amount: number;
-    status: string;
-    date: Date;
-  }>;
-  documents: Array<{
-    type: string;
-    status: string;
-    uploadedAt: Date;
-  }>;
-  education: Array<{
-    level: string;
-    examType?: string;
-    year?: string;
-    school?: string;
-  }>;
-  createdAt: Date;
-}
-
 export class CandidateService {
-  private logger: Console;
   private emailService: EmailService;
 
-  constructor(logger: Console = console) {
-    this.logger = logger;
+  constructor(private logger: Console) {
     this.emailService = new EmailService();
+  }
+
+  /**
+   * Phase 1: JAMB Verification & Account Creation
+   * Check JAMB registration number and initiate registration
+   * if the registration number exist in the prelist, create a new candidate account
+   * check "candidates" table for the candidate with the same jamb_reg_no
+   * if the candidate is found, it means the candidate has already initiateed/completed registration
+   * redirect the candidate to the login page to login and complete the registration process
+   * but if the candidate is not found in the "candidates" table, it means the candidate has not initiated/completed registration
+   * check if the candidate's contact info exists from the prelist
+   * if it exists, proceed to create a new candidate account
+   * if it does not exist, prompt the candidate to complete the contact info by calling the "completeContactInfo" function
+   * if the contact info is completed, proceed to create a new candidate account
+   * send a temporary password to the candidate's email
+   * redirect the candidate to the login page to login and complete the registration process
+   * if the candidate is not found in the "candidates" table, it means the candidate has not initiated/completed registration
+   */
+  async checkJambAndInitiateRegistration(
+    jambRegNo: string,
+    contactInfo: {
+      email: string;
+      phone: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    candidateId?: string;
+    nextStep?: string;
+    requiresContactUpdate?: boolean;
+    candidateType?: 'UTME' | 'DE';
+  }> {
+    return await withDatabaseLogging('checkJambAndInitiateRegistration', 'candidates', async () => {
+      try {
+        // Check if candidate already exists
+        const existingCandidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
+
+        if (existingCandidate) {
+          // Check if candidate has completed registration
+          if (existingCandidate.registration_completed) {
+            return {
+              success: false,
+              message: 'Candidate has already completed registration',
+              nextStep: 'login',
+            };
+          }
+
+          // Check if contact info needs update
+          if (!existingCandidate.email || !existingCandidate.phone) {
+            return {
+              success: false,
+              message: 'Contact information required',
+              candidateId: existingCandidate.id,
+              nextStep: 'complete_contact',
+              requiresContactUpdate: true,
+              candidateType: existingCandidate.mode_of_entry,
+            };
+          }
+
+          return {
+            success: true,
+            message: 'Candidate found, proceed with profile completion',
+            candidateId: existingCandidate.id,
+            nextStep: 'biodata',
+            candidateType: existingCandidate.mode_of_entry,
+          };
+        }
+
+        // Check if JAMB number exists in prelist (UTME or DE)
+        const utmeCandidate = await db('utme_prelist').where('jamb_reg_no', jambRegNo).first();
+        const deCandidate = await db('de_prelist').where('jamb_reg_no', jambRegNo).first();
+
+        if (!utmeCandidate && !deCandidate) {
+          return {
+            success: false,
+            message: 'JAMB registration number not found in prelist',
+            nextStep: 'error',
+          };
+        }
+
+        const candidateType = utmeCandidate ? 'UTME' : 'DE';
+        const prelistData = utmeCandidate || deCandidate;
+
+        // Create new candidate account with simplified schema
+        const temporaryPassword = PasswordUtils.generateTemporaryPassword();
+        const hashedPassword = await PasswordUtils.hashPassword(temporaryPassword);
+
+        const [candidate] = await db('candidates')
+          .insert({
+            jamb_reg_no: jambRegNo,
+            firstname: prelistData.firstname || '',
+            surname: prelistData.surname || '',
+            othernames: prelistData.othernames || '',
+            gender: prelistData.gender || 'other',
+            state: prelistData.state_of_origin || '',
+            lga: prelistData.lga_of_origin || '',
+            email: contactInfo.email,
+            phone: contactInfo.phone,
+            password_hash: hashedPassword,
+            mode_of_entry: candidateType,
+            registration_completed: false,
+            biodata_completed: false,
+            education_completed: false,
+            next_of_kin_completed: false,
+            sponsor_completed: false,
+          })
+          .returning('*');
+
+        // Send temporary password email
+        const emailSent = await this.emailService.sendTemporaryPassword(
+          contactInfo.email,
+          jambRegNo,
+          temporaryPassword,
+          prelistData.firstname || 'Candidate'
+        );
+
+        if (!emailSent) {
+          logger.warn('Failed to send temporary password email', {
+            module: 'candidate',
+            operation: 'checkJambAndInitiateRegistration',
+            metadata: { candidateId: candidate.id, email: contactInfo.email },
+          });
+        }
+
+        logger.info('New candidate account created successfully', {
+          module: 'candidate',
+          operation: 'checkJambAndInitiateRegistration',
+          metadata: {
+            candidateId: candidate.id,
+            jambRegNo,
+            email: contactInfo.email,
+            candidateType,
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Account created successfully. Check your email for login credentials.',
+          candidateId: candidate.id,
+          nextStep: 'biodata',
+          candidateType,
+        };
+      } catch (error) {
+        logger.error('Failed to check JAMB and initiate registration', {
+          module: 'candidate',
+          operation: 'checkJambAndInitiateRegistration',
+          metadata: { jambRegNo, contactInfo },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Phase 1: Complete contact information for existing candidate
+   */
+  async completeContactInfo(
+    candidateId: string,
+    contactInfo: {
+      email: string;
+      phone: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeContactInfo', 'candidates', async () => {
+      try {
+        // Check if candidate exists
+        const candidate = await db('candidates').where('id', candidateId).first();
+
+        if (!candidate) {
+          return {
+            success: false,
+            message: 'Candidate not found',
+          };
+        }
+
+        // Update candidate contact information (simplified schema)
+        await db('candidates').where('id', candidateId).update({
+          email: contactInfo.email,
+          phone: contactInfo.phone,
+        });
+
+        // If candidate needs new password, generate and send
+        if (!candidate.password_hash) {
+          const tempPassword = PasswordUtils.generateTemporaryPassword();
+          const hashedPassword = await PasswordUtils.hashPassword(tempPassword);
+
+          // Update password
+          await db('candidates').where('id', candidateId).update({
+            password_hash: hashedPassword,
+          });
+
+          // Send email
+          await this.emailService.sendTemporaryPassword(
+            contactInfo.email,
+            candidate.jamb_reg_no,
+            tempPassword,
+            'Candidate'
+          );
+        }
+
+        logger.info('Contact information completed successfully', {
+          module: 'candidate',
+          operation: 'completeContactInfo',
+          metadata: { candidateId, contactInfo },
+        });
+
+        return {
+          success: true,
+          message: 'Contact information updated successfully',
+          nextStep: 'biodata',
+        };
+      } catch (error) {
+        logger.error('Failed to complete contact information', {
+          module: 'candidate',
+          operation: 'completeContactInfo',
+          metadata: { candidateId, contactInfo },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Phase 2: Complete biodata information
+   */
+  async completeBiodata(
+    candidateId: string,
+    biodata: {
+      firstname: string;
+      surname: string;
+      othernames?: string;
+      gender: string;
+      dob: string;
+      state: string;
+      lga: string;
+      address: string;
+      emergencyContact: {
+        name: string;
+        relationship: string;
+        phone: string;
+        address: string;
+      };
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeBiodata', 'candidates', async () => {
+      try {
+        // Update candidate with biodata (simplified schema)
+        await db('candidates').where('id', candidateId).update({
+          firstname: biodata.firstname,
+          surname: biodata.surname,
+          othernames: biodata.othernames,
+          gender: biodata.gender,
+          dob: biodata.dob,
+          state: biodata.state,
+          lga: biodata.lga,
+          address: biodata.address,
+          biodata_completed: true,
+        });
+
+        logger.info('Biodata completed successfully', {
+          module: 'candidate',
+          operation: 'completeBiodata',
+          metadata: { candidateId },
+        });
+
+        return {
+          success: true,
+          message: 'Biodata completed successfully',
+          nextStep: 'education',
+        };
+      } catch (error) {
+        logger.error('Failed to complete biodata', {
+          module: 'candidate',
+          operation: 'completeBiodata',
+          metadata: { candidateId, biodata },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Phase 2: Complete educational background
+   */
+  async completeEducation(
+    candidateId: string,
+    education: {
+      secondarySchool: string;
+      certificateType: 'SSCE' | 'GCE';
+      examYear: number;
+      examType: 'WAEC' | 'NECO' | 'NABTEB';
+      examNumber: string;
+      seatingCount: number;
+      subjects: Array<{
+        subject: string;
+        grade: string;
+      }>;
+      // For UTME candidates
+      jambSubjects?: Array<{
+        subject: string;
+        score: number;
+      }>;
+      // For DE candidates
+      certificateTypeDE?: 'NCE' | 'ND' | 'HND';
+      certificateNumber?: string;
+      aLevelGrade?: string;
+      certificateUpload?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeEducation', 'education_records', async () => {
+      try {
+        // Get candidate type
+        const candidate = await db('candidates').where('id', candidateId).first();
+        if (!candidate) {
+          throw new Error('Candidate not found');
+        }
+
+        // Create education record
+        const [educationRecord] = await db('education_records')
+          .insert({
+            candidate_id: candidateId,
+            secondary_school: education.secondarySchool,
+            certificate_type: education.certificateType,
+            exam_year: education.examYear,
+            exam_type: education.examType,
+            exam_number: education.examNumber,
+            seating_count: education.seatingCount,
+            subjects: JSON.stringify(education.subjects),
+            jamb_subjects:
+              candidate.candidate_type === 'UTME' ? JSON.stringify(education.jambSubjects) : null,
+            certificate_type_de:
+              candidate.candidate_type === 'DE' ? education.certificateTypeDE : null,
+            certificate_number:
+              candidate.candidate_type === 'DE' ? education.certificateNumber : null,
+            a_level_grade: candidate.candidate_type === 'DE' ? education.aLevelGrade : null,
+            certificate_upload:
+              candidate.candidate_type === 'DE' ? education.certificateUpload : null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          })
+          .returning('*');
+
+        // Update candidate education completion status
+        await db('candidates').where('id', candidateId).update({
+          education_completed: true,
+          updated_at: new Date(),
+        });
+
+        logger.info('Education completed successfully', {
+          module: 'candidate',
+          operation: 'completeEducation',
+          metadata: { candidateId, educationRecordId: educationRecord.id },
+        });
+
+        return {
+          success: true,
+          message: 'Education completed successfully',
+          nextStep: 'next_of_kin',
+        };
+      } catch (error) {
+        logger.error('Failed to complete education', {
+          module: 'candidate',
+          operation: 'completeEducation',
+          metadata: { candidateId, education },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Phase 2: Complete next of kin information
+   */
+  async completeNextOfKin(
+    candidateId: string,
+    nextOfKin: {
+      surname: string;
+      firstname: string;
+      othernames?: string;
+      relationship: string;
+      phone: string;
+      email?: string;
+      address: string;
+      occupation: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeNextOfKin', 'next_of_kin', async () => {
+      try {
+        // Upsert next of kin information
+        await db('next_of_kin').where('candidate_id', candidateId).del();
+
+        await db('next_of_kin').insert({
+          candidate_id: candidateId,
+          surname: nextOfKin.surname,
+          firstname: nextOfKin.firstname,
+          othernames: nextOfKin.othernames,
+          relationship: nextOfKin.relationship,
+          phone: nextOfKin.phone,
+          email: nextOfKin.email,
+          address: nextOfKin.address,
+          occupation: nextOfKin.occupation,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+
+        // Update candidate next of kin completion status
+        await db('candidates').where('id', candidateId).update({
+          next_of_kin_completed: true,
+          updated_at: new Date(),
+        });
+
+        logger.info('Next of kin completed successfully', {
+          module: 'candidate',
+          operation: 'completeNextOfKin',
+          metadata: { candidateId },
+        });
+
+        return {
+          success: true,
+          message: 'Next of kin completed successfully',
+          nextStep: 'sponsor',
+        };
+      } catch (error) {
+        logger.error('Failed to complete next of kin', {
+          module: 'candidate',
+          operation: 'completeNextOfKin',
+          metadata: { candidateId, nextOfKin },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Phase 2: Complete sponsor information
+   */
+  async completeSponsor(
+    candidateId: string,
+    sponsor: {
+      surname: string;
+      firstname: string;
+      othernames?: string;
+      relationship: string;
+      phone: string;
+      email?: string;
+      address: string;
+      occupation: string;
+      paymentResponsibility: boolean;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+  }> {
+    return await withDatabaseLogging('completeSponsor', 'sponsors', async () => {
+      try {
+        // Upsert sponsor information
+        await db('sponsors').where('candidate_id', candidateId).del();
+
+        await db('sponsors').insert({
+          candidate_id: candidateId,
+          surname: sponsor.surname,
+          firstname: sponsor.firstname,
+          othernames: sponsor.othernames,
+          relationship: sponsor.relationship,
+          phone: sponsor.phone,
+          email: sponsor.email,
+          address: sponsor.address,
+          occupation: sponsor.occupation,
+          payment_responsibility: sponsor.paymentResponsibility,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+
+        // Update candidate sponsor completion status
+        await db('candidates').where('id', candidateId).update({
+          sponsor_completed: true,
+          updated_at: new Date(),
+        });
+
+        logger.info('Sponsor completed successfully', {
+          module: 'candidate',
+          operation: 'completeSponsor',
+          metadata: { candidateId },
+        });
+
+        return {
+          success: true,
+          message: 'Sponsor completed successfully',
+          nextStep: 'application_submission',
+        };
+      } catch (error) {
+        logger.error('Failed to complete sponsor', {
+          module: 'candidate',
+          operation: 'completeSponsor',
+          metadata: { candidateId, sponsor },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Phase 2: Submit application
+   */
+  async submitApplication(
+    candidateId: string,
+    application: {
+      session: string;
+      programmeCode: string;
+      departmentCode: string;
+      facultyCode: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+    applicationId?: string;
+  }> {
+    return await withDatabaseLogging('submitApplication', 'applications', async () => {
+      try {
+        // Create application record
+        const [applicationRecord] = await db('applications')
+          .insert({
+            candidate_id: candidateId,
+            session: application.session,
+            programme_code: application.programmeCode,
+            department_code: application.departmentCode,
+            faculty_code: application.facultyCode,
+            status: 'pending',
+            submitted_at: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
+          })
+          .returning('*');
+
+        logger.info('Application submitted successfully', {
+          module: 'candidate',
+          operation: 'submitApplication',
+          metadata: { candidateId, applicationId: applicationRecord.id },
+        });
+
+        return {
+          success: true,
+          message: 'Application submitted successfully',
+          nextStep: 'payment',
+          applicationId: applicationRecord.id,
+        };
+      } catch (error) {
+        logger.error('Failed to submit application', {
+          module: 'candidate',
+          operation: 'submitApplication',
+          metadata: { candidateId, application },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Phase 3: Get next step in registration process
+   */
+  async getNextStep(candidateId: string): Promise<{
+    success: boolean;
+    nextStep: string;
+    message: string;
+    completedSteps: string[];
+    remainingSteps: string[];
+    candidateType?: 'UTME' | 'DE';
+  }> {
+    return await withDatabaseLogging('getNextStep', 'candidates', async () => {
+      try {
+        const candidate = await db('candidates').where('id', candidateId).first();
+
+        if (!candidate) {
+          return {
+            success: false,
+            nextStep: 'error',
+            message: 'Candidate not found',
+            completedSteps: [],
+            remainingSteps: [],
+          };
+        }
+
+        const application = await db('applications').where('candidate_id', candidateId).first();
+        const payments = await db('payment_transactions')
+          .where('candidateId', candidateId)
+          .andWhere('purpose', 'POST_UTME')
+          .andWhere('status', 'success');
+
+        const completedSteps: string[] = [];
+        const remainingSteps: string[] = [];
+
+        // Check completed steps
+        if (candidate.email && candidate.phone) {
+          completedSteps.push('contact_info');
+        } else {
+          remainingSteps.push('contact_info');
+        }
+
+        if (candidate.biodata_completed) {
+          completedSteps.push('biodata');
+        } else {
+          remainingSteps.push('biodata');
+        }
+
+        if (candidate.education_completed) {
+          completedSteps.push('education');
+        } else {
+          remainingSteps.push('education');
+        }
+
+        if (candidate.next_of_kin_completed) {
+          completedSteps.push('next_of_kin');
+        } else {
+          remainingSteps.push('next_of_kin');
+        }
+
+        if (candidate.sponsor_completed) {
+          completedSteps.push('sponsor');
+        } else {
+          remainingSteps.push('sponsor');
+        }
+
+        if (application?.status === 'pending') {
+          completedSteps.push('application_submission');
+        } else {
+          remainingSteps.push('application_submission');
+        }
+
+        if (payments.length > 0) {
+          completedSteps.push('post_utme_payment');
+        } else {
+          remainingSteps.push('post_utme_payment');
+        }
+
+        // Determine next step based on completed steps
+        let nextStep = 'contact_info';
+        let message = 'Please provide your contact information';
+
+        if (completedSteps.includes('contact_info')) {
+          if (!candidate.biodata_completed) {
+            nextStep = 'biodata';
+            message = 'Please complete your biodata information';
+          } else if (!candidate.education_completed) {
+            nextStep = 'education';
+            message = 'Please provide your educational background';
+          } else if (!candidate.next_of_kin_completed) {
+            nextStep = 'next_of_kin';
+            message = 'Please provide next of kin information';
+          } else if (!candidate.sponsor_completed) {
+            nextStep = 'sponsor';
+            message = 'Please provide sponsor information';
+          } else if (!application) {
+            nextStep = 'application_submission';
+            message = 'Please submit your application';
+          } else if (payments.length === 0) {
+            nextStep = 'post_utme_payment';
+            message = 'Please complete Post-UTME payment';
+          } else {
+            nextStep = 'registration_complete';
+            message = 'Registration completed successfully';
+          }
+        }
+
+        logger.info('Next step retrieved successfully', {
+          module: 'candidate',
+          operation: 'getNextStep',
+          metadata: { candidateId, nextStep, completedSteps: completedSteps.length },
+        });
+
+        return {
+          success: true,
+          nextStep,
+          message,
+          completedSteps,
+          remainingSteps,
+          candidateType: candidate.candidate_type,
+        };
+      } catch (error) {
+        logger.error('Failed to get next step', {
+          module: 'candidate',
+          operation: 'getNextStep',
+          metadata: { candidateId },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
   }
 
   /**
    * Get candidate by JAMB registration number
    */
-  async getCandidateByJambRegNo(jambRegNo: string): Promise<Candidate | null> {
+  async getCandidateByJambRegNo(jambRegNo: string): Promise<any | null> {
     return withPerformanceLogging(
       'getCandidateByJambRegNo',
       async () => {
@@ -128,47 +760,44 @@ export class CandidateService {
             }
 
             // Get additional data from related tables
-            const profile = await db('profiles').where('candidate_id', candidate.id).first();
             const application = await db('applications')
               .where('candidate_id', candidate.id)
               .first();
             const admission = await db('admissions').where('candidate_id', candidate.id).first();
 
-            const candidateData: Candidate = {
+            const candidateData: any = {
               id: candidate.id,
               jambRegNo: candidate.jamb_reg_no,
-              username: candidate.username,
+              firstname: candidate.firstname,
+              surname: candidate.surname,
+              othernames: candidate.othernames,
+              gender: candidate.gender,
+              dob: candidate.dob,
+              address: candidate.address,
+              state: candidate.state,
+              lga: candidate.lga,
               email: candidate.email,
               phone: candidate.phone,
-              programChoice1: candidate.program_choice_1,
-              programChoice2: candidate.program_choice_2,
-              programChoice3: candidate.program_choice_3,
-              jambScore: candidate.jamb_score,
-              stateOfOrigin: candidate.state_of_origin,
-              applicationStatus: candidate.application_status,
-              paymentStatus: candidate.payment_status,
+              department: candidate.department,
+              departmentId: candidate.department_id,
+              modeOfEntry: candidate.mode_of_entry,
+              maritalStatus: candidate.marital_status,
+              passportPhotoUrl: candidate.passport_photo_url,
+              signatureUrl: candidate.signature_url,
+              registrationCompleted: candidate.registration_completed,
+              biodataCompleted: candidate.biodata_completed,
+              educationCompleted: candidate.education_completed,
+              nextOfKinCompleted: candidate.next_of_kin_completed,
+              sponsorCompleted: candidate.sponsor_completed,
               admissionStatus: candidate.admission_status,
-              profile: profile
-                ? {
-                    surname: profile.surname,
-                    firstname: profile.firstname,
-                    othernames: profile.othernames,
-                    gender: profile.gender,
-                    dateOfBirth: profile.dob,
-                    address: profile.address,
-                    state: profile.state,
-                    lga: profile.lga,
-                    city: profile.city,
-                    nationality: profile.nationality,
-                    maritalStatus: profile.marital_status,
-                  }
-                : null,
+              paymentStatus: candidate.payment_status,
+              rrr: candidate.rrr,
               application: application
                 ? {
                     id: application.id,
                     session: application.session,
-                    programmeCode: application.programme_code,
                     departmentCode: application.department_code,
+                    facultyCode: application.faculty_code,
                     status: application.status,
                   }
                 : null,
@@ -201,92 +830,116 @@ export class CandidateService {
 
   /**
    * Get candidate profile with JAMB prefill data
+   * Now includes department information with faculty details
    */
-  async getCandidateProfile(jambRegNo: string): Promise<Profile | null> {
+  async getCandidate(jambRegNo: string): Promise<any | null> {
     return withPerformanceLogging(
-      'getCandidateProfile',
+      'getCandidate',
       async () => {
         return withDatabaseLogging(
           'SELECT',
-          'candidates,profiles,jamb_prelist',
+          'candidates,departments,faculties',
           async () => {
             try {
               logger.info('Getting candidate profile', {
                 module: 'candidates',
-                operation: 'getCandidateProfile',
+                operation: 'getCandidate',
                 metadata: { jambRegNo },
               });
 
-              // First check if candidate exists
-              const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
+              // Get candidate with department and faculty information
+              const candidate = await db('candidates as c')
+                .select(
+                  'c.*',
+                  'd.id as department_id',
+                  'd.name as department_name',
+                  'd.code as department_code',
+                  'd.description as department_description',
+                  'f.id as faculty_id',
+                  'f.name as faculty_name',
+                  'f.code as faculty_code'
+                )
+                .leftJoin('departments as d', 'c.department_id', 'd.id')
+                .leftJoin('faculties as f', 'd.faculty_id', 'f.id')
+                .where('c.jamb_reg_no', jambRegNo)
+                .first();
 
               if (!candidate) {
                 logger.info('Candidate not found for profile', {
                   module: 'candidates',
-                  operation: 'getCandidateProfile',
+                  operation: 'getCandidate',
                   metadata: { jambRegNo, found: false },
                 });
                 return null;
               }
 
-              // Get profile data
-              const profile = await db('profiles').where('candidate_id', candidate.id).first();
-
               // Get JAMB prelist data for prefill
               const jambData = await db('jamb_prelist').where('jamb_reg_no', jambRegNo).first();
 
-              if (profile) {
-                // Merge with JAMB data for prefill
-                const result = {
-                  ...profile,
+              // Build the result with department information
+              const result = {
+                id: candidate.id,
+                jambRegNo: candidate.jamb_reg_no,
+                firstname: candidate.firstname || jambData?.firstname,
+                surname: candidate.surname || jambData?.surname,
+                othernames: candidate.othernames || jambData?.othernames,
+                gender: candidate.gender || jambData?.gender,
+                dob: candidate.dob,
+                nationality: candidate.nationality,
+                state: candidate.state || jambData?.state_of_origin,
+                lga: candidate.lga || jambData?.lga_of_origin,
+                address: candidate.address,
+                email: candidate.email,
+                phone: candidate.phone,
+                department: candidate.department, // Keep for backward compatibility
+                departmentId: candidate.department_id,
+                departmentInfo: candidate.department_id
+                  ? {
+                      id: candidate.department_id,
+                      name: candidate.department_name,
+                      code: candidate.department_code,
+                      description: candidate.department_description,
+                      faculty: candidate.faculty_id
+                        ? {
+                            id: candidate.faculty_id,
+                            name: candidate.faculty_name,
+                            code: candidate.faculty_code,
+                          }
+                        : undefined,
+                    }
+                  : undefined,
+                modeOfEntry: candidate.mode_of_entry,
+                maritalStatus: candidate.marital_status,
+                passportPhotoUrl: candidate.passport_photo_url,
+                signatureUrl: candidate.signature_url,
+                registrationCompleted: candidate.registration_completed,
+                biodataCompleted: candidate.biodata_completed,
+                educationCompleted: candidate.education_completed,
+                nextOfKinCompleted: candidate.next_of_kin_completed,
+                sponsorCompleted: candidate.sponsor_completed,
+                admissionStatus: candidate.admission_status,
+                paymentStatus: candidate.payment_status,
+                rrr: candidate.rrr,
+                createdAt: candidate.created_at,
+                updatedAt: candidate.updated_at,
+              };
+
+              logger.info('Candidate profile retrieved successfully', {
+                module: 'candidates',
+                operation: 'getCandidate',
+                metadata: {
+                  jambRegNo,
                   candidateId: candidate.id,
-                  surname: profile.surname || jambData?.surname,
-                  firstname: profile.firstname || jambData?.firstname,
-                  othernames: profile.othernames || jambData?.othernames,
-                  gender: profile.gender || jambData?.gender,
-                  state: profile.state || jambData?.state_of_origin,
-                  lga: profile.lga || jambData?.lga_of_origin,
-                };
+                  found: true,
+                  hasDepartment: !!candidate.department_id,
+                },
+              });
 
-                logger.info('Profile retrieved successfully', {
-                  module: 'candidates',
-                  operation: 'getCandidateProfile',
-                  metadata: { jambRegNo, candidateId: candidate.id, found: true, hasProfile: true },
-                });
-
-                return result;
-              } else {
-                // Create profile from JAMB data
-                const newProfile: Partial<Profile> = {
-                  candidateId: candidate.id,
-                  surname: jambData?.surname,
-                  firstname: jambData?.firstname,
-                  othernames: jambData?.othernames,
-                  gender: jambData?.gender,
-                  state: jambData?.state_of_origin,
-                  lga: jambData?.lga_of_origin,
-                };
-
-                const [insertedProfile] = await db('profiles').insert(newProfile).returning('*');
-
-                logger.info('New profile created from JAMB data', {
-                  module: 'candidates',
-                  operation: 'getCandidateProfile',
-                  metadata: {
-                    jambRegNo,
-                    candidateId: candidate.id,
-                    found: true,
-                    hasProfile: false,
-                    created: true,
-                  },
-                });
-
-                return insertedProfile as Profile;
-              }
+              return result;
             } catch (error) {
               logger.error('Failed to get candidate profile', {
                 module: 'candidates',
-                operation: 'getCandidateProfile',
+                operation: 'getCandidate',
                 metadata: { jambRegNo },
                 error: error instanceof Error ? error.message : String(error),
               });
@@ -303,29 +956,24 @@ export class CandidateService {
   /**
    * Update candidate profile
    */
-  async updateCandidateProfile(
-    candidateId: string,
-    profileData: Partial<Profile>
-  ): Promise<Profile> {
+  async updateCandidate(candidateId: string, profileData: Partial<any>): Promise<any> {
     try {
       this.logger.log(`[CandidateService] Updating profile for candidate: ${candidateId}`);
 
-      const [updatedProfile] = await db('profiles')
-        .where('candidate_id', candidateId)
+      const [updatedCandidate] = await db('candidates')
+        .where('id', candidateId)
         .update({
           ...profileData,
           updated_at: new Date(),
         })
         .returning('*');
 
-      if (!updatedProfile) {
-        throw new Error('Profile not found');
+      if (!updatedCandidate) {
+        throw new Error('Candidate not found');
       }
 
-      this.logger.log(
-        `[CandidateService] Profile updated successfully for candidate: ${candidateId}`
-      );
-      return updatedProfile as Profile;
+      this.logger.log(`[CandidateService] Candidate updated successfully: ${candidateId}`);
+      return updatedCandidate;
     } catch (error) {
       this.logger.error('[CandidateService] Error updating candidate profile:', error);
       throw new Error('Failed to update candidate profile');
@@ -445,7 +1093,7 @@ export class CandidateService {
   /**
    * Get education records
    */
-  async getEducationRecords(candidateId: string): Promise<Education[]> {
+  async getEducationRecords(candidateId: string): Promise<EducationRecord[]> {
     try {
       this.logger.log(`[CandidateService] Getting education records for candidate: ${candidateId}`);
 
@@ -453,7 +1101,7 @@ export class CandidateService {
         .where('candidate_id', candidateId)
         .orderBy('created_at', 'desc');
 
-      return records as Education[];
+      return records as EducationRecord[];
     } catch (error) {
       this.logger.error('[CandidateService] Error getting education records:', error);
       throw new Error('Failed to get education records');
@@ -465,8 +1113,8 @@ export class CandidateService {
    */
   async createEducationRecord(
     candidateId: string,
-    educationData: Partial<Education>
-  ): Promise<Education> {
+    educationData: Partial<EducationRecord>
+  ): Promise<EducationRecord> {
     try {
       this.logger.log(`[CandidateService] Creating education record for candidate: ${candidateId}`);
 
@@ -478,7 +1126,7 @@ export class CandidateService {
         .returning('*');
 
       this.logger.log(`[CandidateService] Education record created for candidate: ${candidateId}`);
-      return newRecord as Education;
+      return newRecord as EducationRecord;
     } catch (error) {
       this.logger.error('[CandidateService] Error creating education record:', error);
       throw new Error('Failed to create education record');
@@ -490,8 +1138,8 @@ export class CandidateService {
    */
   async updateEducationRecord(
     recordId: string,
-    educationData: Partial<Education>
-  ): Promise<Education> {
+    educationData: Partial<EducationRecord>
+  ): Promise<EducationRecord> {
     try {
       this.logger.log(`[CandidateService] Updating education record: ${recordId}`);
 
@@ -508,7 +1156,7 @@ export class CandidateService {
       }
 
       this.logger.log(`[CandidateService] Education record updated: ${recordId}`);
-      return updatedRecord as Education;
+      return updatedRecord as EducationRecord;
     } catch (error) {
       this.logger.error('[CandidateService] Error updating education record:', error);
       throw new Error('Failed to update education record');
@@ -538,14 +1186,14 @@ export class CandidateService {
   /**
    * Get profile completion status
    */
-  async getProfileCompletionStatus(candidateId: string): Promise<ProfileCompletionStatus> {
+  async getProfileCompletionStatus(candidateId: string): Promise<any> {
     try {
       this.logger.log(
         `[CandidateService] Getting profile completion status for candidate: ${candidateId}`
       );
 
       // Check each section
-      const [profile] = await db('profiles').where('candidate_id', candidateId);
+      const candidate = await db('candidates').where('id', candidateId).first();
       const [nok] = await db('next_of_kin').where('candidate_id', candidateId);
       const [sponsor] = await db('sponsors').where('candidate_id', candidateId);
       const [education] = await db('education_records').where('candidate_id', candidateId);
@@ -553,13 +1201,13 @@ export class CandidateService {
 
       // Calculate completion percentages
       const profileComplete = !!(
-        profile?.surname &&
-        profile?.firstname &&
-        profile?.gender &&
-        profile?.dob
+        candidate?.surname &&
+        candidate?.firstname &&
+        candidate?.gender &&
+        candidate?.dob
       );
-      const nokComplete = !!(nok?.name && nok?.relation && nok?.phone);
-      const sponsorComplete = !!(sponsor?.name && sponsor?.phone);
+      const nokComplete = !!(nok?.surname && nok?.firstname && nok?.phone);
+      const sponsorComplete = !!(sponsor?.surname && sponsor?.firstname && sponsor?.phone);
       const educationComplete = !!education;
       const documentsComplete = !!uploads;
 
@@ -571,7 +1219,7 @@ export class CandidateService {
         documentsComplete ? 20 : 0,
       ].reduce((sum, score) => sum + score, 0);
 
-      const status: ProfileCompletionStatus = {
+      const status: any = {
         candidate: profileComplete,
         nextOfKin: nokComplete,
         sponsor: sponsorComplete,
@@ -607,7 +1255,7 @@ export class CandidateService {
         payments,
         completionStatus,
       ] = await Promise.all([
-        this.getCandidateProfile(candidateId),
+        this.getCandidate(candidateId),
         this.getNextOfKin(candidateId),
         this.getSponsor(candidateId),
         this.getEducationRecords(candidateId),
@@ -814,7 +1462,6 @@ export class CandidateService {
 
       // Get all candidate data for form
       const candidate = await db('candidates').where('id', candidateId).first();
-      const profile = await db('profiles').where('candidate_id', candidateId).first();
       const nextOfKin = await db('next_of_kin').where('candidate_id', candidateId).first();
       const sponsor = await db('sponsors').where('candidate_id', candidateId).first();
       const education = await db('education_records').where('candidate_id', candidateId);
@@ -822,7 +1469,6 @@ export class CandidateService {
 
       return {
         candidate,
-        profile,
         nextOfKin,
         sponsor,
         education,
@@ -959,580 +1605,48 @@ export class CandidateService {
     try {
       this.logger.log(`[CandidateService] Getting status for candidate: ${candidateId}`);
 
-      // Get comprehensive status information
-      const [profile, application, admission, payments, student, migration] = await Promise.all([
-        db('profiles').where('candidate_id', candidateId).first(),
+      // Get comprehensive status information using new simplified schema
+      const [candidate, application, payments] = await Promise.all([
+        db('candidates').where('id', candidateId).first(),
         db('applications').where('candidate_id', candidateId).first(),
-        db('admissions').where('candidate_id', candidateId).first(),
         db('payments').where('candidate_id', candidateId).orderBy('created_at', 'desc'),
-        db('students').where('candidate_id', candidateId).first(),
-        db('migrations')
-          .join('students', 'migrations.student_id', '=', 'students.id')
-          .where('students.candidate_id', candidateId)
-          .first(),
       ]);
 
-      // Calculate overall status
+      if (!candidate) {
+        throw new Error('Candidate not found');
+      }
+
+      // Calculate overall status based on new schema
       let overallStatus = 'not_started';
 
-      if (profile) overallStatus = 'profile_complete';
-      if (application) overallStatus = 'application_submitted';
-      if (admission && admission.decision === 'admitted') overallStatus = 'admitted';
-      if (student) overallStatus = 'matriculated';
-      if (migration && migration.status === 'success') overallStatus = 'migrated';
+      if (candidate.registration_completed) {
+        overallStatus = 'registration_complete';
+      } else if (candidate.sponsor_completed) {
+        overallStatus = 'sponsor_complete';
+      } else if (candidate.next_of_kin_completed) {
+        overallStatus = 'next_of_kin_complete';
+      } else if (candidate.education_completed) {
+        overallStatus = 'education_complete';
+      } else if (candidate.biodata_completed) {
+        overallStatus = 'biodata_complete';
+      }
 
       return {
         overallStatus,
-        profile: profile ? 'complete' : 'incomplete',
+        profile: candidate.registration_completed ? 'complete' : 'incomplete',
         application: application ? 'submitted' : 'not_submitted',
-        admission: admission ? admission.decision : 'not_applied',
+        admission: candidate.admission_status || 'not_applied',
         payments: payments.length > 0 ? 'has_payments' : 'no_payments',
-        matriculation: student ? 'matriculated' : 'not_matriculated',
-        migration: migration ? migration.status : 'not_migrated',
-        lastUpdated: new Date(),
+        biodata: candidate.biodata_completed ? 'complete' : 'incomplete',
+        education: candidate.education_completed ? 'complete' : 'incomplete',
+        nextOfKin: candidate.next_of_kin_completed ? 'complete' : 'incomplete',
+        sponsor: candidate.sponsor_completed ? 'complete' : 'incomplete',
+        lastUpdated: candidate.updated_at,
       };
     } catch (error) {
       this.logger.error('[CandidateService] Error getting candidate status:', error);
       throw new Error('Failed to get candidate status');
     }
-  }
-
-  /**
-   * Check JAMB registration number and initiate registration
-   */
-  async checkJambAndInitiateRegistration(
-    jambRegNo: string,
-    contactInfo: {
-      email: string;
-      phone: string;
-    }
-  ): Promise<{
-    success: boolean;
-    message: string;
-    candidateId?: string;
-    nextStep?: string;
-    requiresContactUpdate?: boolean;
-  }> {
-    return await withDatabaseLogging('checkJambAndInitiateRegistration', 'candidates', async () => {
-      try {
-        // Check if candidate already exists
-        const existingCandidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
-
-        if (existingCandidate) {
-          // Check if candidate has completed registration
-          if (existingCandidate.registration_completed) {
-            return {
-              success: false,
-              message: 'Candidate has already completed registration',
-              nextStep: 'login',
-            };
-          }
-
-          // Check if contact info needs update
-          const profile = await db('profiles').where('candidate_id', existingCandidate.id).first();
-
-          if (!profile?.email || !profile?.phone) {
-            return {
-              success: false,
-              message: 'Contact information required',
-              candidateId: existingCandidate.id,
-              nextStep: 'complete_contact',
-              requiresContactUpdate: true,
-            };
-          }
-
-          return {
-            success: true,
-            message: 'Candidate found, proceed with registration',
-            candidateId: existingCandidate.id,
-            nextStep: 'payment',
-          };
-        }
-
-        // Create new candidate account with temporary password
-        const temporaryPassword = PasswordUtils.generateTemporaryPassword();
-        const hashedPassword = await PasswordUtils.hashPassword(temporaryPassword);
-
-        const [candidateId] = await db('candidates')
-          .insert({
-            jamb_reg_no: jambRegNo,
-            username: jambRegNo,
-            email: contactInfo.email,
-            phone: contactInfo.phone,
-            password_hash: hashedPassword,
-            temp_password_flag: true,
-            created_at: new Date(),
-            updated_at: new Date(),
-          })
-          .returning('id');
-
-        // Send temporary password email
-        const emailSent = await this.emailService.sendTemporaryPassword(
-          contactInfo.email,
-          jambRegNo,
-          temporaryPassword,
-          'Candidate' // Will be updated when biodata is provided
-        );
-
-        if (!emailSent) {
-          logger.warn('Failed to send temporary password email', {
-            module: 'candidate',
-            operation: 'checkJambAndInitiateRegistration',
-            metadata: { candidateId, email: contactInfo.email },
-          });
-        }
-
-        logger.info('New candidate account created successfully', {
-          module: 'candidate',
-          operation: 'checkJambAndInitiateRegistration',
-          metadata: { candidateId, jambRegNo, email: contactInfo.email },
-        });
-
-        return {
-          success: true,
-          message: 'Account created successfully. Check your email for login credentials.',
-          candidateId,
-          nextStep: 'payment',
-        };
-      } catch (error) {
-        logger.error('Failed to check JAMB and initiate registration', {
-          module: 'candidate',
-          operation: 'checkJambAndInitiateRegistration',
-          metadata: { jambRegNo, contactInfo },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Complete contact information for existing candidate
-   */
-  async completeContactInfo(
-    candidateId: string,
-    contactInfo: {
-      email: string;
-      phone: string;
-    }
-  ): Promise<{
-    success: boolean;
-    message: string;
-    nextStep?: string;
-  }> {
-    return await withDatabaseLogging('completeContactInfo', 'profiles', async () => {
-      try {
-        // Check if candidate exists
-        const candidate = await db('candidates').where('id', candidateId).first();
-
-        if (!candidate) {
-          return {
-            success: false,
-            message: 'Candidate not found',
-          };
-        }
-
-        // Update candidate contact information
-        await db('candidates').where('id', candidateId).update({
-          email: contactInfo.email,
-          phone: contactInfo.phone,
-          updated_at: new Date(),
-        });
-
-        // If candidate has temp password, send email
-        if (candidate.temp_password_flag) {
-          const tempPassword = PasswordUtils.generateTemporaryPassword();
-          const hashedPassword = await PasswordUtils.hashPassword(tempPassword);
-
-          // Update password
-          await db('candidates').where('id', candidateId).update({
-            password_hash: hashedPassword,
-            updated_at: new Date(),
-          });
-
-          // Send email
-          await this.emailService.sendTemporaryPassword(
-            contactInfo.email,
-            candidate.jamb_reg_no,
-            tempPassword,
-            'Candidate'
-          );
-        }
-
-        logger.info('Contact information completed successfully', {
-          module: 'candidate',
-          operation: 'completeContactInfo',
-          metadata: { candidateId, contactInfo },
-        });
-
-        return {
-          success: true,
-          message: 'Contact information updated successfully',
-          nextStep: 'payment',
-        };
-      } catch (error) {
-        logger.error('Failed to complete contact information', {
-          module: 'candidate',
-          operation: 'completeContactInfo',
-          metadata: { candidateId, contactInfo },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Get next step in registration process
-   */
-  async getNextStep(candidateId: string): Promise<{
-    success: boolean;
-    nextStep: string;
-    message: string;
-    completedSteps: string[];
-    remainingSteps: string[];
-  }> {
-    return await withDatabaseLogging('getNextStep', 'candidates', async () => {
-      try {
-        const candidate = await db('candidates').where('id', candidateId).first();
-
-        if (!candidate) {
-          return {
-            success: false,
-            nextStep: 'error',
-            message: 'Candidate not found',
-            completedSteps: [],
-            remainingSteps: [],
-          };
-        }
-
-        const profile = await db('profiles').where('candidate_id', candidateId).first();
-
-        const application = await db('applications').where('candidate_id', candidateId).first();
-
-        const completedSteps: string[] = [];
-        const remainingSteps: string[] = [];
-
-        // Check completed steps
-        if (candidate.email && candidate.phone) {
-          completedSteps.push('contact_info');
-        } else {
-          remainingSteps.push('contact_info');
-        }
-
-        if (candidate.post_utme_paid) {
-          completedSteps.push('post_utme_payment');
-        } else {
-          remainingSteps.push('post_utme_payment');
-        }
-
-        if (profile?.biodata_completed) {
-          completedSteps.push('biodata');
-        } else {
-          remainingSteps.push('biodata');
-        }
-
-        if (profile?.education_completed) {
-          completedSteps.push('education');
-        } else {
-          remainingSteps.push('education');
-        }
-
-        if (profile?.next_of_kin_completed) {
-          completedSteps.push('next_of_kin');
-        } else {
-          remainingSteps.push('next_of_kin');
-        }
-
-        if (profile?.sponsor_completed) {
-          completedSteps.push('sponsor');
-        } else {
-          remainingSteps.push('sponsor');
-        }
-
-        if (application?.status === 'pending') {
-          completedSteps.push('application_submission');
-        } else {
-          remainingSteps.push('application_submission');
-        }
-
-        // Determine next step
-        let nextStep = 'contact_info';
-        let message = 'Please provide your contact information';
-
-        if (completedSteps.includes('contact_info')) {
-          if (!candidate.post_utme_paid) {
-            nextStep = 'post_utme_payment';
-            message = 'Please complete Post-UTME payment';
-          } else if (!profile?.biodata_completed) {
-            nextStep = 'biodata';
-            message = 'Please complete your biodata information';
-          } else if (!profile?.education_completed) {
-            nextStep = 'education';
-            message = 'Please provide your educational background';
-          } else if (!profile?.next_of_kin_completed) {
-            nextStep = 'next_of_kin';
-            message = 'Please provide next of kin information';
-          } else if (!profile?.sponsor_completed) {
-            nextStep = 'sponsor';
-            message = 'Please provide sponsor information';
-          } else if (!application) {
-            nextStep = 'application_submission';
-            message = 'Please submit your application';
-          } else {
-            nextStep = 'registration_complete';
-            message = 'Registration completed successfully';
-          }
-        }
-
-        logger.info('Next step retrieved successfully', {
-          module: 'candidate',
-          operation: 'getNextStep',
-          metadata: { candidateId, nextStep, completedSteps: completedSteps.length },
-        });
-
-        return {
-          success: true,
-          nextStep,
-          message,
-          completedSteps,
-          remainingSteps,
-        };
-      } catch (error) {
-        logger.error('Failed to get next step', {
-          module: 'candidate',
-          operation: 'getNextStep',
-          metadata: { candidateId },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Complete biodata information
-   */
-  async completeBiodata(
-    candidateId: string,
-    biodata: {
-      first_name: string;
-      last_name: string;
-      middle_name?: string;
-      date_of_birth: Date;
-      gender: 'male' | 'female';
-      state: string;
-      lga: string;
-      address: string;
-      nationality: string;
-      religion?: string;
-      marital_status: 'single' | 'married' | 'divorced' | 'widowed';
-    }
-  ): Promise<{
-    success: boolean;
-    message: string;
-    nextStep?: string;
-  }> {
-    return await withDatabaseLogging('completeBiodata', 'profiles', async () => {
-      try {
-        // Update profile with biodata
-        await db('profiles')
-          .where('candidate_id', candidateId)
-          .update({
-            ...biodata,
-            biodata_completed: true,
-            updated_at: new Date(),
-          });
-
-        // Update candidate name
-        const fullName = `${biodata.first_name} ${biodata.middle_name ? biodata.middle_name + ' ' : ''}${biodata.last_name}`;
-        await db('candidates').where('id', candidateId).update({
-          name: fullName,
-          updated_at: new Date(),
-        });
-
-        logger.info('Biodata completed successfully', {
-          module: 'candidate',
-          operation: 'completeBiodata',
-          metadata: { candidateId, fullName },
-        });
-
-        return {
-          success: true,
-          message: 'Biodata information completed successfully',
-          nextStep: 'education',
-        };
-      } catch (error) {
-        logger.error('Failed to complete biodata', {
-          module: 'candidate',
-          operation: 'completeBiodata',
-          metadata: { candidateId, biodata },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Complete education information
-   */
-  async completeEducation(
-    candidateId: string,
-    education: {
-      secondary_school: string;
-      secondary_school_year: number;
-      secondary_school_certificate: string;
-      jamb_subject_1: string;
-      jamb_subject_2: string;
-      jamb_subject_3: string;
-      jamb_subject_4: string;
-      jamb_score: number;
-    }
-  ): Promise<{
-    success: boolean;
-    message: string;
-    nextStep?: string;
-  }> {
-    return await withDatabaseLogging('completeEducation', 'profiles', async () => {
-      try {
-        // Update profile with education info
-        await db('profiles')
-          .where('candidate_id', candidateId)
-          .update({
-            ...education,
-            education_completed: true,
-            updated_at: new Date(),
-          });
-
-        // Update candidate JAMB score
-        await db('candidates').where('id', candidateId).update({
-          jamb_score: education.jamb_score,
-          updated_at: new Date(),
-        });
-
-        logger.info('Education information completed successfully', {
-          module: 'candidate',
-          operation: 'completeEducation',
-          metadata: { candidateId, jambScore: education.jamb_score },
-        });
-
-        return {
-          success: true,
-          message: 'Education information completed successfully',
-          nextStep: 'next_of_kin',
-        };
-      } catch (error) {
-        logger.error('Failed to complete education information', {
-          module: 'candidate',
-          operation: 'completeEducation',
-          metadata: { candidateId, education },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Complete next of kin information
-   */
-  async completeNextOfKin(
-    candidateId: string,
-    nextOfKin: {
-      next_of_kin_name: string;
-      next_of_kin_relationship: string;
-      next_of_kin_phone: string;
-      next_of_kin_address: string;
-      next_of_kin_occupation?: string;
-    }
-  ): Promise<{
-    success: boolean;
-    message: string;
-    nextStep?: string;
-  }> {
-    return await withDatabaseLogging('completeNextOfKin', 'profiles', async () => {
-      try {
-        await db('profiles')
-          .where('candidate_id', candidateId)
-          .update({
-            ...nextOfKin,
-            next_of_kin_completed: true,
-            updated_at: new Date(),
-          });
-
-        logger.info('Next of kin information completed successfully', {
-          module: 'candidate',
-          operation: 'completeNextOfKin',
-          metadata: { candidateId, nextOfKinName: nextOfKin.next_of_kin_name },
-        });
-
-        return {
-          success: true,
-          message: 'Next of kin information completed successfully',
-          nextStep: 'sponsor',
-        };
-      } catch (error) {
-        logger.error('Failed to complete next of kin information', {
-          module: 'candidate',
-          operation: 'completeNextOfKin',
-          metadata: { candidateId, nextOfKin },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Complete sponsor information
-   */
-  async completeSponsor(
-    candidateId: string,
-    sponsor: {
-      sponsor_name: string;
-      sponsor_relationship: string;
-      sponsor_phone: string;
-      sponsor_address: string;
-      sponsor_occupation: string;
-      sponsor_income_range: string;
-    }
-  ): Promise<{
-    success: boolean;
-    message: string;
-    nextStep?: string;
-  }> {
-    return await withDatabaseLogging('completeSponsor', 'profiles', async () => {
-      try {
-        await db('profiles')
-          .where('candidate_id', candidateId)
-          .update({
-            ...sponsor,
-            sponsor_completed: true,
-            updated_at: new Date(),
-          });
-
-        logger.info('Sponsor information completed successfully', {
-          module: 'candidate',
-          operation: 'completeSponsor',
-          metadata: { candidateId, sponsorName: sponsor.sponsor_name },
-        });
-
-        return {
-          success: true,
-          message: 'Sponsor information completed successfully',
-          nextStep: 'application_submission',
-        };
-      } catch (error) {
-        logger.error('Failed to complete sponsor information', {
-          module: 'candidate',
-          operation: 'completeSponsor',
-          metadata: { candidateId, sponsor },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
   }
 
   /**
@@ -1546,13 +1660,13 @@ export class CandidateService {
     return await withDatabaseLogging('finalizeRegistration', 'candidates', async () => {
       try {
         // Check if all required information is complete
-        const profile = await db('profiles').where('candidate_id', candidateId).first();
+        const candidate = await db('candidates').where('id', candidateId).first();
 
         if (
-          !profile?.biodata_completed ||
-          !profile?.education_completed ||
-          !profile?.next_of_kin_completed ||
-          !profile?.sponsor_completed
+          !candidate?.biodata_completed ||
+          !candidate?.education_completed ||
+          !candidate?.next_of_kin_completed ||
+          !candidate?.sponsor_completed
         ) {
           return {
             success: false,
@@ -1577,12 +1691,10 @@ export class CandidateService {
         });
 
         // Send completion email
-        const candidate = await db('candidates').where('id', candidateId).first();
-
-        if (candidate && profile.email) {
+        if (candidate && candidate.email) {
           await this.emailService.sendRegistrationCompletion(
-            profile.email,
-            candidate.name || 'Candidate',
+            candidate.email,
+            candidate.firstname || candidate.surname || 'Candidate',
             candidate.jamb_reg_no
           );
         }
@@ -1602,6 +1714,314 @@ export class CandidateService {
         logger.error('Failed to finalize registration', {
           module: 'candidate',
           operation: 'finalizeRegistration',
+          metadata: { candidateId },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Get available payment purposes for candidate's session and level
+   */
+  async getAvailablePaymentPurposes(candidateId: string): Promise<{
+    success: boolean;
+    data: any[];
+    message: string;
+  }> {
+    return await withDatabaseLogging(
+      'getAvailablePaymentPurposes',
+      'payment_purposes',
+      async () => {
+        try {
+          // Get candidate's application to determine session and level
+          const application = await db('applications').where('candidate_id', candidateId).first();
+
+          if (!application) {
+            return {
+              success: false,
+              data: [],
+              message: 'No application found. Please submit your application first.',
+            };
+          }
+
+          // Get candidate's information to determine level
+          const candidate = await db('candidates').where('id', candidateId).first();
+
+          // Determine level - for new candidates, default to 100 level
+          const level = candidate?.level || application?.level || '100';
+          const session = application.session;
+
+          // Fetch available payment purposes for this session and level
+          const paymentPurposes = await db('payment_purposes')
+            .where('session', session)
+            .andWhere('level', level)
+            .andWhere('is_active', true)
+            .orderBy(['purpose', 'amount']);
+
+          logger.info('Payment purposes retrieved successfully', {
+            module: 'candidate',
+            operation: 'getAvailablePaymentPurposes',
+            metadata: { candidateId, session, level, count: paymentPurposes.length },
+          });
+
+          return {
+            success: true,
+            data: paymentPurposes.map((pp) => ({
+              id: pp.id,
+              name: pp.name,
+              purpose: pp.purpose,
+              description: pp.description,
+              amount: pp.amount,
+              session: pp.session,
+              level: pp.level,
+              isActive: pp.is_active,
+            })),
+            message: `Found ${paymentPurposes.length} available payment purposes for ${session} session, level ${level}`,
+          };
+        } catch (error) {
+          logger.error('Failed to get available payment purposes', {
+            module: 'candidate',
+            operation: 'getAvailablePaymentPurposes',
+            metadata: { candidateId },
+            error: error instanceof Error ? error.message : String(error),
+          });
+          throw error;
+        }
+      }
+    );
+  }
+
+  /**
+   * Get candidate's payment history
+   */
+  async getCandidatePaymentHistory(
+    candidateId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
+    success: boolean;
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    message: string;
+  }> {
+    return await withDatabaseLogging(
+      'getCandidatePaymentHistory',
+      'payment_transactions',
+      async () => {
+        try {
+          const offset = (page - 1) * limit;
+
+          const [payments, total] = await Promise.all([
+            db('payment_transactions')
+              .where('candidateId', candidateId)
+              .orderBy('createdAt', 'desc')
+              .limit(limit)
+              .offset(offset)
+              .select('*'),
+            db('payment_transactions')
+              .where('candidateId', candidateId)
+              .count('* as total')
+              .first(),
+          ]);
+
+          const formattedPayments = payments.map((payment: any) => ({
+            id: payment.id,
+            rrr: payment.rrr,
+            purpose: payment.purpose,
+            amount: payment.amount,
+            session: payment.session,
+            level: payment.level,
+            status: payment.status,
+            paymentUrl: payment.payment_url,
+            expiresAt: payment.expires_at,
+            createdAt: payment.created_at,
+            verifiedAt: payment.verified_at,
+          }));
+
+          logger.info('Payment history retrieved successfully', {
+            module: 'candidate',
+            operation: 'getCandidatePaymentHistory',
+            metadata: { candidateId, count: payments.length, total: total?.total || 0 },
+          });
+
+          return {
+            success: true,
+            data: formattedPayments,
+            total: parseInt((total?.total as string) || '0'),
+            page,
+            limit,
+            message: `Retrieved ${payments.length} payment records`,
+          };
+        } catch (error) {
+          logger.error('Failed to get candidate payment history', {
+            module: 'candidate',
+            operation: 'getCandidatePaymentHistory',
+            metadata: { candidateId },
+            error: error instanceof Error ? error.message : String(error),
+          });
+          throw error;
+        }
+      }
+    );
+  }
+
+  /**
+   * Check payment status for a specific payment
+   */
+  async checkPaymentStatus(paymentId: string): Promise<{
+    success: boolean;
+    data: any;
+    message: string;
+  }> {
+    return await withDatabaseLogging('checkPaymentStatus', 'payment_transactions', async () => {
+      try {
+        const payment = await db('payment_transactions').where('id', paymentId).first();
+
+        if (!payment) {
+          return {
+            success: false,
+            data: null,
+            message: 'Payment not found',
+          };
+        }
+
+        logger.info('Payment status checked successfully', {
+          module: 'candidate',
+          operation: 'checkPaymentStatus',
+          metadata: { paymentId, status: payment.status },
+        });
+
+        return {
+          success: true,
+          data: {
+            id: payment.id,
+            rrr: payment.rrr,
+            purpose: payment.purpose,
+            amount: payment.amount,
+            session: payment.session,
+            level: payment.level,
+            status: payment.status,
+            paymentUrl: payment.payment_url,
+            expiresAt: payment.expires_at,
+            createdAt: payment.created_at,
+            verifiedAt: payment.verified_at,
+          },
+          message: `Payment status: ${payment.status}`,
+        };
+      } catch (error) {
+        logger.error('Failed to check payment status', {
+          module: 'candidate',
+          operation: 'checkPaymentStatus',
+          metadata: { paymentId },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Get payment summary for candidate
+   */
+  async getPaymentSummary(candidateId: string): Promise<{
+    success: boolean;
+    data: {
+      totalPayments: number;
+      successfulPayments: number;
+      pendingPayments: number;
+      failedPayments: number;
+      totalAmount: number;
+      nextPaymentRequired: string | null;
+      nextPaymentAmount: number | null;
+    };
+    message: string;
+  }> {
+    return await withDatabaseLogging('getPaymentSummary', 'payment_transactions', async () => {
+      try {
+        // Get all payments for the candidate
+        const payments = await db('payment_transactions')
+          .where('candidateId', candidateId)
+          .select('*');
+
+        // Get candidate's application to determine required payments
+        const application = await db('applications').where('candidate_id', candidateId).first();
+
+        if (!application) {
+          return {
+            success: false,
+            data: {
+              totalPayments: 0,
+              successfulPayments: 0,
+              pendingPayments: 0,
+              failedPayments: 0,
+              totalAmount: 0,
+              nextPaymentRequired: null,
+              nextPaymentAmount: null,
+            },
+            message: 'No application found',
+          };
+        }
+
+        // Calculate payment statistics
+        const totalPayments = payments.length;
+        const successfulPayments = payments.filter((p) => p.status === 'success').length;
+        const pendingPayments = payments.filter((p) => p.status === 'pending').length;
+        const failedPayments = payments.filter((p) => p.status === 'failed').length;
+        const totalAmount = payments
+          .filter((p) => p.status === 'success')
+          .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+        // Determine next payment required
+        let nextPaymentRequired: string | null = null;
+        let nextPaymentAmount: number | null = null;
+
+        // Check if Post-UTME payment is completed
+        const postUtmePayment = payments.find(
+          (p) => p.purpose === 'POST_UTME' && p.status === 'success'
+        );
+
+        if (!postUtmePayment) {
+          // Get Post-UTME payment purpose amount
+          const postUtmePurpose = await db('payment_purposes')
+            .where('session', application.session)
+            .andWhere('level', application.level || '100')
+            .andWhere('purpose', 'POST_UTME')
+            .andWhere('is_active', true)
+            .first();
+
+          if (postUtmePurpose) {
+            nextPaymentRequired = 'POST_UTME';
+            nextPaymentAmount = parseFloat(postUtmePurpose.amount);
+          }
+        }
+
+        logger.info('Payment summary retrieved successfully', {
+          module: 'candidate',
+          operation: 'getPaymentSummary',
+          metadata: { candidateId, totalPayments, successfulPayments },
+        });
+
+        return {
+          success: true,
+          data: {
+            totalPayments,
+            successfulPayments,
+            pendingPayments,
+            failedPayments,
+            totalAmount,
+            nextPaymentRequired,
+            nextPaymentAmount,
+          },
+          message: `Payment summary: ${successfulPayments} successful, ${pendingPayments} pending`,
+        };
+      } catch (error) {
+        logger.error('Failed to get payment summary', {
+          module: 'candidate',
+          operation: 'getPaymentSummary',
           metadata: { candidateId },
           error: error instanceof Error ? error.message : String(error),
         });
