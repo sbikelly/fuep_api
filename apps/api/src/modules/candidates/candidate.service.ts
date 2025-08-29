@@ -8,7 +8,7 @@ import {
   NextStepInfo,
   ProfileCompletionStatus,
   Sponsor,
-  Upload,
+  // Upload type removed - documents module no longer exists
 } from '@fuep/types';
 
 import { db } from '../../db/knex.js';
@@ -339,7 +339,7 @@ export class CandidateService {
       certificateTypeDE?: 'NCE' | 'ND' | 'HND';
       certificateNumber?: string;
       aLevelGrade?: string;
-      certificateUpload?: string;
+      // Certificate upload removed - documents module no longer exists
     }
   ): Promise<{
     success: boolean;
@@ -372,8 +372,7 @@ export class CandidateService {
             certificate_number:
               candidate.candidate_type === 'DE' ? education.certificateNumber : null,
             a_level_grade: candidate.candidate_type === 'DE' ? education.aLevelGrade : null,
-            certificate_upload:
-              candidate.candidate_type === 'DE' ? education.certificateUpload : null,
+            // Certificate upload removed - documents module no longer exists
             created_at: new Date(),
             updated_at: new Date(),
           })
@@ -1197,8 +1196,6 @@ export class CandidateService {
       const [nok] = await db('next_of_kin').where('candidate_id', candidateId);
       const [sponsor] = await db('sponsors').where('candidate_id', candidateId);
       const [education] = await db('education_records').where('candidate_id', candidateId);
-      const [uploads] = await db('uploads').where('candidate_id', candidateId);
-
       // Calculate completion percentages
       const profileComplete = !!(
         candidate?.surname &&
@@ -1209,14 +1206,12 @@ export class CandidateService {
       const nokComplete = !!(nok?.surname && nok?.firstname && nok?.phone);
       const sponsorComplete = !!(sponsor?.surname && sponsor?.firstname && sponsor?.phone);
       const educationComplete = !!education;
-      const documentsComplete = !!uploads;
 
       const overall = [
-        profileComplete ? 20 : 0,
-        nokComplete ? 20 : 0,
-        sponsorComplete ? 20 : 0,
-        educationComplete ? 20 : 0,
-        documentsComplete ? 20 : 0,
+        profileComplete ? 25 : 0,
+        nokComplete ? 25 : 0,
+        sponsorComplete ? 25 : 0,
+        educationComplete ? 25 : 0,
       ].reduce((sum, score) => sum + score, 0);
 
       const status: any = {
@@ -1224,7 +1219,6 @@ export class CandidateService {
         nextOfKin: nokComplete,
         sponsor: sponsorComplete,
         education: educationComplete,
-        documents: documentsComplete,
         overall,
       };
 
@@ -1245,32 +1239,22 @@ export class CandidateService {
     try {
       this.logger.log(`[CandidateService] Getting dashboard data for candidate: ${candidateId}`);
 
-      const [
-        profile,
-        nok,
-        sponsor,
-        educationRecords,
-        uploads,
-        applications,
-        payments,
-        completionStatus,
-      ] = await Promise.all([
-        this.getCandidate(candidateId),
-        this.getNextOfKin(candidateId),
-        this.getSponsor(candidateId),
-        this.getEducationRecords(candidateId),
-        db('uploads').where('candidate_id', candidateId),
-        db('applications').where('candidate_id', candidateId).first(),
-        db('payments').where('candidate_id', candidateId).orderBy('created_at', 'desc'),
-        this.getProfileCompletionStatus(candidateId),
-      ]);
+      const [profile, nok, sponsor, educationRecords, applications, payments, completionStatus] =
+        await Promise.all([
+          this.getCandidate(candidateId),
+          this.getNextOfKin(candidateId),
+          this.getSponsor(candidateId),
+          this.getEducationRecords(candidateId),
+          db('applications').where('candidate_id', candidateId).first(),
+          db('payments').where('candidate_id', candidateId).orderBy('created_at', 'desc'),
+          this.getProfileCompletionStatus(candidateId),
+        ]);
 
       return {
         profile,
         nextOfKin: nok,
         sponsor,
         educationRecords,
-        uploads,
         application: applications,
         payments,
         completionStatus,

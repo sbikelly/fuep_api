@@ -22,12 +22,14 @@ cd fuep-postutme
 #### Option A: Using the Development Script (Recommended)
 
 **Linux/Mac:**
+
 ```bash
 chmod +x scripts/dev.sh
 ./scripts/dev.sh start
 ```
 
 **Windows:**
+
 ```cmd
 scripts\dev.bat start
 ```
@@ -36,7 +38,7 @@ scripts\dev.bat start
 
 ```bash
 # Start base services
-docker-compose up -d postgres redis minio mailhog
+docker-compose up -d postgres redis mailhog
 
 # Start API in development mode
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d api
@@ -64,7 +66,7 @@ Once started, you can access:
 - **Adminer (Database)**: http://localhost:8080
 - **Redis Commander**: http://localhost:8081
 - **MailHog**: http://localhost:8025
-- **MinIO Console**: http://localhost:9001
+- **MinIO Console**: Removed - documents module no longer exists
 
 ## Development Scripts
 
@@ -209,6 +211,7 @@ docker system prune -a
 ## Production vs Development
 
 ### Development Environment
+
 - Uses `docker-compose.dev.yml` overlay
 - Source code mounted as volumes
 - Development environment variables
@@ -216,6 +219,7 @@ docker system prune -a
 - Additional development tools (Adminer, Redis Commander)
 
 ### Production Environment
+
 - Uses `docker-compose.yml` only
 - Source code copied into container
 - Production environment variables

@@ -181,8 +181,16 @@ export class CandidateController {
         address: profileData.address,
         state: profileData.state,
         lga: profileData.lga,
+        email: profileData.email,
+        phone: profileData.phone,
+        passport_photo_url: profileData.passportPhotoUrl,
+        signature_url: profileData.signatureUrl,
+        department: profileData.department,
+        department_id: profileData.departmentId,
+        mode_of_entry: profileData.modeOfEntry,
         nationality: profileData.nationality,
         marital_status: profileData.maritalStatus,
+        updated_at: new Date(),
       };
 
       // Update candidate directly (simplified schema)

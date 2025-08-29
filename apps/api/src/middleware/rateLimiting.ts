@@ -113,20 +113,7 @@ export const paymentRateLimit = rateLimit({
   keyGenerator: getClientIP,
 });
 
-// Upload endpoints - moderate limits due to file processing
-export const uploadRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // limit file uploads
-  message: {
-    success: false,
-    error: 'Too many upload requests',
-    message: 'Upload rate limit exceeded. Please wait before uploading more files.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: rateLimitHandler,
-  keyGenerator: getClientIP,
-});
+// Upload rate limiting removed - documents module no longer exists
 
 // Progressive delay for repeated requests (speed limiting)
 export const speedLimiter = slowDown({

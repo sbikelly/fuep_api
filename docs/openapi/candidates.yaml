@@ -462,9 +462,7 @@ components:
         cgpa: { type: string, maxLength: 10 }
         certificateNumber: { type: string, maxLength: 100 }
         grade: { type: string, maxLength: 20 }
-        certificateUploadUrls:
-          type: array
-          items: { type: string }
+        # Certificate upload URLs removed - documents module no longer exists
         verificationStatus: { type: string, enum: ['pending', 'verified', 'rejected'] }
         verificationNotes: { type: string }
         createdAt: { type: string, format: date-time }

@@ -133,20 +133,7 @@ CREATE TABLE IF NOT EXISTS batch_admission_operations (
 );
 
 -- ---------- Payment Disputes ----------
-
--- Payment dispute tracking
-CREATE TABLE IF NOT EXISTS payment_disputes (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id           uuid NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
-  dispute_type         varchar(32) NOT NULL,
-  status               varchar(32) NOT NULL DEFAULT 'open',
-  description          text NOT NULL,
-  resolution           text,
-  resolved_by          uuid REFERENCES admin_users(id),
-  resolved_at          timestamptz,
-  created_at           timestamptz NOT NULL DEFAULT NOW(),
-  updated_at           timestamptz NOT NULL DEFAULT NOW()
-);
+-- Note: Payment disputes table is created by the simplified schema migration
 
 -- ---------- Report Generation ----------
 
@@ -185,8 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_candidate_notes_candidate ON candidate_notes(cand
 CREATE INDEX IF NOT EXISTS idx_candidate_notes_admin ON candidate_notes(admin_user_id);
 CREATE INDEX IF NOT EXISTS idx_candidate_notes_type ON candidate_notes(note_type);
 
-CREATE INDEX IF NOT EXISTS idx_payment_disputes_payment ON payment_disputes(payment_id);
-CREATE INDEX IF NOT EXISTS idx_payment_disputes_status ON payment_disputes(status);
+-- Payment disputes indexes are created by the simplified schema migration
 
 CREATE INDEX IF NOT EXISTS idx_batch_admission_operations_type ON batch_admission_operations(operation_type);
 CREATE INDEX IF NOT EXISTS idx_batch_admission_operations_status ON batch_admission_operations(status);
@@ -204,9 +190,7 @@ CREATE TRIGGER candidate_notes_set_updated_at
 BEFORE UPDATE ON candidate_notes
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER payment_disputes_set_updated_at
-BEFORE UPDATE ON payment_disputes
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+-- Payment disputes trigger is created by the simplified schema migration
 
 CREATE TRIGGER admission_decision_templates_set_updated_at
 BEFORE UPDATE ON admission_decision_templates
@@ -264,7 +248,7 @@ CREATE OR REPLACE VIEW v_admin_dashboard_summary AS
 SELECT
   -- Candidate counts
   (SELECT COUNT(*) FROM candidates WHERE is_active = true) as total_candidates,
-  (SELECT COUNT(*) FROM candidates WHERE is_active = true AND temp_password_flag = true) as pending_password_change,
+  (SELECT COUNT(*) FROM candidates WHERE is_active = true AND registration_completed = false) as pending_registration,
   (SELECT COUNT(*) FROM applications WHERE status = 'pending') as pending_applications,
   (SELECT COUNT(*) FROM applications WHERE status = 'admitted') as admitted_applications,
   (SELECT COUNT(*) FROM applications WHERE status = 'rejected') as rejected_applications,
@@ -311,31 +295,33 @@ CREATE OR REPLACE VIEW v_candidate_management AS
 SELECT
   c.id,
   c.jamb_reg_no,
-  c.username,
   c.email,
   c.phone,
   c.is_active,
-  c.temp_password_flag,
   c.created_at,
-  p.surname,
-  p.firstname,
-  p.othernames,
-  p.gender,
-  p.state,
-  p.lga,
+  c.surname,
+  c.firstname,
+  c.othernames,
+  c.gender,
+  c.state,
+  c.lga,
+  c.department,
+  c.department_id,
+  c.mode_of_entry,
+  c.registration_completed,
+  c.biodata_completed,
+  c.education_completed,
+  c.next_of_kin_completed,
+  c.sponsor_completed,
   a.status as application_status,
   a.session,
-  a.programme_code,
-  a.department_code,
+  a.application_number,
   ad.decision as admission_decision,
-  s.matric_no,
-  (SELECT COUNT(*) FROM uploads u WHERE u.candidate_id = c.id) as document_count,
+  -- Document count removed - documents module no longer exists
   (SELECT COUNT(*) FROM payments py WHERE py.candidate_id = c.id AND py.status = 'success') as successful_payments_count
 FROM candidates c
-LEFT JOIN profiles p ON c.id = p.candidate_id
 LEFT JOIN applications a ON c.id = a.candidate_id
 LEFT JOIN admissions ad ON c.id = ad.candidate_id
-LEFT JOIN students s ON c.id = s.candidate_id
 ORDER BY c.created_at DESC;
 
 -- ---------- Comments for Documentation ----------

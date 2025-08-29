@@ -18,7 +18,7 @@ export interface AdminDashboardSummary {
   }>;
   systemHealth: {
     database: 'healthy' | 'warning' | 'error';
-    minio: 'healthy' | 'warning' | 'error';
+    // MinIO health removed - documents module no longer exists
     redis: 'healthy' | 'warning' | 'error';
   };
 }
@@ -221,14 +221,7 @@ export class AdminService {
         databaseHealth = 'error';
       }
 
-      // Check MinIO connectivity (simplified check)
-      let minioHealth: 'healthy' | 'warning' | 'error' = 'healthy';
-      try {
-        // This would need to be implemented in the documents service
-        // For now, assume healthy
-      } catch (error) {
-        minioHealth = 'error';
-      }
+      // MinIO health check removed - documents module no longer exists
 
       // Check Redis connectivity (if implemented)
       let redisHealth: 'healthy' | 'warning' | 'error' = 'healthy';
@@ -241,13 +234,13 @@ export class AdminService {
 
       return {
         database: databaseHealth,
-        minio: minioHealth,
+        // MinIO health removed
         redis: redisHealth,
       };
     } catch (error) {
       return {
         database: 'error',
-        minio: 'error',
+        // MinIO health removed
         redis: 'error',
       };
     }
@@ -547,14 +540,7 @@ export class AdminService {
         );
       }
 
-      // Check MinIO configuration
-      const minioEnvVars = ['MINIO_ENDPOINT', 'MINIO_PORT', 'MINIO_ACCESS_KEY', 'MINIO_SECRET_KEY'];
-
-      for (const envVar of minioEnvVars) {
-        if (!process.env[envVar]) {
-          issues.push(`Missing MinIO environment variable: ${envVar}`);
-        }
-      }
+      // MinIO configuration check removed - documents module no longer exists
 
       return {
         valid: issues.length === 0,

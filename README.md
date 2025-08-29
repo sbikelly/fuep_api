@@ -10,7 +10,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Database Management** - PostgreSQL with Knex.js, simplified and optimized schema design
 - **Authentication & Security** - JWT-based auth with refresh tokens, rate limiting, security headers
 - **Payment Integration** - Remita payment provider with simplified payment purpose management
-- **Document Management** - MinIO integration for file storage
+- **Candidate Management** - Comprehensive candidate registration and management
 - **Advanced Analytics** - Comprehensive reporting and metrics
 - **Audit Logging** - Complete audit trail and security monitoring
 - **Email Service** - Automated email notifications with professional templates
@@ -29,7 +29,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 ### Planned Features
 
 - SMS notifications
-- Advanced document verification
+- Advanced candidate verification
 - Integration with external systems
 
 ## Architecture Overview
@@ -50,7 +50,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
          ┌─────────────────────────────────────────┐
          │                                         │
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   PostgreSQL    │    │     Redis       │    │     MinIO       │
+│   PostgreSQL    │    │     Redis       │    │     MailHog      │
 │   Database      │    │   Cache/Queue   │    │   File Storage  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
@@ -60,7 +60,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Backend**: Node.js, Express.js, TypeScript
 - **Database**: PostgreSQL with Knex.js ORM
 - **Cache**: Redis for session management and caching
-- **File Storage**: MinIO for document management
+- **Email Service**: MailHog for development email testing
 - **Containerization**: Docker & Docker Compose for local development and production deployment
 - **Hosting**: Render.com for managed cloud deployment with Docker containers
 - **Email**: Nodemailer with MailHog (dev) / SMTP (prod)
@@ -95,7 +95,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **education_records**: Educational background (UTME/DE)
 - **next_of_kin**: Emergency contacts
 - **sponsors**: Financial sponsors
-- **uploads**: Document management
+- **candidates**: Candidate registration and management
 
 ## Academic Structure Management
 
@@ -180,7 +180,7 @@ A comprehensive Post-UTME application and management system for Federal Universi
 2. **Educational Background** - Academic history and qualifications
 3. **Next of Kin Information** - Emergency contact and guardian details
 4. **Sponsor Information** - Financial sponsor and payment details
-5. **Document Upload** - Required certificates and identification
+5. **Profile Completion** - Required personal and academic information
 
 ### **Phase 4: Registration Finalization**
 
@@ -350,7 +350,7 @@ databases:
   - `POST /api/admin/departments` - Create department
   - `GET /api/admin/programs` - List programs
   - `POST /api/admin/programs` - Create program
-- **Documents**: `POST /api/documents/upload`
+- **Candidates**: `POST /api/candidates/register`
 
 ### **OpenAPI Documentation**
 
@@ -396,7 +396,7 @@ curl -X POST http://localhost:4000/api/auth/login \
 - Application statistics
 - Payment analytics
 - Candidate demographics
-- Document processing metrics
+- Candidate processing metrics
 - Academic structure analytics
 
 ### **Security Monitoring**

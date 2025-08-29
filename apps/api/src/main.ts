@@ -102,7 +102,6 @@ import {
   getRateLimitStats,
   healthCheckRateLimit,
   speedLimiter,
-  uploadRateLimit,
 } from './middleware/rateLimiting.js';
 
 // Apply general rate limiting and speed limiting to all routes
@@ -112,7 +111,7 @@ app.use(speedLimiter);
 // Load and merge domain-specific OpenAPI specifications with multiple fallback paths
 let openApiSpec: any;
 try {
-  const domainSpecs = ['auth', 'candidates', 'payments', 'admin', 'documents', 'academic'];
+  const domainSpecs = ['auth', 'candidates', 'payments', 'admin', 'academic'];
 
   // Multiple possible paths for OpenAPI specifications
   const possiblePaths = [
@@ -162,48 +161,22 @@ try {
     }
   }
 
-  // If no base spec found, try to load the old single OpenAPI file as fallback
+  // If no base spec found
   if (!baseSpec) {
-    console.log('Base OpenAPI specification not found, trying fallback single file...');
-
-    // Try to find the old single OpenAPI file
-    const fallbackPaths = [
-      join(process.cwd(), 'docs', 'openapi_old.yaml'),
-      join(process.cwd(), '..', 'docs', 'openapi_old.yaml'),
-      join(process.cwd(), '..', '..', 'docs', 'openapi_old.yaml'),
-    ];
-
-    let fallbackLoaded = false;
-    for (const fallbackPath of fallbackPaths) {
-      try {
-        if (existsSync(fallbackPath)) {
-          const fallbackContent = readFileSync(fallbackPath, 'utf8');
-          baseSpec = yaml.load(fallbackContent);
-          console.log(`Fallback OpenAPI specification loaded from: ${fallbackPath}`);
-          fallbackLoaded = true;
-          break;
-        }
-      } catch (err) {
-        // Continue to next path
-      }
-    }
-
-    // If still no spec found, create a minimal one
-    if (!fallbackLoaded) {
-      console.log('No fallback OpenAPI specification found, creating minimal spec');
-      baseSpec = {
-        openapi: '3.0.3',
-        info: {
-          title: 'FUEP Post-UTME Portal API',
-          version: '1.0.0',
-          description: 'Comprehensive REST API for candidate and admin workflows',
-        },
-        paths: {},
-        components: {
-          schemas: {},
-        },
-      };
-    }
+    // create a minimal one
+    console.log('No fallback OpenAPI specification found, creating minimal spec');
+    baseSpec = {
+      openapi: '3.0.3',
+      info: {
+        title: 'FUEP Post-UTME Portal API',
+        version: '1.0.0',
+        description: 'Comprehensive REST API for candidate and admin workflows',
+      },
+      paths: {},
+      components: {
+        schemas: {},
+      },
+    };
   }
 
   // Merge domain specifications

@@ -66,7 +66,7 @@ cp .env.example .env
 ### **Step 4: Start Development Services**
 
 ```bash
-# Start all services (API, PostgreSQL, Redis, MinIO, MailHog)
+# Start all services (API, PostgreSQL, Redis, MailHog)
 pnpm docker:up
 
 # Or start API only in development mode
@@ -93,7 +93,7 @@ curl http://localhost:4000/api/health/db
 - **API Server**: http://localhost:4000
 - **PostgreSQL**: localhost:5432
 - **Redis**: localhost:6379
-- **MinIO**: localhost:9000 (Console: localhost:9001)
+- **MinIO**: Removed - documents module no longer exists
 - **MailHog**: localhost:1025 (SMTP), localhost:8025 (Web UI)
 
 ### **Docker Commands**
@@ -175,8 +175,6 @@ REMITA_SECRET_KEY=your_secret_key
 REMITA_MERCHANT_ID=your_merchant_id
 REMITA_BASE_URL=https://remitademo.net  # Sandbox
 ```
-
-
 
 ## Email Configuration
 

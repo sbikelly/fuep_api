@@ -36,7 +36,7 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 - **Backend**: Node.js, Express.js, TypeScript
 - **Database**: PostgreSQL with Knex.js ORM
 - **Cache**: Redis for session management and caching
-- **File Storage**: MinIO for document management
+- **Email Service**: MailHog for development email testing
 - **Email**: Nodemailer with configurable SMTP providers
 - **Containerization**: Docker & Docker Compose
 - **Security**: JWT, bcrypt, comprehensive security headers
@@ -91,13 +91,13 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
    - Certificate obtained(SCCE, GCE)
    - Number of seatings(maximum of 2)
    - Subjects with grades, exam year, exam type(WAEC, NECO or NABTEB), and exam number
-   - Certificate upload (optional)
+   - Profile completion (required)
      **for UTME (100 LEVEL)**
    - JAMB subject combinations and scores(editable because it will come with the Jamb prelist)
      **for DE (Direct Entry)**
    - Certificate type and number(NCE, ND, HND)
    - A-Level grade
-   - Certificate upload (optional)
+   - Profile completion (required)
 
 3. **Next of Kin Details**
    - Next-of-kin information
@@ -112,7 +112,7 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 
 1. **Profile Validation**
    - Complete information verification
-   - Document upload confirmation
+   - Profile completion confirmation
    - Application completeness check
 
 2. **Payment & Authentication (POST-UTME)**
@@ -151,7 +151,7 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 - **Post-UTME Application**: ₦2,000
 - **Acceptance Fee**: ₦50,000
 - **School Fees**: Variable by program
-- **Other Charges**: Document verification, etc.
+- **Other Charges**: Application processing, etc.
 
 ### **Security Features**
 
@@ -280,7 +280,7 @@ The FUEP Post-UTME Portal is a comprehensive, modern web application designed to
 ### **Development Environment**
 
 - **Docker Containerization**: Consistent development environment
-- **Local Services**: MailHog, Redis, MinIO for development
+- **Local Services**: MailHog, Redis for development
 - **Hot Reloading**: Fast development iteration
 - **Environment Management**: Configurable environment variables
 

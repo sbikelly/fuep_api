@@ -1,15 +1,16 @@
 -- ============================================
--- Migration: Complete Candidate Schema Refactor
+-- Migration: Simplify Candidate Schema
 -- ============================================
--- This migration completely replaces the old candidate schema
--- with the new simplified one
+-- This migration simplifies the candidate-related tables
+-- to align with the new simplified interfaces
 
 BEGIN;
 
--- Drop all existing candidate-related tables and views
-DROP VIEW IF EXISTS v_candidate_management CASCADE;
-DROP TABLE IF EXISTS candidate_notes CASCADE;
-DROP TABLE IF EXISTS candidate_status_changes CASCADE;
+-- Load necessary extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Drop existing tables in reverse dependency order
 DROP TABLE IF EXISTS uploads CASCADE;
 DROP TABLE IF EXISTS education_records CASCADE;
 DROP TABLE IF EXISTS next_of_kin CASCADE;
@@ -55,10 +56,11 @@ CREATE TABLE candidates (
     email VARCHAR(160),
     phone VARCHAR(32),
     department VARCHAR(100), -- Course of study
+    department_id UUID, -- Foreign key to departments table (optional, add constraint if departments table exists)
     mode_of_entry VARCHAR(10) DEFAULT 'UTME', -- UTME or DE
     marital_status VARCHAR(20) DEFAULT 'single',
-    passport_photo_url TEXT,
-    signature_url TEXT,
+    passport_photo_url TEXT, -- Base64 encoded passport photo
+    signature_url TEXT, -- Base64 encoded signature
     
     -- Registration progress flags
     registration_completed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -70,6 +72,9 @@ CREATE TABLE candidates (
     -- Authentication
     password_hash TEXT,
     
+    -- Status
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -79,8 +84,7 @@ CREATE TABLE candidates (
 CREATE INDEX idx_candidates_jamb_reg_no ON candidates(jamb_reg_no);
 CREATE INDEX idx_candidates_email ON candidates(email);
 CREATE INDEX idx_candidates_phone ON candidates(phone);
-CREATE INDEX idx_candidates_mode_of_entry ON candidates(mode_of_entry);
-CREATE INDEX idx_candidates_registration_completed ON candidates(registration_completed);
+CREATE INDEX idx_candidates_session ON candidates(mode_of_entry);
 
 -- ============================================
 -- Simplified Applications Table
@@ -146,7 +150,7 @@ CREATE TABLE education_records (
     cgpa VARCHAR(10),
     certificate_number VARCHAR(100),
     grade VARCHAR(20), -- A-Level grade
-    certificate_upload_urls TEXT[], -- Array of certificate URLs
+    -- Document upload fields removed
     
     -- Verification
     verification_status verification_status NOT NULL DEFAULT 'pending',
@@ -209,25 +213,70 @@ CREATE TABLE sponsors (
 CREATE INDEX idx_sponsors_candidate_id ON sponsors(candidate_id);
 
 -- ============================================
--- Simplified Uploads Table (for documents)
+-- Simplified Payments Table
 -- ============================================
-CREATE TABLE uploads (
+CREATE TABLE payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL, -- passport, certificate, transcript, etc.
-    file_url TEXT NOT NULL,
-    file_name VARCHAR(255),
-    file_size BIGINT,
-    mime_type VARCHAR(128),
+    amount DECIMAL(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'NGN',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, success, failed, refunded
+    purpose VARCHAR(50) NOT NULL, -- post_utme, acceptance, school_fee
+    provider VARCHAR(50) DEFAULT 'remita',
+    provider_ref VARCHAR(100), -- RRR or other provider reference
+    description TEXT,
     
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create indexes for uploads
-CREATE INDEX idx_uploads_candidate_id ON uploads(candidate_id);
-CREATE INDEX idx_uploads_type ON uploads(type);
+-- Create indexes for payments
+CREATE INDEX idx_payments_candidate_id ON payments(candidate_id);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_purpose ON payments(purpose);
+CREATE INDEX idx_payments_provider_ref ON payments(provider_ref);
+
+-- ============================================
+-- Simplified Admissions Table
+-- ============================================
+CREATE TABLE admissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
+    decision VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, admitted, rejected
+    decision_date DATE,
+    decision_notes TEXT,
+    reviewed_by UUID, -- Admin user ID
+    
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create indexes for admissions
+CREATE INDEX idx_admissions_candidate_id ON admissions(candidate_id);
+CREATE INDEX idx_admissions_decision ON admissions(decision);
+
+-- ============================================
+-- Simplified Payment Disputes Table
+-- ============================================
+CREATE TABLE payment_disputes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'open', -- open, resolved, closed
+    description TEXT NOT NULL,
+    resolution_notes TEXT,
+    resolved_by UUID, -- Admin user ID
+    resolved_at TIMESTAMPTZ,
+    
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create indexes for payment disputes
+CREATE INDEX idx_payment_disputes_payment_id ON payment_disputes(payment_id);
+CREATE INDEX idx_payment_disputes_status ON payment_disputes(status);
 
 -- ============================================
 -- Triggers for updated_at
@@ -261,21 +310,39 @@ CREATE TRIGGER sponsors_set_updated_at
     BEFORE UPDATE ON sponsors
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER uploads_set_updated_at
-    BEFORE UPDATE ON uploads
+CREATE TRIGGER payments_set_updated_at
+    BEFORE UPDATE ON payments
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER admissions_set_updated_at
+    BEFORE UPDATE ON admissions
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER payment_disputes_set_updated_at
+    BEFORE UPDATE ON payment_disputes
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ============================================
 -- Sample data insertion for testing
 -- ============================================
 -- Insert sample candidates for testing
-INSERT INTO candidates (jamb_reg_no, firstname, surname, email, phone, mode_of_entry) VALUES
-('12345678901', 'John', 'Doe', 'john.doe@example.com', '+2348012345678', 'UTME'),
-('12345678902', 'Jane', 'Smith', 'jane.smith@example.com', '+2348012345679', 'DE');
+INSERT INTO candidates (jamb_reg_no, firstname, surname, email, phone, mode_of_entry, department_id) VALUES
+('12345678901', 'John', 'Doe', 'john.doe@example.com', '+2348012345678', 'UTME', (SELECT id FROM departments WHERE code = 'CSC' LIMIT 1)),
+('12345678902', 'Jane', 'Smith', 'jane.smith@example.com', '+2348012345679', 'DE', (SELECT id FROM departments WHERE code = 'CEN' LIMIT 1));
 
 -- Insert sample applications
 INSERT INTO applications (candidate_id, application_number, session, status) VALUES
 ((SELECT id FROM candidates WHERE jamb_reg_no = '12345678901'), 'APP2024001', '2024/2025', 'pending'),
 ((SELECT id FROM candidates WHERE jamb_reg_no = '12345678902'), 'APP2024002', '2024/2025', 'pending');
+
+-- Insert sample payments
+INSERT INTO payments (candidate_id, amount, status, purpose, provider_ref) VALUES
+((SELECT id FROM candidates WHERE jamb_reg_no = '12345678901'), 2000.00, 'success', 'post_utme', 'RRR123456789'),
+((SELECT id FROM candidates WHERE jamb_reg_no = '12345678902'), 2000.00, 'pending', 'post_utme', 'RRR123456790');
+
+-- Insert sample admissions
+INSERT INTO admissions (candidate_id, decision, decision_notes) VALUES
+((SELECT id FROM candidates WHERE jamb_reg_no = '12345678901'), 'pending', 'Application under review'),
+((SELECT id FROM candidates WHERE jamb_reg_no = '12345678902'), 'pending', 'Application under review');
 
 COMMIT;

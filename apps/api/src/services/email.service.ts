@@ -210,7 +210,7 @@ export class EmailService {
               <li>Log in using your JAMB registration number and temporary password</li>
               <li>Change your password when prompted</li>
               <li>Complete your registration profile</li>
-              <li>Upload required documents</li>
+              <li>Complete your registration</li>
               <li>Submit your application</li>
             </ol>
             
@@ -249,7 +249,7 @@ Next Steps:
 2. Log in using your JAMB registration number and temporary password
 3. Change your password when prompted
 4. Complete your registration profile
-5. Upload required documents
+5. Complete your registration
 6. Submit your application
 
 Portal URL: ${process.env.PORTAL_URL || 'http://localhost:5173'}
@@ -305,7 +305,7 @@ For support, contact: admissions@fuep.edu.ng
             <h3>What's Next?</h3>
             <ol>
               <li><strong>Application Review:</strong> Your application is now under review</li>
-              <li><strong>Document Verification:</strong> We will verify your uploaded documents</li>
+              <li><strong>Application Review:</strong> We will review your application</li>
               <li><strong>Admission Decision:</strong> You will be notified of the admission decision</li>
               <li><strong>Acceptance Process:</strong> If admitted, complete acceptance fee payment</li>
               <li><strong>Matriculation:</strong> Receive your matriculation number</li>
@@ -343,7 +343,7 @@ Your Post-UTME application registration has been completed successfully.
 
 What's Next?
 1. Application Review: Your application is now under review
-2. Document Verification: We will verify your uploaded documents
+2. Application Review: We will review your application
 3. Admission Decision: You will be notified of the admission decision
 4. Acceptance Process: If admitted, complete acceptance fee payment
 5. Matriculation: Receive your matriculation number

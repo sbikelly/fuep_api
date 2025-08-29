@@ -11,6 +11,7 @@ info:
     - Simplified payment purpose management
     - Enhanced analytics and reporting capabilities
     - Cleaner interfaces and improved performance
+    - Removed the document upload endpoints as they are not needed for the simplified API
 
 paths:
   # Admin authentication

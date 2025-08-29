@@ -7,11 +7,11 @@ This document contains sequence diagrams that illustrate the key workflows and i
 1. [Candidate Registration Flow](#candidate-registration-flow)
 2. [Payment Processing Flow](#payment-processing-flow)
 3. [Admin Management Flow](#admin-management-flow)
-4. [Document Management Flow](#document-management-flow)
+4. [Document Management Flow](#document-management-flow) - REMOVED
 5. [Email Service Integration](#email-service-integration)
 6. [Authentication Flow](#authentication-flow)
 7. [Academic Structure Management](#academic-structure-management)
-8. [Document Upload and Processing](#document-upload-and-processing)
+8. [Document Upload and Processing](#document-upload-and-processing) - REMOVED
 9. [Payment Webhook Processing](#payment-webhook-processing)
 10. [Admin Report Generation](#admin-report-generation)
 
@@ -298,40 +298,18 @@ sequenceDiagram
 
 ---
 
-## Document Management Flow
+## Document Management Flow - REMOVED
 
 ### **Document Upload & Processing**
 
-```mermaid
-sequenceDiagram
-    participant C as Candidate
-    participant F as Frontend
-    participant A as API Gateway
-    participant DS as Document Service
-    participant M as MinIO
-    participant DB as Database
+This functionality has been removed as part of the system simplification. The documents module and MinIO integration have been completely removed from the codebase.
 
-    C->>F: Select document to upload
-    F->>A: POST /api/documents/upload
-    A->>DS: uploadDocument()
+**Reason for Removal:**
 
-    DS->>M: Store document file
-    M-->>DS: File stored successfully
-    DS->>DB: Create document record
-    DB-->>DS: Document record created
-    DS-->>A: Document uploaded
-    A-->>F: Upload successful
-    F-->>C: Show upload confirmation
-
-    C->>F: View uploaded documents
-    F->>A: GET /api/documents/{candidateId}
-    A->>DS: getCandidateDocuments()
-    DS->>DB: Query document records
-    DB-->>DS: Document list
-    DS-->>A: Document information
-    A-->>F: Document list
-    F-->>C: Display documents
-```
+- Simplified candidate registration flow
+- Reduced system complexity
+- Eliminated file storage dependencies
+- Streamlined database schema
 
 ---
 
@@ -567,7 +545,7 @@ sequenceDiagram
     participant A as API Gateway
     participant DB as Database
     participant R as Redis
-    participant M as MinIO
+    # MinIO removed - documents module no longer exists
     participant E as Email Service
 
     H->>A: GET /api/health
@@ -576,8 +554,7 @@ sequenceDiagram
     DB-->>A: Connection status
     A->>R: Test Redis connection
     R-->>A: Connection status
-    A->>M: Test MinIO connection
-    M-->>A: Connection status
+    # MinIO health check removed - documents module no longer exists
     A->>E: Test email service
     E-->>A: Service status
 
@@ -588,7 +565,7 @@ sequenceDiagram
     Note over H,A: - API service status
     Note over H,A: - Database connectivity
     Note over H,A: - Cache service status
-    Note over H,A: - File storage status
+    Note over H,A: - File storage status (removed)
     Note over H,A: - Email service status
     Note over H,A: - System performance metrics
 ```
@@ -635,39 +612,18 @@ sequenceDiagram
     F-->>A: Department added to list
 ```
 
-## Document Upload and Processing
+## Document Upload and Processing - REMOVED
 
 ### Document Upload Flow
 
-```mermaid
-sequenceDiagram
-    participant C as Candidate
-    participant F as Frontend
-    participant API as API Gateway
-    participant DS as Document Service
-    participant M as MinIO Storage
-    participant VS as Virus Scanner
+This functionality has been removed as part of the system simplification. The documents module and MinIO integration have been completely removed from the codebase.
 
-    C->>F: Select document to upload
-    F->>API: POST /api/documents/upload
-    API->>DS: uploadDocument(file, metadata)
+**Reason for Removal:**
 
-    DS->>VS: Scan file for viruses
-    VS-->>DS: Scan result (clean/infected)
-
-    alt File is clean
-        DS->>M: Store file in MinIO
-        M-->>DS: File stored successfully
-        DS->>DB: Save document metadata
-        DS-->>API: Upload success
-        API-->>F: Document uploaded
-        F-->>C: Upload confirmation
-    else File is infected
-        DS-->>API: Upload rejected
-        API-->>F: Upload failed
-        F-->>C: Error message
-    end
-```
+- Simplified candidate registration flow
+- Reduced system complexity
+- Eliminated file storage dependencies
+- Streamlined database schema
 
 ## Payment Webhook Processing
 
@@ -794,7 +750,7 @@ sequenceDiagram
     Note over C,WS: Real-time updates for:
     Note over C,WS: - Application status changes
     Note over C,WS: - Payment confirmations
-    Note over C,WS: - Document verification status
+    Note over C,WS: - Profile verification status
     Note over C,WS: - Admission decisions
 
     S->>A: Status update

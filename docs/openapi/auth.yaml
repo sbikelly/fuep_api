@@ -10,6 +10,7 @@ info:
     - Simplified candidate authentication flow
     - Enhanced security and rate limiting
     - Cleaner interfaces and improved performance
+    - Removed the document upload endpoints as they are not needed for the simplified API
 
 paths:
   # JAMB verification

@@ -486,7 +486,7 @@ export class AdminReportService {
         jambScore: candidate.jamb_score,
         applicationStatus: candidate.application_status,
         paymentStatus: candidate.payment_status,
-        documentsStatus: candidate.documents_status,
+        // Document status removed - documents module no longer exists
         admissionStatus: candidate.admission_status,
         createdAt: candidate.created_at,
       }));

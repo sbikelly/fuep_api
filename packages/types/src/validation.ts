@@ -87,19 +87,7 @@ export const CommonValidationPatterns = {
     'Zamfara',
   ] as const,
 
-  // File upload constraints
-  fileUpload: {
-    maxSize: 10 * 1024 * 1024, // 10MB
-    allowedMimeTypes: [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ],
-    maxFiles: 5,
-  },
+  // File upload constraints removed - documents module no longer exists
 } as const;
 
 // Custom Zod validators
@@ -129,19 +117,7 @@ export const CustomValidators = {
     errorMap: () => ({ message: 'Please select a valid Nigerian state' }),
   }),
 
-  // File size validator
-  fileSize: (maxSize: number = CommonValidationPatterns.fileUpload.maxSize) =>
-    z.number().max(maxSize, {
-      message: `File size must be less than ${Math.round(maxSize / (1024 * 1024))}MB`,
-    }),
-
-  // File type validator
-  fileType: (
-    allowedTypes: readonly string[] = CommonValidationPatterns.fileUpload.allowedMimeTypes
-  ) =>
-    z.string().refine((type) => allowedTypes.includes(type), {
-      message: `File type not allowed. Allowed types: ${allowedTypes.join(', ')}`,
-    }),
+  // File validators removed - documents module no longer exists
 };
 
 // Form validation helpers

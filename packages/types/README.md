@@ -144,7 +144,7 @@ const stateSchema = CustomValidators.nigerianState;
 - **education_records**: Educational background (UTME/DE)
 - **next_of_kin**: Emergency contacts
 - **sponsors**: Financial sponsors
-- **uploads**: Document management
+- **uploads**: Removed - documents module no longer exists
 
 ## Development
 

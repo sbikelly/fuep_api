@@ -23,18 +23,7 @@ services:
     ports:
       - '6379:6379'
 
-  minio:
-    image: minio/minio:latest
-    container_name: fuep_minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: fuep
-      MINIO_ROOT_PASSWORD: fuepstrongpassword
-    ports:
-      - '9000:9000'
-      - '9001:9001'
-    volumes:
-      - miniodata:/data
+  # MinIO service removed - documents module no longer exists
 
   mailhog:
     image: mailhog/mailhog
@@ -57,19 +46,13 @@ services:
       - DB_USER=fuep
       - DB_PASSWORD=fuep
       - DB_NAME=fuep_portal
-      - MINIO_ENDPOINT=minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=fuep
-      - MINIO_SECRET_KEY=fuepstrongpassword
-      - MINIO_USE_SSL=false
+      # MinIO environment variables removed - documents module no longer exists
       - BRAND_PRIMARY_COLOR=FF134F47
     ports:
       - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_started
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://localhost:4000/api/health || exit 1']
       interval: 10s
@@ -78,4 +61,3 @@ services:
 
 volumes:
   pgdata:
-  miniodata:

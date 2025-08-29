@@ -541,7 +541,7 @@ function getModuleFromPath(path: string): string {
   if (path.startsWith('/api/admin')) return 'admin';
   if (path.startsWith('/api/candidates')) return 'candidates';
   if (path.startsWith('/api/payments')) return 'payments';
-  if (path.startsWith('/api/documents')) return 'documents';
+  // Documents module removed
   if (path.startsWith('/api/auth')) return 'auth';
   return 'api';
 }

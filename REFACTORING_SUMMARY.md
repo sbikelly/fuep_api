@@ -138,7 +138,7 @@ payment/
 - Payment initiation, verification, and status checking
 - Webhook processing
 
-### **📁 Documents Module** (`apps/api/src/modules/documents/`) - **REORGANIZED**
+### **📁 Documents Module** (`apps/api/src/modules/documents/`) - **REMOVED**
 
 ```
 documents/
@@ -152,8 +152,8 @@ documents/
 
 **Routes Maintained:**
 
-- All existing document routes preserved
-- File upload, download, and management
+- Document module completely removed
+- File upload functionality no longer available
 - Health status checking
 
 ### **📁 Routes Module** (`apps/api/src/modules/routes/`)
@@ -279,7 +279,7 @@ apps/api/src/
 │   ├── admin/                        # Admin module (reorganized)
 │   ├── candidates/                   # Candidates module (reorganized)
 │   ├── payment/                      # Payment module (reorganized)
-│   ├── documents/                    # Documents module (reorganized)
+│   ├── documents/                    # Documents module (removed)
 │   └── routes/                       # Central route management
 ├── services/                         # Shared services
 ├── utils/                            # Utility functions

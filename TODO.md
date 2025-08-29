@@ -33,7 +33,7 @@
 - [x] **JAMB Verification System** - Prelist validation and account creation
 - [x] **Progressive Registration Flow** - Step-by-step profile completion
 - [x] **Profile Management** - Biodata, education, next-of-kin, sponsor
-- [x] **Document Upload System** - MinIO integration for file storage
+- [x] **Document Upload System** - Removed as part of simplification
 - [x] **Application Status Tracking** - Real-time application progress
 
 ### **Admin Module**
@@ -79,7 +79,7 @@
 - [ ] **Real-time Notifications** - WebSocket integration
 - [ ] **Advanced Reporting** - Custom report generation
 - [ ] **SMS Integration** - Text message notifications
-- [ ] **Document Verification** - Automated document processing
+- [x] **Document Verification** - Removed as part of simplification
 
 ---
 
@@ -91,7 +91,7 @@
   - [ ] Candidate registration forms
   - [ ] Dashboard and profile management
   - [ ] Payment integration interface
-  - [ ] Document upload interface
+  - [x] Document upload interface - Removed as part of simplification
   - [ ] Application status tracking
 
 - [ ] **Admin Panel Interface**
@@ -258,7 +258,7 @@
 
 - [ ] **AI-Powered Features**
   - [ ] Chatbot support
-  - [ ] Automated document processing
+  - [x] Automated document processing - Removed as part of simplification
   - [ ] Intelligent form filling
   - [ ] Predictive maintenance
 

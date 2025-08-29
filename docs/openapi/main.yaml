@@ -10,13 +10,29 @@ info:
     - Unified admin-candidate integration
     - Simplified payment system with direct Remita integration
     - Enhanced performance and maintainability
-    - Cleaner interfaces and improved developer experience
+    - Removed the document upload endpoints as they are not needed for the simplified API
 
 security:
   - bearerAuth: []
 
 paths:
   # System health endpoints (mounted at /api/system)
+  /api/health:
+    get:
+      summary: Root system health check
+      tags: [System]
+      responses:
+        '200':
+          description: Basic system health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  service: { type: string }
+                  timestamp: { type: string, format: date-time }
+
   /api/system:
     get:
       summary: Root system health check

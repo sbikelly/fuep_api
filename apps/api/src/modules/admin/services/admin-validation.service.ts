@@ -38,18 +38,7 @@ export class AdminValidationService {
     return { isValid: true, errors: [] };
   }
 
-  static validateDocumentsStatus(status: string): ValidationResult {
-    const validStatuses = ['pending', 'submitted', 'verified', 'rejected'];
-
-    if (!validStatuses.includes(status)) {
-      return {
-        isValid: false,
-        errors: [`Invalid documents status. Must be one of: ${validStatuses.join(', ')}`],
-      };
-    }
-
-    return { isValid: true, errors: [] };
-  }
+  // Document status validation removed - documents module no longer exists
 
   static validateAdmissionStatus(status: string): ValidationResult {
     const validStatuses = [

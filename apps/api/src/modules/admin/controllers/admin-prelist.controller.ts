@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import multer from 'multer';
 import xlsx from 'xlsx';
 
 import { db } from '../../../db/knex.js';
@@ -7,18 +6,23 @@ import { db } from '../../../db/knex.js';
 export class AdminPrelistController {
   /**
    * Upload prelist file and directly create candidates
+   * Note: This endpoint expects the file to be sent as base64 in the request body
    */
   async uploadPrelist(req: Request, res: Response): Promise<void> {
     try {
-      if (!req.file) {
+      const { fileData, fileName } = req.body;
+
+      if (!fileData) {
         res.status(400).json({
           success: false,
-          error: 'No file uploaded',
+          error: 'No file data provided. Please send file as base64 in fileData field.',
         });
         return;
       }
 
-      const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+      // Convert base64 to buffer
+      const buffer = Buffer.from(fileData, 'base64');
+      const workbook = xlsx.read(buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const data = xlsx.utils.sheet_to_json(worksheet);
@@ -99,6 +103,7 @@ export class AdminPrelistController {
           email: row.email || null,
           phone: row.phone || null,
           department: row.department || null,
+          department_id: row.department_id || null,
           mode_of_entry: row.mode_of_entry || 'UTME',
           marital_status: row.marital_status || 'single',
           registration_completed: false,
@@ -106,9 +111,7 @@ export class AdminPrelistController {
           education_completed: false,
           next_of_kin_completed: false,
           sponsor_completed: false,
-          admission_status: 'pending',
-          payment_status: 'pending',
-          temp_password_flag: true, // Will need to set password
+          is_active: true,
           created_at: new Date(),
           updated_at: new Date(),
         };
@@ -131,13 +134,13 @@ export class AdminPrelistController {
       const stats = await db('candidates')
         .select(
           db.raw('COUNT(*) as total_candidates'),
-          db.raw('COUNT(CASE WHEN temp_password_flag = true THEN 1 END) as pending_password'),
+          db.raw(
+            'COUNT(CASE WHEN registration_completed = false THEN 1 END) as pending_registration'
+          ),
           db.raw(
             'COUNT(CASE WHEN registration_completed = true THEN 1 END) as completed_registration'
           ),
-          db.raw('COUNT(CASE WHEN admission_status = ? THEN 1 END) as pending_admission', [
-            'pending',
-          ])
+          db.raw('COUNT(CASE WHEN is_active = true THEN 1 END) as active_candidates')
         )
         .first();
 

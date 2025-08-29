@@ -21,13 +21,14 @@ export interface Candidate extends BaseEntity {
   address?: string;
   email?: string;
   phone?: string;
+  passportPhotoUrl?: string;
+  signatureUrl?: string;
   department?: string; // Course of study (DEPRECATED - use departmentId)
   departmentId?: string; // Foreign key to departments table
   departmentInfo?: Department; // Full department information including faculty
   modeOfEntry?: 'UTME' | 'DE'; // Default to 'UTME'
   maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed'; // Default to 'single'
-  passportPhotoUrl?: string;
-  signatureUrl?: string;
+  // Document upload fields removed
 
   // Registration progress flags
   registrationCompleted: boolean;
@@ -62,12 +63,13 @@ export const CandidateSchema = BaseEntitySchema.extend({
   address: z.string().max(500).optional(),
   email: z.string().email().max(160).optional(),
   phone: z.string().max(32).optional(),
+  passportPhotoUrl: z.string().max(255).optional(),
+  signatureUrl: z.string().max(255).optional(),
   department: z.string().max(100).optional(), // DEPRECATED
   departmentId: z.string().uuid().optional(),
   modeOfEntry: z.enum(['UTME', 'DE']).optional(),
   maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
-  passportPhotoUrl: z.string().url().optional(),
-  signatureUrl: z.string().url().optional(),
+  // Document upload fields removed
 
   // Registration progress flags
   registrationCompleted: z.boolean(),
@@ -164,7 +166,7 @@ export interface EducationRecord extends BaseEntity {
   cgpa?: string;
   certificateNumber?: string;
   grade?: string; // A-Level grade
-  certificateUploadUrl?: string[]; // Multiple certificate uploads
+  // Document upload fields removed
 
   // Verification
   verificationStatus?: 'pending' | 'verified' | 'rejected';
@@ -216,7 +218,7 @@ export const EducationRecordSchema = BaseEntitySchema.extend({
   cgpa: z.string().max(10).optional(),
   certificateNumber: z.string().max(100).optional(),
   grade: z.string().max(20).optional(),
-  certificateUploadUrl: z.array(z.string().url()).optional(),
+  // Document upload fields removed
 
   // Verification
   verificationStatus: z.enum(['pending', 'verified', 'rejected']).optional(),
@@ -281,27 +283,7 @@ export const SponsorSchema = BaseEntitySchema.extend({
   paymentResponsibility: z.boolean(),
 });
 
-// ============================================
-// Simplified Upload Types
-// ============================================
-
-export interface Upload extends BaseEntity {
-  candidateId: string;
-  type: string; // passport, certificate, transcript, etc.
-  fileUrl: string;
-  fileName?: string;
-  fileSize?: number;
-  mimeType?: string;
-}
-
-export const UploadSchema = BaseEntitySchema.extend({
-  candidateId: z.string().uuid(),
-  type: z.string().min(1).max(50),
-  fileUrl: z.string().url(),
-  fileName: z.string().max(255).optional(),
-  fileSize: z.number().int().positive().optional(),
-  mimeType: z.string().max(128).optional(),
-});
+// Upload types removed - documents module no longer exists
 
 // ============================================
 // Profile Completion Status Types
@@ -365,6 +347,7 @@ export interface CandidateProfileUpdateRequest {
   email?: string;
   phone?: string;
   department?: string;
+  departmentId?: string;
   modeOfEntry?: 'UTME' | 'DE';
   maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed';
   passportPhotoUrl?: string;
@@ -386,11 +369,13 @@ export const CandidateProfileUpdateRequestSchema = z.object({
   address: z.string().max(500).optional(),
   email: z.string().email().max(160).optional(),
   phone: z.string().max(32).optional(),
+  passportPhotoUrl: z.string().max(255).optional(),
+  signatureUrl: z.string().max(255).optional(),
   department: z.string().max(100).optional(),
+  departmentId: z.string().uuid().optional(),
   modeOfEntry: z.enum(['UTME', 'DE']).optional(),
   maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
-  passportPhotoUrl: z.string().url().optional(),
-  signatureUrl: z.string().url().optional(),
+  // Document upload fields removed
 });
 
 // Application Create Request

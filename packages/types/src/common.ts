@@ -66,22 +66,7 @@ export type Status = 'pending' | 'active' | 'inactive' | 'deleted';
 
 export const StatusSchema = z.enum(['pending', 'active', 'inactive', 'deleted']);
 
-// File upload types
-export interface FileUpload {
-  filename: string;
-  originalName: string;
-  mimetype: string;
-  size: number;
-  path: string;
-}
-
-export const FileUploadSchema = z.object({
-  filename: z.string(),
-  originalName: z.string(),
-  mimetype: z.string(),
-  size: z.number().positive(),
-  path: z.string(),
-});
+// File upload types removed - documents module no longer exists
 
 // Environment types
 export type Environment = 'development' | 'staging' | 'production';

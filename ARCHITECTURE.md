@@ -57,7 +57,7 @@ The FUEP Post-UTME Portal is a comprehensive, microservices-based application de
          ┌─────────────────────────────────────────────────┐
          │              Infrastructure Layer               │
          ├─────────────────────────────────────────────────┤
-         │  PostgreSQL  │  Redis  │  MinIO   │  Email     │
+         │  PostgreSQL  │  Redis  │  Email   │  Email     │
          │  Database    │  Cache  │  Storage │  Service   │
          └─────────────────────────────────────────────────┘
 ```
@@ -119,7 +119,7 @@ The candidate system has been completely refactored to eliminate unnecessary com
 │  education_records: Educational background (UTME/DE)           │
 │  next_of_kin: Emergency contacts                              │
 │  sponsors: Financial sponsors                                  │
-│  uploads: Document management                                  │
+│  uploads: Removed - documents module no longer exists          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -209,7 +209,7 @@ The admin module has been fully integrated with the simplified candidate system:
          ┌─────────────────────────────────────────────────┐
          │              Supporting Entities                 │
          ├─────────────────────────────────────────────────┤
-         │  documents  │  audit_logs │  email_logs │  users    │
+         │  audit_logs │  email_logs │  users      │  users    │
          │  (files)    │  (tracking) │  (notifications) │ (admin) │
          └─────────────────────────────────────────────────┘
 ```
@@ -365,10 +365,10 @@ The admin module has been fully integrated with the simplified candidate system:
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                                        │
          ┌─────────────────────────────────────────────────┐
-         │              Document Upload                    │
+         │              Profile Management                 │
          ├─────────────────────────────────────────────────┤
-         │  File         │  Validation    │  Storage       │
-         │  Upload       │  & Processing  │  Management    │
+         │  Profile      │  Completion    │  Validation    │
+         │  Management  │  & Tracking    │  & Monitoring  │
          └─────────────────────────────────────────────────┘
 ```
 
@@ -451,7 +451,7 @@ The admin module has been fully integrated with the simplified candidate system:
 │                    Render.com Platform                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  API Service   │  Database      │  Cache        │  Storage     │
-│  (Docker)      │  (PostgreSQL)  │  (Redis)      │  (MinIO)     │
+│  (Docker)      │  (PostgreSQL)  │  (Redis)      │  (Removed)   │
 │  fuep-api      │  fuep-postgres │  External     │  External    │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -485,7 +485,7 @@ The admin module has been fully integrated with the simplified candidate system:
 #### **External Services**
 
 - **Redis**: External Redis service via `REDIS_URL` environment variable
-- **MinIO**: External MinIO service for file storage
+- **MinIO**: Removed - documents module no longer exists
 - **Email**: External SMTP service for production emails
 
 ### **Deployment Features**
@@ -540,4 +540,4 @@ The admin module has been fully integrated with the simplified candidate system:
 
 ---
 
-_This architecture document reflects the current state of the FUEP Post-UTME Portal as of August 2025._
+_This architecture document reflects the current state of the FUEP Post-UTME Portal as of December 2024._

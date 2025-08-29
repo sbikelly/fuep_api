@@ -540,6 +540,7 @@ export class AdminCandidateService {
       email: record.email,
       phone: record.phone,
       department: record.department,
+      departmentId: record.department_id,
       modeOfEntry: record.mode_of_entry || 'UTME',
       maritalStatus: record.marital_status || 'single',
       passportPhotoUrl: record.passport_photo_url,
