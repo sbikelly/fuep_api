@@ -554,6 +554,7 @@ export class AdminCandidateService {
       paymentStatus: undefined, // Would come from applications table
       rrr: undefined, // Would come from applications table
       passwordHash: record.password_hash,
+      isFirstLogin: record.is_first_login || true,
       createdAt: record.created_at,
       updatedAt: record.updated_at,
     };

@@ -60,6 +60,279 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminAuthTokens'
 
+  # Candidate batch upload management
+  /api/admin/batch-upload/upload:
+    post:
+      summary: Upload candidate batch from Excel file
+      tags: [Admin]
+      description: |
+        Upload candidates in batch using CSV or Excel file. The frontend should extract file content and send as base64 data.
+
+        **Important**: Passwords are NOT created during batch upload. Candidates are created with `password_hash` set to `null`.
+        Passwords are only created when candidates initiate registration by entering their JAMB number on the application page.
+
+        This allows the system to distinguish between candidates who have been uploaded but not yet initiated registration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileData, fileName]
+              properties:
+                fileData:
+                  type: string
+                  description: Base64 encoded Excel file content
+                fileName:
+                  type: string
+                  description: Name of the uploaded file
+      responses:
+        '200':
+          description: Batch upload completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      created: { type: integer }
+                      updated: { type: integer }
+                      errors:
+                        type: array
+                        items: { type: string }
+        '400':
+          description: Invalid file data or processing error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  error: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      created: { type: integer }
+                      updated: { type: integer }
+                      errors:
+                        type: array
+                        items: { type: string }
+
+  /api/admin/batch-upload/stats:
+    get:
+      summary: Get batch upload statistics
+      tags: [Admin]
+      description: Get statistics about candidate batch uploads
+      responses:
+        '200':
+          description: Batch upload statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      total_candidates: { type: string }
+                      pending_registration: { type: string }
+                      completed_registration: { type: string }
+                      active_candidates: { type: string }
+                      first_time_logins: { type: string }
+
+  /api/admin/batch-upload/template/{type}:
+    get:
+      summary: Download candidate batch upload template
+      tags: [Admin]
+      description: Get template for UTME or DE candidates
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [utme, de]
+          description: Template type (UTME or DE)
+      responses:
+        '200':
+          description: Template information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  templatePath: { type: string }
+
+  # Admin candidate management
+  /api/admin/candidates:
+    get:
+      summary: Get all candidates with pagination and filters
+      tags: [Admin]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+          description: Page number
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+          description: Number of candidates per page
+        - in: query
+          name: search
+          schema: { type: string }
+          description: Search by name, JAMB number, or email
+        - in: query
+          name: status
+          schema: { type: string, enum: [active, inactive, pending] }
+          description: Filter by candidate status
+        - in: query
+          name: department
+          schema: { type: string }
+          description: Filter by department
+        - in: query
+          name: modeOfEntry
+          schema: { type: string, enum: [UTME, DE] }
+          description: Filter by mode of entry
+      responses:
+        '200':
+          description: List of candidates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Candidate' }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      limit: { type: integer }
+                      total: { type: integer }
+                      totalPages: { type: integer }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/candidates/{candidateId}:
+    get:
+      summary: Get candidate by ID
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Candidate details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+
+    put:
+      summary: Update candidate
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Candidate updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/candidates/{candidateId}/notes:
+    post:
+      summary: Add note to candidate
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string }
+                isPrivate: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Note added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+    get:
+      summary: Get candidate notes
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of candidate notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        note: { type: string }
+                        isPrivate: { type: boolean }
+                        createdAt: { type: string, format: date-time }
+                  timestamp: { type: string, format: date-time }
+
   # Admin user management
   /api/admin/users:
     get:
@@ -420,201 +693,7 @@ paths:
                   message: { type: string }
                   timestamp: { type: string, format: date-time }
 
-  # Program management
-  /api/admin/programs:
-    get:
-      summary: Get all programs
-      tags: [Admin]
-      parameters:
-        - in: query
-          name: search
-          schema: { type: string }
-        - in: query
-          name: isActive
-          schema: { type: boolean }
-        - in: query
-          name: page
-          schema: { type: integer, default: 1 }
-        - in: query
-          name: limit
-          schema: { type: integer, default: 10 }
-      responses:
-        '200':
-          description: List of programs
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Program' }
-                  pagination:
-                    $ref: '#/components/schemas/PaginationInfo'
-                  timestamp: { type: string, format: date-time }
-
-    post:
-      summary: Create program
-      tags: [Admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProgramCreateRequest'
-      responses:
-        '201':
-          description: Program created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Program' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/programs/{id}:
-    get:
-      summary: Get program by ID
-      tags: [Admin]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Program details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Program' }
-                  timestamp: { type: string, format: date-time }
-
-    put:
-      summary: Update program
-      tags: [Admin]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProgramUpdateRequest'
-      responses:
-        '200':
-          description: Program updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Program' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-    delete:
-      summary: Delete program
-      tags: [Admin]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Program deleted successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-  # Program-Department relationships
-  /api/admin/program-departments:
-    post:
-      summary: Link program to department
-      tags: [Admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProgramDepartmentLinkRequest'
-      responses:
-        '201':
-          description: Program linked to department successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/ProgramDepartmentLink' }
-                  message: { type: string }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/departments/{id}/programs:
-    get:
-      summary: Get programs by department
-      tags: [Admin]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Programs in department
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Program' }
-                  timestamp: { type: string, format: date-time }
-
-  /api/admin/programs/{id}/departments:
-    get:
-      summary: Get departments by program
-      tags: [Admin]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Departments offering program
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Department' }
-                  timestamp: { type: string, format: date-time }
-
-components:
+  components:
   schemas:
     AdminUser:
       type: object

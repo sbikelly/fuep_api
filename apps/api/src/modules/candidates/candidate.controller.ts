@@ -943,19 +943,16 @@ export class CandidateController {
    */
   async checkJambAndInitiateRegistration(req: Request, res: Response) {
     try {
-      const { jambRegNo, email, phone } = req.body;
+      const { jambRegNo } = req.body;
 
-      if (!jambRegNo || !email || !phone) {
+      if (!jambRegNo) {
         return res.status(400).json({
           success: false,
-          error: 'JAMB registration number, email, and phone are required',
+          error: 'JAMB registration number is required',
         });
       }
 
-      const result = await this.candidateService.checkJambAndInitiateRegistration(jambRegNo, {
-        email,
-        phone,
-      });
+      const result = await this.candidateService.checkJambAndInitiateRegistration(jambRegNo);
 
       return res.json({
         success: result.success,
@@ -964,6 +961,7 @@ export class CandidateController {
           candidateId: result.candidateId,
           nextStep: result.nextStep,
           requiresContactUpdate: result.requiresContactUpdate,
+          candidateType: result.candidateType,
         },
       });
     } catch (error) {
@@ -1004,6 +1002,38 @@ export class CandidateController {
       return res.status(500).json({
         success: false,
         error: 'Failed to complete contact information',
+      });
+    }
+  }
+
+  /**
+   * Mark first login as completed
+   */
+  async markFirstLoginCompleted(req: Request, res: Response) {
+    try {
+      const { candidateId } = req.params;
+
+      const result = await this.candidateService.markFirstLoginCompleted(candidateId);
+
+      if (result.success) {
+        res.status(200).json({
+          success: true,
+          message: result.message,
+          timestamp: new Date(),
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.message,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      this.logger.error(`[CandidateController] Failed to mark first login completed: ${error}`);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to mark first login as completed',
+        timestamp: new Date(),
       });
     }
   }

@@ -2,7 +2,6 @@ import { AdminAcademicService } from './admin-academic.service.js';
 import { AdminAdmissionService } from './admin-admission.service.js';
 import { AdminCandidateService } from './admin-candidate.service.js';
 import { AdminPaymentService } from './admin-payment.service.js';
-import { AdminPrelistService } from './admin-prelist.service.js';
 import { AdminReportService } from './admin-report.service.js';
 
 export interface AdminDashboardSummary {
@@ -71,7 +70,6 @@ export interface AdminAnalytics {
 export class AdminService {
   constructor(
     private academicService: AdminAcademicService,
-    private prelistService: AdminPrelistService,
     private candidateService: AdminCandidateService,
     private paymentService: AdminPaymentService,
     private admissionService: AdminAdmissionService,
@@ -588,26 +586,6 @@ export class AdminService {
   // ============================================
   // Admin Controller Method Delegations
   // ============================================
-
-  // Prelist Management
-  async uploadPrelist(file: any, adminUserId: string) {
-    return this.prelistService.uploadPrelist(file.buffer, file.originalname, adminUserId);
-  }
-
-  async getPrelistBatches(limit: number = 50, offset: number = 0) {
-    return this.prelistService.getUploadBatches(undefined, {
-      page: Math.floor(offset / limit) + 1,
-      limit,
-    });
-  }
-
-  async getPrelistBatch(batchId: string) {
-    return this.prelistService.getUploadBatchById(batchId);
-  }
-
-  async getPrelistErrors(batchId: string) {
-    return this.prelistService.getUploadErrorsByBatchId(batchId);
-  }
 
   // Candidate Management
   async getCandidates(limit: number = 50, offset: number = 0, filters?: any) {

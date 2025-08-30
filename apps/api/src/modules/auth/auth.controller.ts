@@ -37,13 +37,13 @@ export class AuthController {
       // Import db here to avoid circular dependency
       const { db } = await import('../../db/knex.js');
 
-      const row = await db('jamb_prelist').where({ jamb_reg_no: normalizedJambRegNo }).first();
-      if (!row) {
+      const candidate = await db('candidates').where({ jamb_reg_no: normalizedJambRegNo }).first();
+      if (!candidate) {
         const response: ApiResponse = {
           success: true,
           data: {
             exists: false,
-            message: 'JAMB registration number not found in prelist',
+            message: 'JAMB registration number not found in candidates database',
           },
           timestamp: new Date(),
         };
@@ -55,22 +55,19 @@ export class AuthController {
         success: true,
         data: {
           exists: true,
-          message: 'JAMB registration number found in prelist',
+          message: 'JAMB registration number found in candidates database',
           biodata: {
-            jambRegNo: row.jamb_reg_no,
-            surname: row.surname,
-            firstname: row.firstname,
-            othernames: row.othernames,
-            gender: row.gender,
-            programmeCode: row.programme_code,
-            departmentCode: row.department_code,
-            faculty: row.faculty,
-            stateOfOrigin: row.state_of_origin,
-            lgaOfOrigin: row.lga_of_origin,
-            email: row.email,
-            phone: row.phone,
-            utmeScore: row.utme_score,
-            session: row.session,
+            jambRegNo: candidate.jamb_reg_no,
+            surname: candidate.surname,
+            firstname: candidate.firstname,
+            othernames: candidate.othernames,
+            gender: candidate.gender,
+            department: candidate.department,
+            stateOfOrigin: candidate.state,
+            lgaOfOrigin: candidate.lga,
+            email: candidate.email,
+            phone: candidate.phone,
+            modeOfEntry: candidate.mode_of_entry,
           },
         },
         timestamp: new Date(),

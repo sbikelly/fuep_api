@@ -8,7 +8,6 @@ import { AdminAuthService } from './services/admin-auth.service.js';
 import { AdminCandidateService } from './services/admin-candidate.service.js';
 import { AdminPaymentService } from './services/admin-payment.service.js';
 import { AdminPermissionService } from './services/admin-permission.service.js';
-import { AdminPrelistService } from './services/admin-prelist.service.js';
 import { AdminReportService } from './services/admin-report.service.js';
 import { PaymentPurposeService } from './services/payment-purpose.service.js';
 
@@ -51,10 +50,6 @@ export function createAdminModule(): AdminModule {
     const adminPaymentService = new AdminPaymentService(adminAuditService);
     console.log('[AdminModule] AdminPaymentService created successfully');
 
-    console.log('[AdminModule] Creating AdminPrelistService...');
-    const adminPrelistService = new AdminPrelistService(adminAuditService);
-    console.log('[AdminModule] AdminPrelistService created successfully');
-
     console.log('[AdminModule] Creating AdminAdmissionService...');
     const adminAdmissionService = new AdminAdmissionService(adminAuditService);
     console.log('[AdminModule] AdminAdmissionService created successfully');
@@ -74,7 +69,7 @@ export function createAdminModule(): AdminModule {
     console.log('[AdminModule] Creating AdminService...');
     const adminService = new AdminService(
       adminAcademicService,
-      adminPrelistService,
+
       adminCandidateService,
       adminPaymentService,
       adminAdmissionService,

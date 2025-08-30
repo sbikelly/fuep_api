@@ -15,38 +15,42 @@ import { db } from '../../db/knex.js';
 import { logger } from '../../middleware/logging.js';
 import { withDatabaseLogging, withPerformanceLogging } from '../../middleware/logging.js';
 import { EmailService } from '../../services/email.service.js';
+import { SMSService } from '../../services/sms.service.js';
 import { PasswordUtils } from '../../utils/password.utils.js';
 
 export class CandidateService {
   private emailService: EmailService;
+  private smsService: SMSService;
 
   constructor(private logger: Console) {
     this.emailService = new EmailService();
+    this.smsService = new SMSService();
   }
 
   /**
-   * Phase 1: JAMB Verification & Account Creation
-   * Check JAMB registration number and initiate registration
-   * if the registration number exist in the prelist, create a new candidate account
-   * check "candidates" table for the candidate with the same jamb_reg_no
-   * if the candidate is found, it means the candidate has already initiateed/completed registration
-   * redirect the candidate to the login page to login and complete the registration process
-   * but if the candidate is not found in the "candidates" table, it means the candidate has not initiated/completed registration
-   * check if the candidate's contact info exists from the prelist
-   * if it exists, proceed to create a new candidate account
-   * if it does not exist, prompt the candidate to complete the contact info by calling the "completeContactInfo" function
-   * if the contact info is completed, proceed to create a new candidate account
-   * send a temporary password to the candidate's email
-   * redirect the candidate to the login page to login and complete the registration process
-   * if the candidate is not found in the "candidates" table, it means the candidate has not initiated/completed registration
+   * ***** Registration Process *****
+   * **** Admin flow ****
+   * Admin upload the candidates from jamb using the excel template(whose content will be extracted from the frontend) to the candidates database table
+   *
+   * **** Candidate registration flow ****
+   * ** JAMB Verification & Account Creation **
+   * Check JAMB registration number from the application page to initiate registration
+   * if the registration number exists in the candidates table
+   * check whether the candidate already has password_hash(which will be used to different between candidate who have initiated registration and those who have not because the ones who have initiated registration will have a password_hash automatically created and sent to their email)
+   * if the candidate is have already initiated registration, redirect the candidate to the login page to login and complete the registration process
+   * but if the password_hash is not found in the "candidates" table, it means the candidate has not initiated/completed registration
+   * check if the candidate's contact info(email and phone) exists
+   * if the contact info exists, proceed to create and send a temporary password to the candidate's email and also flag the password_hash (by setting the value of candidate's isFirstLogin to true)
+   * else if the contact info does not exist, prompt the candidate to complete the contact info by calling the "completeContactInfo" function
+   * after the contact info are provided by the candidate, proceed to create and send a temporary password to the candidate's email and also flag the password_hash (by setting the value of candidate's isFirstLogin to true)  send a temporary password to the candidate's email
+   * redirect the candidate to the login page to login page
+   * after the candidate successfully logged in using his jambregno as username and the temporary password,check if the candidate's isFirstLogin is set to tru
+   * if isFirstLogin is true, propmt the candidate to change his password.
+   * check if the candidate has completed the registration process
+   * if the candidate has completed the registration process, redirect the candidate to the dashboard home page
+   * else if the candidate has not completed the registration process, redirect the candidate to the biodata page to complete the biodata registration process
    */
-  async checkJambAndInitiateRegistration(
-    jambRegNo: string,
-    contactInfo: {
-      email: string;
-      phone: string;
-    }
-  ): Promise<{
+  async checkJambAndInitiateRegistration(jambRegNo: string): Promise<{
     success: boolean;
     message: string;
     candidateId?: string;
@@ -56,119 +60,99 @@ export class CandidateService {
   }> {
     return await withDatabaseLogging('checkJambAndInitiateRegistration', 'candidates', async () => {
       try {
-        // Check if candidate already exists
-        const existingCandidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
+        // Check if JAMB number exists in candidates table
+        const candidateRecord = await db('candidates').where('jamb_reg_no', jambRegNo).first();
 
-        if (existingCandidate) {
-          // Check if candidate has completed registration
-          if (existingCandidate.registration_completed) {
-            return {
-              success: false,
-              message: 'Candidate has already completed registration',
-              nextStep: 'login',
-            };
-          }
-
-          // Check if contact info needs update
-          if (!existingCandidate.email || !existingCandidate.phone) {
-            return {
-              success: false,
-              message: 'Contact information required',
-              candidateId: existingCandidate.id,
-              nextStep: 'complete_contact',
-              requiresContactUpdate: true,
-              candidateType: existingCandidate.mode_of_entry,
-            };
-          }
-
-          return {
-            success: true,
-            message: 'Candidate found, proceed with profile completion',
-            candidateId: existingCandidate.id,
-            nextStep: 'biodata',
-            candidateType: existingCandidate.mode_of_entry,
-          };
-        }
-
-        // Check if JAMB number exists in prelist (UTME or DE)
-        const utmeCandidate = await db('utme_prelist').where('jamb_reg_no', jambRegNo).first();
-        const deCandidate = await db('de_prelist').where('jamb_reg_no', jambRegNo).first();
-
-        if (!utmeCandidate && !deCandidate) {
+        if (!candidateRecord) {
           return {
             success: false,
-            message: 'JAMB registration number not found in prelist',
+            message:
+              'JAMB registration number not found in candidates database. Please contact admin for assistance.',
             nextStep: 'error',
           };
         }
 
-        const candidateType = utmeCandidate ? 'UTME' : 'DE';
-        const prelistData = utmeCandidate || deCandidate;
+        // Check if candidate already has password_hash (has initiated registration)
+        if (candidateRecord.password_hash) {
+          return {
+            success: true,
+            message: 'Candidate has already initiated registration. Please login to continue.',
+            candidateId: candidateRecord.id,
+            nextStep: 'login',
+            candidateType: candidateRecord.mode_of_entry,
+          };
+        }
 
-        // Create new candidate account with simplified schema
-        const temporaryPassword = PasswordUtils.generateTemporaryPassword();
-        const hashedPassword = await PasswordUtils.hashPassword(temporaryPassword);
+        // Candidate exists but no password_hash, it means he hasn't inititated registration yet
+        // check contact info before initiating the registration process
+        if (!candidateRecord.email || !candidateRecord.phone) {
+          return {
+            success: false,
+            message: 'Contact information required to complete registration',
+            candidateId: candidateRecord.id,
+            nextStep: 'complete_contact',
+            requiresContactUpdate: true,
+            candidateType: candidateRecord.mode_of_entry,
+          };
+        }
 
-        const [candidate] = await db('candidates')
-          .insert({
-            jamb_reg_no: jambRegNo,
-            firstname: prelistData.firstname || '',
-            surname: prelistData.surname || '',
-            othernames: prelistData.othernames || '',
-            gender: prelistData.gender || 'other',
-            state: prelistData.state_of_origin || '',
-            lga: prelistData.lga_of_origin || '',
-            email: contactInfo.email,
-            phone: contactInfo.phone,
-            password_hash: hashedPassword,
-            mode_of_entry: candidateType,
-            registration_completed: false,
-            biodata_completed: false,
-            education_completed: false,
-            next_of_kin_completed: false,
-            sponsor_completed: false,
-          })
-          .returning('*');
+        // Contact info exists - create password and send email
+        const tempPassword = PasswordUtils.generateTemporaryPassword();
+        const hashedPassword = await PasswordUtils.hashPassword(tempPassword);
+
+        // Update candidate with password and set isFirstLogin to true
+        await db('candidates').where('id', candidateRecord.id).update({
+          password_hash: hashedPassword,
+          is_first_login: true,
+          updated_at: new Date(),
+        });
 
         // Send temporary password email
-        const emailSent = await this.emailService.sendTemporaryPassword(
-          contactInfo.email,
-          jambRegNo,
-          temporaryPassword,
-          prelistData.firstname || 'Candidate'
-        );
-
-        if (!emailSent) {
+        try {
+          await this.emailService.sendTemporaryPassword(
+            candidateRecord.email,
+            jambRegNo,
+            tempPassword,
+            `${candidateRecord.firstname} ${candidateRecord.surname}`
+          );
+        } catch (emailError) {
           logger.warn('Failed to send temporary password email', {
             module: 'candidate',
             operation: 'checkJambAndInitiateRegistration',
-            metadata: { candidateId: candidate.id, email: contactInfo.email },
+            metadata: { candidateId: candidateRecord.id, email: candidateRecord.email },
+            error: emailError instanceof Error ? emailError.message : String(emailError),
           });
         }
 
-        logger.info('New candidate account created successfully', {
-          module: 'candidate',
-          operation: 'checkJambAndInitiateRegistration',
-          metadata: {
-            candidateId: candidate.id,
+        // Send SMS notification
+        try {
+          await this.smsService.sendTemporaryPasswordSMS(
+            candidateRecord.phone,
             jambRegNo,
-            email: contactInfo.email,
-            candidateType,
-          },
-        });
+            tempPassword,
+            `${candidateRecord.firstname} ${candidateRecord.surname}`
+          );
+        } catch (smsError) {
+          logger.warn('Failed to send SMS notification', {
+            module: 'candidate',
+            operation: 'checkJambAndInitiateRegistration',
+            metadata: { candidateId: candidateRecord.id, phone: candidateRecord.phone },
+            error: smsError instanceof Error ? smsError.message : String(smsError),
+          });
+        }
 
         return {
           success: true,
-          message: 'Account created successfully. Check your email for login credentials.',
-          candidateId: candidate.id,
-          nextStep: 'biodata',
-          candidateType,
+          message: 'Temporary password sent to your email. Please login to continue.',
+          candidateId: candidateRecord.id,
+          nextStep: 'login',
+          candidateType: candidateRecord.mode_of_entry,
         };
       } catch (error) {
         logger.error('Failed to check JAMB and initiate registration', {
           module: 'candidate',
           operation: 'checkJambAndInitiateRegistration',
-          metadata: { jambRegNo, contactInfo },
+          metadata: { jambRegNo },
           error: error instanceof Error ? error.message : String(error),
         });
         throw error;
@@ -208,6 +192,12 @@ export class CandidateService {
           phone: contactInfo.phone,
         });
 
+        logger.info('Contact information completed successfully', {
+          module: 'candidate',
+          operation: 'completeContactInfo',
+          metadata: { candidateId, contactInfo },
+        });
+
         // If candidate needs new password, generate and send
         if (!candidate.password_hash) {
           const tempPassword = PasswordUtils.generateTemporaryPassword();
@@ -223,8 +213,25 @@ export class CandidateService {
             contactInfo.email,
             candidate.jamb_reg_no,
             tempPassword,
-            'Candidate'
+            `${candidate.firstname} ${candidate.surname}`
           );
+
+          // Send SMS notification
+          try {
+            await this.smsService.sendTemporaryPasswordSMS(
+              contactInfo.phone,
+              candidate.jamb_reg_no,
+              tempPassword,
+              `${candidate.firstname} ${candidate.surname}`
+            );
+          } catch (smsError) {
+            logger.warn('Failed to send SMS notification', {
+              module: 'candidate',
+              operation: 'completeContactInfo',
+              metadata: { candidateId, phone: contactInfo.phone },
+              error: smsError instanceof Error ? smsError.message : String(smsError),
+            });
+          }
         }
 
         logger.info('Contact information completed successfully', {
@@ -236,7 +243,7 @@ export class CandidateService {
         return {
           success: true,
           message: 'Contact information updated successfully',
-          nextStep: 'biodata',
+          nextStep: 'login',
         };
       } catch (error) {
         logger.error('Failed to complete contact information', {
@@ -362,7 +369,7 @@ export class CandidateService {
             certificate_type: education.certificateType,
             exam_year: education.examYear,
             exam_type: education.examType,
-            exam_number: education.examNumber,
+            exam_numbers: [education.examNumber], // Convert to array as per table schema
             seating_count: education.seatingCount,
             subjects: JSON.stringify(education.subjects),
             jamb_subjects:
@@ -371,7 +378,7 @@ export class CandidateService {
               candidate.candidate_type === 'DE' ? education.certificateTypeDE : null,
             certificate_number:
               candidate.candidate_type === 'DE' ? education.certificateNumber : null,
-            a_level_grade: candidate.candidate_type === 'DE' ? education.aLevelGrade : null,
+            grade: candidate.candidate_type === 'DE' ? education.aLevelGrade : null,
             // Certificate upload removed - documents module no longer exists
             created_at: new Date(),
             updated_at: new Date(),
@@ -604,6 +611,42 @@ export class CandidateService {
   }
 
   /**
+   * Mark candidate as having completed first login
+   */
+  async markFirstLoginCompleted(candidateId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return await withDatabaseLogging('markFirstLoginCompleted', 'candidates', async () => {
+      try {
+        await db('candidates').where('id', candidateId).update({
+          is_first_login: false,
+          updated_at: new Date(),
+        });
+
+        logger.info('First login marked as completed', {
+          module: 'candidate',
+          operation: 'markFirstLoginCompleted',
+          metadata: { candidateId },
+        });
+
+        return {
+          success: true,
+          message: 'First login completed successfully',
+        };
+      } catch (error) {
+        logger.error('Failed to mark first login as completed', {
+          module: 'candidate',
+          operation: 'markFirstLoginCompleted',
+          metadata: { candidateId },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
    * Phase 3: Get next step in registration process
    */
   async getNextStep(candidateId: string): Promise<{
@@ -629,8 +672,8 @@ export class CandidateService {
         }
 
         const application = await db('applications').where('candidate_id', candidateId).first();
-        const payments = await db('payment_transactions')
-          .where('candidateId', candidateId)
+        const payments = await db('payments')
+          .where('candidate_id', candidateId)
           .andWhere('purpose', 'POST_UTME')
           .andWhere('status', 'success');
 
@@ -685,7 +728,11 @@ export class CandidateService {
         let message = 'Please provide your contact information';
 
         if (completedSteps.includes('contact_info')) {
-          if (!candidate.biodata_completed) {
+          // the next step after contact info is login page
+          if (candidate.email && candidate.phone) {
+            nextStep = 'login';
+            message = 'Please login to continue';
+          } else if (!candidate.biodata_completed) {
             nextStep = 'biodata';
             message = 'Please complete your biodata information';
           } else if (!candidate.education_completed) {
@@ -828,8 +875,9 @@ export class CandidateService {
   }
 
   /**
-   * Get candidate profile with JAMB prefill data
-   * Now includes department information with faculty details
+   * Get candidate profile
+   * including department information with faculty details
+   * using jamb_reg_no
    */
   async getCandidate(jambRegNo: string): Promise<any | null> {
     return withPerformanceLogging(
@@ -872,21 +920,18 @@ export class CandidateService {
                 return null;
               }
 
-              // Get JAMB prelist data for prefill
-              const jambData = await db('jamb_prelist').where('jamb_reg_no', jambRegNo).first();
-
               // Build the result with department information
               const result = {
                 id: candidate.id,
                 jambRegNo: candidate.jamb_reg_no,
-                firstname: candidate.firstname || jambData?.firstname,
-                surname: candidate.surname || jambData?.surname,
-                othernames: candidate.othernames || jambData?.othernames,
-                gender: candidate.gender || jambData?.gender,
+                firstname: candidate.firstname,
+                surname: candidate.surname,
+                othernames: candidate.othernames,
+                gender: candidate.gender,
                 dob: candidate.dob,
                 nationality: candidate.nationality,
-                state: candidate.state || jambData?.state_of_origin,
-                lga: candidate.lga || jambData?.lga_of_origin,
+                state: candidate.state,
+                lga: candidate.lga,
                 address: candidate.address,
                 email: candidate.email,
                 phone: candidate.phone,
@@ -1792,65 +1837,58 @@ export class CandidateService {
     limit: number;
     message: string;
   }> {
-    return await withDatabaseLogging(
-      'getCandidatePaymentHistory',
-      'payment_transactions',
-      async () => {
-        try {
-          const offset = (page - 1) * limit;
+    return await withDatabaseLogging('getCandidatePaymentHistory', 'payments', async () => {
+      try {
+        const offset = (page - 1) * limit;
 
-          const [payments, total] = await Promise.all([
-            db('payment_transactions')
-              .where('candidateId', candidateId)
-              .orderBy('createdAt', 'desc')
-              .limit(limit)
-              .offset(offset)
-              .select('*'),
-            db('payment_transactions')
-              .where('candidateId', candidateId)
-              .count('* as total')
-              .first(),
-          ]);
+        const [payments, total] = await Promise.all([
+          db('payments')
+            .where('candidateId', candidateId)
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .offset(offset)
+            .select('*'),
+          db('payments').where('candidateId', candidateId).count('* as total').first(),
+        ]);
 
-          const formattedPayments = payments.map((payment: any) => ({
-            id: payment.id,
-            rrr: payment.rrr,
-            purpose: payment.purpose,
-            amount: payment.amount,
-            session: payment.session,
-            level: payment.level,
-            status: payment.status,
-            paymentUrl: payment.payment_url,
-            expiresAt: payment.expires_at,
-            createdAt: payment.created_at,
-            verifiedAt: payment.verified_at,
-          }));
+        const formattedPayments = payments.map((payment: any) => ({
+          id: payment.id,
+          rrr: payment.rrr,
+          purpose: payment.purpose,
+          amount: payment.amount,
+          session: payment.session,
+          level: payment.level,
+          status: payment.status,
+          paymentUrl: payment.payment_url,
+          expiresAt: payment.expires_at,
+          createdAt: payment.created_at,
+          verifiedAt: payment.verified_at,
+        }));
 
-          logger.info('Payment history retrieved successfully', {
-            module: 'candidate',
-            operation: 'getCandidatePaymentHistory',
-            metadata: { candidateId, count: payments.length, total: total?.total || 0 },
-          });
+        logger.info('Payment history retrieved successfully', {
+          module: 'candidate',
+          operation: 'getCandidatePaymentHistory',
+          metadata: { candidateId, count: payments.length, total: total?.total || 0 },
+        });
 
-          return {
-            success: true,
-            data: formattedPayments,
-            total: parseInt((total?.total as string) || '0'),
-            page,
-            limit,
-            message: `Retrieved ${payments.length} payment records`,
-          };
-        } catch (error) {
-          logger.error('Failed to get candidate payment history', {
-            module: 'candidate',
-            operation: 'getCandidatePaymentHistory',
-            metadata: { candidateId },
-            error: error instanceof Error ? error.message : String(error),
-          });
-          throw error;
-        }
+        return {
+          success: true,
+          data: formattedPayments,
+          total: parseInt((total?.total as string) || '0'),
+          page,
+          limit,
+          message: `Retrieved ${payments.length} payment records`,
+        };
+      } catch (error) {
+        logger.error('Failed to get candidate payment history', {
+          module: 'candidate',
+          operation: 'getCandidatePaymentHistory',
+          metadata: { candidateId },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
       }
-    );
+    });
   }
 
   /**
@@ -1861,9 +1899,9 @@ export class CandidateService {
     data: any;
     message: string;
   }> {
-    return await withDatabaseLogging('checkPaymentStatus', 'payment_transactions', async () => {
+    return await withDatabaseLogging('checkPaymentStatus', 'payments', async () => {
       try {
-        const payment = await db('payment_transactions').where('id', paymentId).first();
+        const payment = await db('payments').where('id', paymentId).first();
 
         if (!payment) {
           return {
@@ -1924,12 +1962,10 @@ export class CandidateService {
     };
     message: string;
   }> {
-    return await withDatabaseLogging('getPaymentSummary', 'payment_transactions', async () => {
+    return await withDatabaseLogging('getPaymentSummary', 'payments', async () => {
       try {
         // Get all payments for the candidate
-        const payments = await db('payment_transactions')
-          .where('candidateId', candidateId)
-          .select('*');
+        const payments = await db('payments').where('candidateId', candidateId).select('*');
 
         // Get candidate's application to determine required payments
         const application = await db('applications').where('candidate_id', candidateId).first();

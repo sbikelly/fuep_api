@@ -20,12 +20,18 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    // Configure email transporter (using MailHog for development)
+    // Configure email transporter (using Brevo SMTP for production)
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'fuep_mailhog',
-      port: parseInt(process.env.SMTP_PORT || '1025'),
-      secure: false, // true for 465, false for other ports
-      // No auth configuration for MailHog
+      host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false, // false for 587, true for 465
+      auth: {
+        user: process.env.SMTP_USER || '95ec23001@smtp-brevo.com',
+        pass: process.env.SMTP_PASS || 'IMRPspVHZ0JFUNCy',
+      },
+      tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates
+      },
     });
   }
 

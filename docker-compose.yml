@@ -25,13 +25,6 @@ services:
 
   # MinIO service removed - documents module no longer exists
 
-  mailhog:
-    image: mailhog/mailhog
-    container_name: fuep_mailhog
-    ports:
-      - '1025:1025'
-      - '8025:8025'
-
   api:
     build:
       context: .
@@ -46,6 +39,14 @@ services:
       - DB_USER=fuep
       - DB_PASSWORD=fuep
       - DB_NAME=fuep_portal
+      # Email configuration for Brevo SMTP
+      - SMTP_HOST=smtp-relay.brevo.com
+      - SMTP_PORT=587
+      - SMTP_USER=95ec23001@smtp-brevo.com
+      - SMTP_PASS=IMRPspVHZ0JFUNCy
+      - FROM_EMAIL=noreply@fuep.edu.ng
+      # SMS configuration for Brevo
+      - BREVO_API_KEY=IMRPspVHZ0JFUNCy
       # MinIO environment variables removed - documents module no longer exists
       - BRAND_PRIMARY_COLOR=FF134F47
     ports:

@@ -5,7 +5,6 @@ import { adminRateLimit } from '../../../middleware/rateLimiting.js';
 import { AdminAuthController } from '../controllers/admin-auth.controller.js';
 import { AdminCandidateController } from '../controllers/admin-candidate.controller.js';
 import { AdminDashboardController } from '../controllers/admin-dashboard.controller.js';
-import { AdminPrelistController } from '../controllers/admin-prelist.controller.js';
 import { AdminUserController } from '../controllers/admin-user.controller.js';
 import { PaymentPurposeController } from '../controllers/payment-purpose.controller.js';
 import { AdminService } from '../services/admin.service.js';
@@ -16,8 +15,8 @@ import { PaymentPurposeService } from '../services/payment-purpose.service.js';
 // Import new route creators
 import { createAdminAuthRoutes } from './admin-auth.routes.js';
 import { createAdminCandidateRoutes } from './admin-candidate.routes.js';
+import { createAdminCandidateBatchRoutes } from './admin-candidate-batch.routes.js';
 import { createAdminDashboardRoutes } from './admin-dashboard.routes.js';
-import { createAdminPrelistRoutes } from './admin-prelist.routes.js';
 import { createAdminUserRoutes } from './admin-user.routes.js';
 import { createPaymentPurposeRoutes } from './payment-purpose.routes.js';
 
@@ -43,7 +42,7 @@ export function createAdminRoutes(deps: AdminRoutesDependencies): Router {
   );
   const userController = new AdminUserController(deps.adminAuthService);
   const candidateController = new AdminCandidateController(deps.adminService);
-  const prelistController = new AdminPrelistController();
+
   const dashboardController = new AdminDashboardController(deps.adminService);
 
   // Mount route modules
@@ -60,10 +59,8 @@ export function createAdminRoutes(deps: AdminRoutesDependencies): Router {
       deps.adminPermissionService
     )
   );
-  router.use(
-    '/prelist',
-    createAdminPrelistRoutes(prelistController, deps.adminAuthService, deps.adminPermissionService)
-  );
+
+  router.use('/batch-upload', createAdminCandidateBatchRoutes());
   router.use(
     '/',
     createAdminDashboardRoutes(

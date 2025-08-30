@@ -44,6 +44,7 @@ export interface Candidate extends BaseEntity {
 
   // Authentication
   passwordHash?: string;
+  isFirstLogin: boolean; // Flag for first-time login
 }
 
 // Candidate Schema for validation
@@ -85,6 +86,7 @@ export const CandidateSchema = BaseEntitySchema.extend({
 
   // Authentication
   passwordHash: z.string().optional(),
+  isFirstLogin: z.boolean(),
 });
 
 // ============================================
@@ -352,6 +354,7 @@ export interface CandidateProfileUpdateRequest {
   maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed';
   passportPhotoUrl?: string;
   signatureUrl?: string;
+  isFirstLogin?: boolean;
 }
 
 export const CandidateProfileUpdateRequestSchema = z.object({

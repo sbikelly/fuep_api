@@ -17,6 +17,18 @@ paths:
     post:
       summary: Check JAMB registration and initiate candidate registration
       tags: [Candidates]
+      description: |
+        Checks if JAMB registration number exists in the candidates database.
+        If found and candidate has no password (not yet initiated registration):
+          - Creates password and sends email
+          - Redirects to login
+        If found but missing contact info:
+          - Requests contact info completion
+          - After completion, creates password and sends email
+        If found and already has password:
+          - Redirects to login (registration already initiated)
+        If not found:
+          - Returns error (candidate must be uploaded by admin first)
       requestBody:
         required: true
         content:
@@ -28,17 +40,23 @@ paths:
                 jambRegNo: { type: string, maxLength: 20 }
       responses:
         '200':
-          description: JAMB verification successful, registration initiated
+          description: JAMB verification successful
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
-                  data: { $ref: '#/components/schemas/Candidate' }
                   message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      candidateId: { type: string, format: uuid }
+                      nextStep: { type: string }
+                      requiresContactUpdate: { type: boolean }
+                      candidateType: { type: string, enum: [UTME, DE] }
                   timestamp: { type: string, format: date-time }
-        '404': { description: JAMB registration not found }
+        '404': { description: JAMB registration not found in candidates database }
         '400': { description: Invalid JAMB registration number }
 
   # Progressive profile completion
@@ -93,6 +111,41 @@ paths:
                 properties:
                   success: { type: boolean }
                   data: { $ref: '#/components/schemas/NextStepInfo' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/candidates/{candidateId}/first-login-completed:
+    post:
+      summary: Mark candidate's first login as completed
+      tags: [Candidates]
+      description: |
+        Marks the candidate's first login as completed.
+        This should be called after the candidate successfully logs in for the first time
+        and changes their temporary password.
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: First login marked as completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Failed to mark first login as completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  error: { type: string }
                   timestamp: { type: string, format: date-time }
 
   /api/candidates/{candidateId}/biodata:

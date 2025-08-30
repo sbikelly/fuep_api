@@ -30,6 +30,13 @@ export function createCandidateRoutes(controller: CandidateController): Router {
     controller.getNextStep.bind(controller)
   );
 
+  // Mark first login as completed
+  router.post(
+    '/:candidateId/first-login-completed',
+    candidateRateLimit,
+    controller.markFirstLoginCompleted.bind(controller)
+  );
+
   // Progressive profile completion
   router.post('/:candidateId/biodata', controller.completeBiodata.bind(controller));
   router.post('/:candidateId/education', controller.completeEducation.bind(controller));

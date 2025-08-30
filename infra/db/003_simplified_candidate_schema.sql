@@ -71,6 +71,7 @@ CREATE TABLE candidates (
     
     -- Authentication
     password_hash TEXT,
+    is_first_login BOOLEAN NOT NULL DEFAULT TRUE, -- Flag for first-time login
     
     -- Status
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -321,28 +322,5 @@ CREATE TRIGGER admissions_set_updated_at
 CREATE TRIGGER payment_disputes_set_updated_at
     BEFORE UPDATE ON payment_disputes
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- ============================================
--- Sample data insertion for testing
--- ============================================
--- Insert sample candidates for testing
-INSERT INTO candidates (jamb_reg_no, firstname, surname, email, phone, mode_of_entry, department_id) VALUES
-('12345678901', 'John', 'Doe', 'john.doe@example.com', '+2348012345678', 'UTME', (SELECT id FROM departments WHERE code = 'CSC' LIMIT 1)),
-('12345678902', 'Jane', 'Smith', 'jane.smith@example.com', '+2348012345679', 'DE', (SELECT id FROM departments WHERE code = 'CEN' LIMIT 1));
-
--- Insert sample applications
-INSERT INTO applications (candidate_id, application_number, session, status) VALUES
-((SELECT id FROM candidates WHERE jamb_reg_no = '12345678901'), 'APP2024001', '2024/2025', 'pending'),
-((SELECT id FROM candidates WHERE jamb_reg_no = '12345678902'), 'APP2024002', '2024/2025', 'pending');
-
--- Insert sample payments
-INSERT INTO payments (candidate_id, amount, status, purpose, provider_ref) VALUES
-((SELECT id FROM candidates WHERE jamb_reg_no = '12345678901'), 2000.00, 'success', 'post_utme', 'RRR123456789'),
-((SELECT id FROM candidates WHERE jamb_reg_no = '12345678902'), 2000.00, 'pending', 'post_utme', 'RRR123456790');
-
--- Insert sample admissions
-INSERT INTO admissions (candidate_id, decision, decision_notes) VALUES
-((SELECT id FROM candidates WHERE jamb_reg_no = '12345678901'), 'pending', 'Application under review'),
-((SELECT id FROM candidates WHERE jamb_reg_no = '12345678902'), 'pending', 'Application under review');
 
 COMMIT;

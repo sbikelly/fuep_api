@@ -47,33 +47,7 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
   created_at           timestamptz NOT NULL DEFAULT NOW()
 );
 
--- ---------- Prelist Management ----------
-
--- Prelist upload batches
-CREATE TABLE IF NOT EXISTS prelist_upload_batches (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  filename             varchar(255) NOT NULL,
-  total_records        integer NOT NULL,
-  processed_records    integer NOT NULL DEFAULT 0,
-  failed_records       integer NOT NULL DEFAULT 0,
-  status               varchar(32) NOT NULL DEFAULT 'processing',
-  uploaded_by          uuid NOT NULL REFERENCES admin_users(id),
-  processing_started_at timestamptz,
-  processing_completed_at timestamptz,
-  error_log            text,
-  created_at           timestamptz NOT NULL DEFAULT NOW()
-);
-
--- Prelist upload errors
-CREATE TABLE IF NOT EXISTS prelist_upload_errors (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  batch_id             uuid NOT NULL REFERENCES prelist_upload_batches(id) ON DELETE CASCADE,
-  row_number           integer NOT NULL,
-  jamb_reg_no          varchar(20),
-  error_message        text NOT NULL,
-  raw_data             jsonb,
-  created_at           timestamptz NOT NULL DEFAULT NOW()
-);
+-- Prelist Management tables removed - replaced with direct candidate batch upload
 
 -- ---------- Enhanced Candidate Management ----------
 
@@ -165,8 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_admin ON admin_audit_logs(admin_
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_resource ON admin_audit_logs(resource, resource_id);
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created ON admin_audit_logs(created_at);
 
-CREATE INDEX IF NOT EXISTS idx_prelist_upload_batches_status ON prelist_upload_batches(status);
-CREATE INDEX IF NOT EXISTS idx_prelist_upload_batches_uploaded_by ON prelist_upload_batches(uploaded_by);
+-- Prelist indexes removed - tables no longer exist
 
 CREATE INDEX IF NOT EXISTS idx_candidate_notes_candidate ON candidate_notes(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_candidate_notes_admin ON candidate_notes(admin_user_id);
@@ -216,8 +189,7 @@ INSERT INTO admin_permissions (role, resource, action) VALUES
 ('admissions_officer', 'candidates', 'update'),
 ('admissions_officer', 'admissions', 'read'),
 ('admissions_officer', 'admissions', 'update'),
-('admissions_officer', 'prelist', 'read'),
-('admissions_officer', 'prelist', 'upload'),
+('admissions_officer', 'candidates', 'batch_upload'),
 ('admissions_officer', 'reports', 'read'),
 -- Finance Officer
 ('finance_officer', 'payments', 'read'),
@@ -313,6 +285,7 @@ SELECT
   c.education_completed,
   c.next_of_kin_completed,
   c.sponsor_completed,
+  c.is_first_login,
   a.status as application_status,
   a.session,
   a.application_number,
@@ -329,7 +302,7 @@ ORDER BY c.created_at DESC;
 COMMENT ON TABLE admin_users IS 'Administrative users with role-based access control';
 COMMENT ON TABLE admin_permissions IS 'Permissions matrix for different admin roles';
 COMMENT ON TABLE admin_audit_logs IS 'Audit trail for all administrative actions';
-COMMENT ON TABLE prelist_upload_batches IS 'Bulk JAMB prelist upload processing';
+-- Prelist table comment removed - table no longer exists
 COMMENT ON TABLE candidate_notes IS 'Internal notes and comments about candidates';
 COMMENT ON TABLE payment_disputes IS 'Payment dispute tracking and resolution';
 COMMENT ON TABLE admission_decision_templates IS 'Templates for admission letters and communications';
