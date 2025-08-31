@@ -1,45 +1,57 @@
-import { PaymentPurpose, PaymentStatus } from '@fuep/types';
+import {
+  Payment,
+  PaymentHistoryResponse,
+  PaymentInitiationRequest,
+  PaymentInitiationResponse,
+  PaymentPurpose,
+  PaymentPurposeName,
+  PaymentReceiptResponse,
+  PaymentStatistics,
+  PaymentStatus,
+  PaymentStatusCheckRequest,
+  PaymentStatusCheckResponse,
+  RemitaPaymentRequest,
+  RemitaRRRResponse,
+  RemitaStatusResponse,
+} from '@fuep/types';
 
 import { db } from '../../db/knex.js';
 import { logger } from '../../middleware/logging.js';
 import { EmailService } from '../../services/email.service.js';
-import { RemitaPaymentRequest, RemitaService } from './remita.service.js';
+import { CandidateService } from '../candidates/candidate.service.js';
+import { RemitaService } from './remita.service.js';
 
-export interface PaymentInitiationRequest {
-  candidateId: string;
-  purpose: PaymentPurpose;
-  session: string;
-  email: string;
-  phone: string;
-}
-
-export interface PaymentInitiationResponse {
-  success: boolean;
-  rrr: string;
-  paymentUrl: string;
-  expiresAt: Date;
-  paymentId: string;
-}
-
-export interface PaymentStatusResponse {
-  success: boolean;
-  rrr: string;
-  status: PaymentStatus;
-  amount: number;
-  purpose: PaymentPurpose;
-  session: string;
-  candidateId: string;
-  verifiedAt?: Date;
-}
+/**
+ * payments table:
+├── id (uuid, primary key)
+├── candidate_id (uuid, foreign key)
+├── amount (numeric(10,2))
+├── currency (varchar(3)) - Kept for view compatibility
+├── status (varchar(20)) - Updated enum values
+├── purpose (varchar(50))
+├── provider (varchar(50)) - Kept for view compatibility
+├── provider_ref (varchar(100))
+├── description (text)
+├── created_at (timestamp)
+├── updated_at (timestamp)
+├── payment_level (varchar(16)) - NEW
+├── session (varchar(16)) - NEW, NOT NULL
+├── rrr (varchar(100)) - NEW
+├── payment_url (text) - NEW
+├── webhook_received_at (timestamp) - NEW
+└── verified_at (timestamp) - NEW
+ */
 
 export class PaymentService {
   private remitaService: RemitaService;
   private emailService: EmailService;
+  private candidateService: CandidateService;
 
-  constructor() {
+  constructor(candidateService?: CandidateService) {
     console.log('[PaymentService] Constructor called');
     this.remitaService = new RemitaService();
     this.emailService = new EmailService();
+    this.candidateService = candidateService || new CandidateService(console);
     console.log('[PaymentService] Initialized with Remita service');
   }
 
@@ -49,34 +61,48 @@ export class PaymentService {
   async initiatePayment(request: PaymentInitiationRequest): Promise<PaymentInitiationResponse> {
     try {
       console.log(
-        `[PaymentService] Processing payment initiation for candidate: ${request.candidateId}`
+        `[PaymentService] Processing payment initiation for candidate: ${request.userId}, purpose: ${request.purpose}`
       );
 
-      // Get candidate details for name and JAMB number
-      const candidate = await this.getCandidateById(request.candidateId);
+      // Get candidate details
+      const candidate = await this.candidateService.getCandidateProfile(request.userId);
       if (!candidate) {
-        throw new Error(`Candidate with ID ${request.candidateId} not found`);
+        throw new Error(`Candidate with ID ${request.userId} not found`);
       }
 
       // Validate payment purpose and get configured amount, session, and level
       const paymentPurpose = await this.validatePaymentPurpose(request);
 
+      // Check if the candidate has already paid/initiated payment for the same paymentpurposename, session and level
+      const existingPayment = await db('payments')
+        .where({
+          candidate_id: request.userId,
+          purpose: paymentPurpose.name,
+          session: paymentPurpose.session,
+          payment_level: paymentPurpose.level,
+        })
+        .first();
+
+      if (existingPayment) {
+        throw new Error(
+          `User has already paid or initiated payment for this purpose, session, and level:\n ${JSON.stringify(existingPayment)}`
+        );
+      }
+
       // Create Remita payment request with all required fields
-      const remitaRequest: RemitaPaymentRequest = {
-        candidateId: request.candidateId,
-        purpose: request.purpose,
-        amount: paymentPurpose.amount, // Use payment purpose amount
-        session: paymentPurpose.session, // Use payment purpose session
-        email: request.email,
-        phone: request.phone,
-      };
+      const remitaRequest: RemitaPaymentRequest = request;
 
       // Generate RRR using Remita
       const rrr = await this.remitaService.generateRRR(remitaRequest);
 
+      //check if the rrr was generated
+      if (!rrr) {
+        throw new Error('Failed to generate RRR');
+      }
+
       // Create payment record
       const payment = await this.createPaymentRecord({
-        candidateId: request.candidateId,
+        userId: request.userId,
         rrr,
         purpose: request.purpose,
         amount: paymentPurpose.amount, // Use payment purpose amount
@@ -84,7 +110,6 @@ export class PaymentService {
         level: paymentPurpose.level, // Use payment purpose level
         status: 'initiated',
         paymentUrl: this.remitaService.getPaymentUrl(rrr),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       });
 
       logger.info(
@@ -95,7 +120,6 @@ export class PaymentService {
         success: true,
         rrr,
         paymentUrl: payment.paymentUrl,
-        expiresAt: payment.expiresAt,
         paymentId: payment.id,
       };
     } catch (error) {
@@ -109,7 +133,7 @@ export class PaymentService {
   /**
    * Check payment status from Remita
    */
-  async checkPaymentStatus(rrr: string): Promise<PaymentStatusResponse> {
+  async checkPaymentStatus(rrr: string): Promise<PaymentStatusCheckResponse> {
     try {
       logger.info(`[PaymentService] Checking payment status for RRR: ${rrr}`);
 
@@ -212,6 +236,10 @@ export class PaymentService {
         amount: pp.amount,
         session: pp.session,
         level: pp.level,
+        facultyId: pp.faculty_id,
+        createdBy: pp.created_by,
+        updated_at: pp.updated_at,
+        created_at: pp.created_at,
         isActive: pp.is_active,
       }));
     } catch (error) {
@@ -226,7 +254,7 @@ export class PaymentService {
    * Get payment history for a candidate
    */
   async getCandidatePaymentHistory(
-    candidateId: string,
+    userId: string,
     page: number = 1,
     limit: number = 10
   ): Promise<any> {
@@ -234,13 +262,13 @@ export class PaymentService {
       const offset = (page - 1) * limit;
 
       const [payments, total] = await Promise.all([
-        db('payment_transactions')
-          .where({ candidateId })
-          .orderBy('createdAt', 'desc')
+        db('payments')
+          .where({ candidate_id: userId })
+          .orderBy('created_at', 'desc')
           .limit(limit)
           .offset(offset)
           .select('*'),
-        db('payment_transactions').where({ candidateId }).count('* as total').first(),
+        db('payments').where({ candidate_id: userId }).count('* as total').first(),
       ]);
 
       return {
@@ -251,10 +279,10 @@ export class PaymentService {
           purpose: payment.purpose,
           amount: payment.amount,
           session: payment.session,
-          level: payment.level,
+          level: payment.payment_level,
           status: payment.status,
+          paidAt: payment.verified_at,
           paymentUrl: payment.payment_url,
-          expiresAt: payment.expires_at,
           createdAt: payment.created_at,
         })),
         total: total?.total || 0,
@@ -275,9 +303,9 @@ export class PaymentService {
   async getPaymentStatistics(): Promise<any> {
     try {
       const [totalPayments, totalAmount, statusCounts] = await Promise.all([
-        db('payment_transactions').count('* as total').first(),
-        db('payment_transactions').sum('amount as total').first(),
-        db('payment_transactions').select('status').count('* as count').groupBy('status'),
+        db('payments').count('* as total').first(),
+        db('payments').sum('amount as total').first(),
+        db('payments').select('status').count('* as count').groupBy('status'),
       ]);
 
       const statusMap = statusCounts.reduce((acc: any, item: any) => {
@@ -309,57 +337,15 @@ export class PaymentService {
   }
 
   /**
-   * Get candidate by email
-   */
-  async getCandidateByEmail(email: string): Promise<any> {
-    try {
-      return await db('candidates').where({ email }).first();
-    } catch (error) {
-      logger.error('[PaymentService] Failed to get candidate by email', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get candidate by JAMB registration number
-   */
-  async getCandidateByJambRegNo(jambRegNo: string): Promise<any> {
-    try {
-      return await db('candidates').where({ jamb_reg_no: jambRegNo }).first();
-    } catch (error) {
-      logger.error('[PaymentService] Failed to get candidate by JAMB reg no', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get candidate by ID
-   */
-  private async getCandidateById(candidateId: string): Promise<any> {
-    try {
-      return await db('candidates').where({ id: candidateId }).first();
-    } catch (error) {
-      logger.error('[PaymentService] Failed to get candidate by ID', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
-  }
-
-  /**
    * Validate payment purpose and get configured details using new simplified structure
    */
   private async validatePaymentPurpose(request: PaymentInitiationRequest): Promise<any> {
-    const paymentPurposes = await this.getPaymentPurposes(request.session);
+    const paymentPurposes = await this.getPaymentPurposes(request.purpose.session);
     const configuredPaymentPurpose = paymentPurposes.find((pt) => pt.purpose === request.purpose);
 
     if (!configuredPaymentPurpose) {
       throw new Error(
-        `Payment purpose '${request.purpose}' not configured for session '${request.session}'`
+        `Payment purpose '${request.purpose}' not configured for session '${request.purpose.session}'`
       );
     }
 
@@ -371,17 +357,16 @@ export class PaymentService {
    */
   private async createPaymentRecord(paymentData: any): Promise<any> {
     try {
-      const [payment] = await db('payment_transactions')
+      const [payment] = await db('payments')
         .insert({
-          candidate_id: paymentData.candidateId,
+          candidate_id: paymentData.userId,
           rrr: paymentData.rrr,
           purpose: paymentData.purpose,
           amount: paymentData.amount,
           session: paymentData.session,
-          level: paymentData.level,
+          payment_level: paymentData.level,
           status: paymentData.status,
           payment_url: paymentData.paymentUrl,
-          expires_at: paymentData.expiresAt,
           created_at: new Date(),
           updated_at: new Date(),
         })
@@ -401,9 +386,23 @@ export class PaymentService {
    */
   private async getPaymentByRRR(rrr: string): Promise<any> {
     try {
-      return await db('payment_transactions').where({ rrr }).first();
+      return await db('payments').where({ rrr }).first();
     } catch (error) {
       logger.error('[PaymentService] Failed to get payment by RRR', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get payment by candidate id
+   */
+  private async getPaymentByuserId(userId: string): Promise<any> {
+    try {
+      return await db('payments').where({ candidate_id: userId }).first();
+    } catch (error) {
+      logger.error('[PaymentService] Failed to get payment by candidate id', {
         error: error instanceof Error ? error.message : String(error),
       });
       throw error;
@@ -424,7 +423,7 @@ export class PaymentService {
         updateData.verified_at = new Date();
       }
 
-      await db('payment_transactions').where({ rrr }).update(updateData);
+      await db('payments').where({ rrr }).update(updateData);
 
       logger.info(`[PaymentService] Payment status updated for RRR ${rrr}: ${status}`);
     } catch (error) {
@@ -441,7 +440,7 @@ export class PaymentService {
   private async sendPaymentSuccessNotification(payment: any): Promise<void> {
     try {
       // Get candidate details
-      const candidate = await db('candidates').where({ id: payment.candidateId }).first();
+      const candidate = await db('candidates').where({ id: payment.userId }).first();
       if (!candidate) {
         logger.warn(`[PaymentService] Candidate not found for payment: ${payment.id}`);
         return;

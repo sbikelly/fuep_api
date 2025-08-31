@@ -1,24 +1,51 @@
+import { PaymentPurpose, RemitaStatusResponse } from '@fuep/types';
 import { Request, Response } from 'express';
 
 import { logger } from '../../middleware/logging.js';
+import { CandidateService } from '../candidates/candidate.service.js';
 import { PaymentService } from './payment.service.js';
+import { RemitaService } from './remita.service.js';
 
 export class PaymentController {
-  constructor(private paymentService: PaymentService) {}
+  constructor(
+    private candidateService: CandidateService,
+    private paymentService: PaymentService,
+    private remitaService: RemitaService
+  ) {}
 
   /**
    * Initialize payment and generate RRR
    */
   async initiatePayment(req: Request, res: Response): Promise<void> {
     try {
-      const { candidateId, purpose, session, email, phone } = req.body;
+      const { candidateId, PaymentPurpose } = req.body;
+
+      /**
+       * for context
+       * *** Payment initiation request ***
+       
+        export interface PaymentInitiationRequest {
+          userId: string;
+          userName: string;//
+          registrationNumber: string;
+          purpose: PaymentPurpose;
+          email: string;
+          phone: string;
+        }
+       * 
+       */
+      const candidate = await this.candidateService.getCandidateProfile(candidateId);
+      if (!candidate) {
+        throw new Error(`Candidate with ID ${candidateId} not found`);
+      }
 
       const result = await this.paymentService.initiatePayment({
-        candidateId,
-        purpose,
-        session,
-        email,
-        phone,
+        userId: candidate.candidateId,
+        userName: candidate.surname + ' ' + candidate.firstname + ' ' + candidate.othernames,
+        registrationNumber: candidate.registrationNumber,
+        purpose: PaymentPurpose,
+        email: candidate.email,
+        phone: candidate.phone,
       });
 
       res.status(201).json({
@@ -113,6 +140,25 @@ export class PaymentController {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to verify payment',
         timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Verify RRR
+   */
+  async verifyRRR(req: Request, res: Response): Promise<void> {
+    try {
+      const { rrr } = req.body;
+      const status = await this.remitaService.getPaymentStatus(rrr);
+      res
+        .status(200)
+        .json({ success: true, data: { status }, message: 'RRR status retrieved successfully' });
+    } catch (error) {
+      logger.error(`[PaymentController] Failed to verify RRR: ${error}`);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to verify RRR',
       });
     }
   }
@@ -230,7 +276,7 @@ export class PaymentController {
   }
 
   /**
-   * Get provider status (placeholder for backward compatibility)
+   * Get payment provider
    */
   async getProviderStatus(req: Request, res: Response): Promise<void> {
     try {

@@ -95,19 +95,22 @@ export class AdminCandidateService {
           filters.status === 'rejected' ||
           filters.status === 'pending'
         ) {
-          // This would need to be joined with applications table for admission status
-          // For now, we'll use a placeholder approach
+          // Join with admissions table for admission status
+          query = query.leftJoin('admissions', 'candidates.id', 'admissions.candidate_id');
+          query = query.where('admissions.decision', filters.status);
         }
       }
 
       if (filters?.paymentStatus) {
-        // This would need to be joined with applications table for payment status
-        // For now, we'll use a placeholder approach
+        // Join with payments table for payment status
+        query = query.leftJoin('payments', 'candidates.id', 'payments.candidate_id');
+        query = query.where('payments.status', filters.paymentStatus);
       }
 
       if (filters?.admissionStatus) {
-        // This would need to be joined with applications table for admission status
-        // For now, we'll use a placeholder approach
+        // Join with admissions table for admission status
+        query = query.leftJoin('admissions', 'candidates.id', 'admissions.candidate_id');
+        query = query.where('admissions.decision', filters.admissionStatus);
       }
 
       if (filters?.state) {
@@ -115,7 +118,13 @@ export class AdminCandidateService {
       }
 
       if (filters?.department) {
-        query = query.where('department', 'ilike', `%${filters.department}%`);
+        // Check both the string department field and the department_id foreign key
+        query = query.where(function () {
+          this.where('department', 'ilike', `%${filters.department}%`).orWhere(
+            'department_id',
+            filters.department
+          );
+        });
       }
 
       if (filters?.modeOfEntry) {
@@ -437,9 +446,13 @@ export class AdminCandidateService {
   // Additional methods required by admin service
   async getPendingApplicationsCount(): Promise<number> {
     try {
-      // This would need to be updated to work with the new applications table
-      // For now, return a placeholder count
-      return 0;
+      // Count candidates with incomplete registrations
+      const result = await db('candidates')
+        .where('registration_completed', false)
+        .count('* as count')
+        .first();
+
+      return result ? parseInt(result.count as string) : 0;
     } catch (error) {
       throw new Error(
         `Failed to get pending applications count: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -463,9 +476,14 @@ export class AdminCandidateService {
 
   async getSubmittedApplicationsCount(): Promise<number> {
     try {
-      // This would need to be updated to work with the new applications table
-      // For now, return a placeholder count
-      return 0;
+      // Count candidates who have started the registration process
+      const result = await db('candidates')
+        .whereNotNull('email')
+        .whereNotNull('phone')
+        .count('* as count')
+        .first();
+
+      return result ? parseInt(result.count as string) : 0;
     } catch (error) {
       throw new Error(
         `Failed to get submitted applications count: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -475,9 +493,13 @@ export class AdminCandidateService {
 
   async getJambScores(): Promise<number[]> {
     try {
-      // This would need to be updated to work with the new education_records table
-      // For now, return empty array
-      return [];
+      // Get JAMB scores from candidates table
+      const result = await db('candidates')
+        .whereNotNull('jamb_score')
+        .select('jamb_score')
+        .orderBy('jamb_score', 'desc');
+
+      return result.map((row) => parseInt(row.jamb_score)).filter((score) => !isNaN(score));
     } catch (error) {
       throw new Error(
         `Failed to get JAMB scores: ${error instanceof Error ? error.message : 'Unknown error'}`

@@ -1,16 +1,20 @@
-import { PaymentPurpose, PaymentPurposeConfig } from '@fuep/types';
+import { PaymentPurpose, PaymentPurposeName } from '@fuep/types';
 
 import { db } from '../../../db/knex.js';
 import { logger } from '../../../middleware/logging.js';
 
 export interface CreatePaymentPurposeRequest {
-  name: string;
-  purpose: PaymentPurpose;
+  name: PaymentPurposeName;
+  purpose: PaymentPurposeName;
   description?: string;
   amount: number;
+  isActive: boolean;
   session: string;
   level: string;
-  createdBy: string;
+  facultyId?: string; //because payment amount vary by faculties
+  createdBy?: string;
+  updated_at?: Date;
+  created_at?: Date;
 }
 
 export interface UpdatePaymentPurposeRequest {
@@ -19,12 +23,14 @@ export interface UpdatePaymentPurposeRequest {
   amount?: number;
   isActive?: boolean;
   level?: string;
+  updated_at?: Date;
 }
 
 export interface PaymentPurposeFilters {
   session?: string;
-  purpose?: PaymentPurpose;
+  purpose?: PaymentPurposeName;
   level?: string;
+  faculty?: string;
   isActive?: boolean;
 }
 
@@ -32,24 +38,25 @@ export class PaymentPurposeService {
   /**
    * Create a new payment purpose
    */
-  async createPaymentPurpose(request: CreatePaymentPurposeRequest): Promise<PaymentPurposeConfig> {
+  async createPaymentPurpose(request: CreatePaymentPurposeRequest): Promise<PaymentPurpose> {
     try {
       logger.info(
         `[PaymentPurposeService] Creating payment purpose: ${request.name} for session ${request.session}`
       );
 
-      // Check if payment purpose already exists for this session, purpose, and level
+      // Check if payment purpose already exists for this session, purpose, level and faculty
       const existing = await db('payment_purposes')
         .where({
           session: request.session,
           purpose: request.purpose,
           level: request.level,
+          faculty_id: request.facultyId,
         })
         .first();
 
       if (existing) {
         throw new Error(
-          `Payment purpose ${request.purpose} already exists for session ${request.session} level ${request.level}`
+          `Payment purpose ${request.purpose} already exists for session ${request.session} level ${request.level} and faculty ${request.facultyId}`
         );
       }
 
@@ -61,6 +68,8 @@ export class PaymentPurposeService {
           amount: request.amount,
           session: request.session,
           level: request.level,
+          faculty_id: request.facultyId,
+          is_active: true,
           created_by: request.createdBy,
           created_at: new Date(),
           updated_at: new Date(),
@@ -81,7 +90,7 @@ export class PaymentPurposeService {
   /**
    * Get payment purposes with optional filtering
    */
-  async getPaymentPurposes(filters: PaymentPurposeFilters = {}): Promise<PaymentPurposeConfig[]> {
+  async getPaymentPurposes(filters: PaymentPurposeFilters = {}): Promise<PaymentPurpose[]> {
     try {
       logger.info(
         `[PaymentPurposeService] Getting payment purposes with filters: ${JSON.stringify(filters)}`
@@ -99,6 +108,10 @@ export class PaymentPurposeService {
 
       if (filters.level) {
         query = query.where('level', filters.level);
+      }
+
+      if (filters.faculty) {
+        query = query.where('faculty_id', filters.faculty);
       }
 
       if (filters.isActive !== undefined) {
@@ -119,7 +132,7 @@ export class PaymentPurposeService {
   /**
    * Get payment purpose by ID
    */
-  async getPaymentPurposeById(id: string): Promise<PaymentPurposeConfig | null> {
+  async getPaymentPurposeById(id: string): Promise<PaymentPurpose | null> {
     try {
       logger.info(`[PaymentPurposeService] Getting payment purpose by ID: ${id}`);
 
@@ -144,7 +157,7 @@ export class PaymentPurposeService {
     session: string,
     purpose: PaymentPurpose,
     level: string
-  ): Promise<PaymentPurposeConfig | null> {
+  ): Promise<PaymentPurpose | null> {
     try {
       logger.info(
         `[PaymentPurposeService] Getting payment purpose by key: ${session}/${purpose}/${level}`
@@ -178,7 +191,7 @@ export class PaymentPurposeService {
   async updatePaymentPurpose(
     id: string,
     updates: UpdatePaymentPurposeRequest
-  ): Promise<PaymentPurposeConfig> {
+  ): Promise<PaymentPurpose> {
     try {
       logger.info(`[PaymentPurposeService] Updating payment purpose with ID: ${id}`);
 
@@ -233,7 +246,7 @@ export class PaymentPurposeService {
   /**
    * Get payment purposes for a specific session
    */
-  async getPaymentPurposesBySession(session: string): Promise<PaymentPurposeConfig[]> {
+  async getPaymentPurposesBySession(session: string): Promise<PaymentPurpose[]> {
     try {
       logger.info(`[PaymentPurposeService] Getting payment purposes for session: ${session}`);
 
@@ -256,7 +269,7 @@ export class PaymentPurposeService {
   /**
    * Get payment purposes by level
    */
-  async getPaymentPurposesByLevel(level: string): Promise<PaymentPurposeConfig[]> {
+  async getPaymentPurposesByLevel(level: string): Promise<PaymentPurpose[]> {
     try {
       logger.info(`[PaymentPurposeService] Getting payment purposes for level: ${level}`);
 
@@ -264,6 +277,11 @@ export class PaymentPurposeService {
         .where('level', level)
         .andWhere('is_active', true)
         .orderBy(['session', 'purpose']);
+
+      if (paymentPurposes.length === 0) {
+        logger.warn(`[PaymentPurposeService] No payment purposes found for faculty ${level}`);
+        throw new Error(`No payment purposes found for faculty ${level}`);
+      }
 
       logger.info(
         `[PaymentPurposeService] Found ${paymentPurposes.length} active payment purposes for level ${level}`
@@ -277,9 +295,9 @@ export class PaymentPurposeService {
   }
 
   /**
-   * Get payment purposes by purpose type
+   * Get payment purposes by purpose name or purpose
    */
-  async getPaymentPurposesByPurpose(purpose: PaymentPurpose): Promise<PaymentPurposeConfig[]> {
+  async getPaymentPurposesByPurpose(purpose: PaymentPurposeName): Promise<PaymentPurpose[]> {
     try {
       logger.info(`[PaymentPurposeService] Getting payment purposes for purpose: ${purpose}`);
 
@@ -287,6 +305,11 @@ export class PaymentPurposeService {
         .where('purpose', purpose)
         .andWhere('is_active', true)
         .orderBy(['session', 'level']);
+
+      if (paymentPurposes.length === 0) {
+        logger.warn(`[PaymentPurposeService] No payment purposes found for faculty ${purpose}`);
+        throw new Error(`No payment purposes found for faculty ${purpose}`);
+      }
 
       logger.info(
         `[PaymentPurposeService] Found ${paymentPurposes.length} active payment purposes for purpose ${purpose}`
@@ -300,9 +323,37 @@ export class PaymentPurposeService {
   }
 
   /**
+   * Get payment purpose by faculty
+   */
+  async getPaymentPurposesByFaculty(facultyId: string): Promise<PaymentPurpose[]> {
+    try {
+      logger.info(`[PaymentPurposeService] Getting payment purposes for faculty: ${facultyId}`);
+
+      const paymentPurposes = await db('payment_purposes')
+        .where('faculty_id', facultyId)
+        .andWhere('is_active', true)
+        .orderBy(['session', 'level', 'purpose']);
+
+      if (paymentPurposes.length === 0) {
+        logger.warn(`[PaymentPurposeService] No payment purposes found for faculty ${facultyId}`);
+        throw new Error(`No payment purposes found for faculty ${facultyId}`);
+      }
+
+      logger.info(
+        `[PaymentPurposeService] Found ${paymentPurposes.length} active payment purposes for purpose ${facultyId}`
+      );
+
+      return paymentPurposes.map(this.mapDatabaseToType);
+    } catch (error) {
+      logger.error(`[PaymentPurposeService] Failed to get payment purposes by facultyId: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
    * Toggle payment purpose active status
    */
-  async togglePaymentPurposeStatus(id: string): Promise<PaymentPurposeConfig> {
+  async togglePaymentPurposeStatus(id: string): Promise<PaymentPurpose> {
     try {
       logger.info(`[PaymentPurposeService] Toggling payment purpose status for ID: ${id}`);
 
@@ -363,16 +414,17 @@ export class PaymentPurposeService {
   /**
    * Map database record to type interface
    */
-  private mapDatabaseToType(dbRecord: any): PaymentPurposeConfig {
+  private mapDatabaseToType(dbRecord: any): PaymentPurpose {
     return {
       id: dbRecord.id,
       name: dbRecord.name,
-      purpose: dbRecord.purpose as PaymentPurpose,
+      purpose: dbRecord.purpose as PaymentPurposeName,
       description: dbRecord.description,
       amount: parseFloat(dbRecord.amount),
       isActive: dbRecord.is_active,
       session: dbRecord.session,
       level: dbRecord.level,
+      facultyId: dbRecord.faculty_id,
       createdBy: dbRecord.created_by,
       createdAt: new Date(dbRecord.created_at),
       updatedAt: new Date(dbRecord.updated_at),

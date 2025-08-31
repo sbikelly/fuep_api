@@ -20,70 +20,34 @@ export class CandidateController {
   }
 
   /**
-   * Get candidate by JAMB registration number
+   * Get candidate by candidateId
+   * Optionally include custom fields in the response if provided in query (?customField=xyz)
    */
-  async getCandidateByJambRegNo(req: Request, res: Response): Promise<void> {
+  async getCandidateById(req: Request, res: Response): Promise<void> {
     try {
-      const { jambRegNo } = req.params;
+      const { candidateId } = req.params;
+      const { customField } = req.query;
 
-      this.logger.log(`[CandidateController] Getting candidate by JAMB: ${jambRegNo}`);
+      this.logger.log(`[CandidateController] Getting candidate with JAMB: ${candidateId}`);
 
-      if (!jambRegNo) {
-        res.status(400).json({
-          success: false,
-          error: 'JAMB registration number is required',
-        });
+      if (!candidateId) {
+        res.status(400).json({ success: false, error: 'JAMB registration number is required' });
         return;
       }
 
-      const candidate = await this.candidateService.getCandidateByJambRegNo(jambRegNo);
-
-      if (!candidate) {
-        res.status(404).json({
-          success: false,
-          error: 'Candidate not found',
-        });
-        return;
+      let customFields: Record<string, any> | undefined = undefined;
+      if (customField) {
+        if (typeof customField === 'string') {
+          customFields = { [customField]: req.query[customField] };
+        } else if (typeof customField === 'object') {
+          customFields = customField;
+        }
       }
 
-      res.json({
-        success: true,
-        data: candidate,
-        timestamp: new Date(),
-      });
-    } catch (error) {
-      this.logger.error('[CandidateController] Error getting candidate by JAMB:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get candidate',
-      });
-    }
-  }
-
-  /**
-   * Get candidate profile with JAMB prefill
-   */
-  async getCandidateProfile(req: Request, res: Response): Promise<void> {
-    try {
-      const { jambRegNo } = req.params;
-
-      this.logger.log(`[CandidateController] Getting profile for JAMB: ${jambRegNo}`);
-
-      if (!jambRegNo) {
-        res.status(400).json({
-          success: false,
-          error: 'JAMB registration number is required',
-        });
-        return;
-      }
-
-      const profile = await this.candidateService.getCandidate(jambRegNo);
+      const profile = await this.candidateService.getCandidateProfile(candidateId, customFields);
 
       if (!profile) {
-        res.status(404).json({
-          success: false,
-          error: 'Candidate not found',
-        });
+        res.status(404).json({ success: false, error: 'Candidate not found' });
         return;
       }
 
@@ -97,7 +61,75 @@ export class CandidateController {
       res.status(500).json({
         success: false,
         error: 'Failed to get candidate profile',
+        timestamp: new Date(),
       });
+    }
+  }
+
+  /**
+   * Get candidate by JAMB number
+   * Optionally include custom fields in the response if provided in query (?customField=xyz)
+   */
+  async getCandidateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const { jambRegNo } = req.params;
+      const { customField } = req.query;
+
+      this.logger.log(`[CandidateController] Getting candidate with JAMB: ${jambRegNo}`);
+
+      if (!jambRegNo) {
+        res.status(400).json({ success: false, error: 'JAMB registration number is required' });
+        return;
+      }
+
+      let customFields: Record<string, any> | undefined = undefined;
+      if (customField) {
+        if (typeof customField === 'string') {
+          customFields = { [customField]: req.query[customField] };
+        } else if (typeof customField === 'object') {
+          customFields = customField;
+        }
+      }
+
+      const profile = await this.candidateService.getCandidateProfile(jambRegNo, customFields);
+
+      if (!profile) {
+        res.status(404).json({ success: false, error: 'Candidate not found' });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: profile,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting candidate profile:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get candidate profile',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Get all candidates
+   */
+  async getAllCandidates(req: Request, res: Response): Promise<void> {
+    try {
+      this.logger.log('[CandidateController] Getting all candidates');
+
+      const candidates = await this.candidateService.getAllCandidates();
+
+      res.json({
+        success: true,
+        data: candidates,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error getting all candidates:', error);
+      throw new Error('Failed to get all candidates');
     }
   }
 
@@ -145,211 +177,6 @@ export class CandidateController {
         success: false,
         error: 'Failed to update candidate profile',
       });
-    }
-  }
-
-  /**
-   * Update candidate profile (legacy route for backward compatibility)
-   */
-  async updateProfile(req: Request, res: Response): Promise<void> {
-    try {
-      // Validate request body
-      const validationResult = CandidateProfileUpdateRequestSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const response = {
-          success: false,
-          error: 'Invalid request data',
-          timestamp: new Date(),
-        };
-        res.status(400).json(response);
-        return;
-      }
-
-      const profileData = validationResult.data;
-
-      // TODO: Get candidate ID from authenticated user session when JWT middleware is implemented
-      // For now, we'll use a real candidate ID
-      const candidateId = '0009c312-3e0d-415b-8d7d-65f4d9124518';
-
-      // Update candidate profile in database using the profiles table
-      const updateData = {
-        surname: profileData.surname,
-        firstname: profileData.firstname,
-        othernames: profileData.othernames,
-        gender: profileData.gender,
-        dob: profileData.dob,
-        address: profileData.address,
-        state: profileData.state,
-        lga: profileData.lga,
-        email: profileData.email,
-        phone: profileData.phone,
-        passport_photo_url: profileData.passportPhotoUrl,
-        signature_url: profileData.signatureUrl,
-        department: profileData.department,
-        department_id: profileData.departmentId,
-        mode_of_entry: profileData.modeOfEntry,
-        nationality: profileData.nationality,
-        marital_status: profileData.maritalStatus,
-        updated_at: new Date(),
-      };
-
-      // Update candidate directly (simplified schema)
-      const { db } = await import('../../db/knex.js');
-      await db('candidates').where({ id: candidateId }).update(updateData);
-
-      // Get updated candidate
-      const updatedProfile = await db('candidates').where({ id: candidateId }).first();
-
-      if (!updatedProfile) {
-        const response = {
-          success: false,
-          error: 'Profile not found after update',
-          timestamp: new Date(),
-        };
-        res.status(404).json(response);
-        return;
-      }
-
-      // Return updated candidate
-      const profile = {
-        id: updatedProfile.id,
-        candidateId: updatedProfile.id,
-        surname: updatedProfile.surname,
-        firstname: updatedProfile.firstname,
-        othernames: updatedProfile.othernames,
-        gender: updatedProfile.gender,
-        dob: updatedProfile.dob,
-        address: updatedProfile.address,
-        state: updatedProfile.state,
-        lga: updatedProfile.lga,
-        nationality: updatedProfile.nationality,
-        maritalStatus: updatedProfile.marital_status,
-        createdAt: updatedProfile.created_at,
-        updatedAt: updatedProfile.updated_at,
-      };
-
-      const response = {
-        success: true,
-        data: profile,
-        message: 'Profile updated successfully',
-        timestamp: new Date(),
-      };
-
-      res.json(response);
-    } catch (err: any) {
-      this.logger.error('[profile-update] error:', err?.message || err);
-      const response = {
-        success: false,
-        error: 'Internal server error',
-        timestamp: new Date(),
-      };
-      res.status(500).json(response);
-    }
-  }
-
-  /**
-   * Create application (legacy route for backward compatibility)
-   */
-  async createApplicationLegacy(req: Request, res: Response): Promise<void> {
-    try {
-      // Validate request body
-      const { ApplicationCreateRequestSchema } = await import('@fuep/types');
-      const validationResult = ApplicationCreateRequestSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const response = {
-          success: false,
-          error: 'Invalid request data',
-          timestamp: new Date(),
-        };
-        res.status(400).json(response);
-        return;
-      }
-
-      const appData = validationResult.data;
-
-      // TODO: Get candidate ID from authenticated user session when JWT middleware is implemented
-      // For now, we'll use a real candidate ID
-      const candidateId = '0009c312-3e0d-415b-8d7d-65f4d9124518';
-
-      // Check if candidate already has an application for this session
-      const { db } = await import('../../db/knex.js');
-      const existingApplication = await db('applications')
-        .where({
-          candidate_id: candidateId,
-          session: appData.session,
-        })
-        .first();
-
-      if (existingApplication) {
-        const response = {
-          success: false,
-          error: 'Candidate already has an application for this session',
-          timestamp: new Date(),
-        };
-        res.status(400).json(response);
-        return;
-      }
-
-      // TODO: Add programme and department validation when those tables are created
-      // For now, we'll accept any programme and department codes
-
-      // Create application in database
-      const [applicationId] = await db('applications')
-        .insert({
-          candidate_id: candidateId,
-          session: appData.session,
-          department: appData.department,
-          status: 'pending',
-          submitted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        })
-        .returning('id');
-
-      // Get created application
-      const createdApplication = await db('applications').where({ id: applicationId }).first();
-
-      if (!createdApplication) {
-        const response = {
-          success: false,
-          error: 'Failed to create application',
-          timestamp: new Date(),
-        };
-        res.status(500).json(response);
-        return;
-      }
-
-      // Return created application
-      const application = {
-        id: createdApplication.id,
-        candidateId: createdApplication.candidate_id,
-        session: createdApplication.session,
-        programmeCode: createdApplication.programme_code,
-        departmentCode: createdApplication.department_code,
-        status: createdApplication.status,
-        submittedAt: createdApplication.submitted_at
-          ? new Date(createdApplication.submitted_at)
-          : undefined,
-        createdAt: createdApplication.created_at,
-        updatedAt: createdApplication.updated_at,
-      };
-
-      const response = {
-        success: true,
-        data: application,
-        message: 'Application created successfully',
-        timestamp: new Date(),
-      };
-
-      res.json(response);
-    } catch (err: any) {
-      this.logger.error('[application-create] error:', err?.message || err);
-      const response = {
-        success: false,
-        error: 'Internal server error',
-        timestamp: new Date(),
-      };
-      res.status(500).json(response);
     }
   }
 
@@ -789,29 +616,6 @@ export class CandidateController {
     }
   }
 
-  async getRegistrationFormPDF(req: Request, res: Response): Promise<void> {
-    try {
-      const { candidateId } = req.params;
-
-      this.logger.log(`[CandidateController] Generating PDF for candidate: ${candidateId}`);
-
-      const pdfBuffer = await this.candidateService.generateRegistrationFormPDF(candidateId);
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="registration-form-${candidateId}.pdf"`
-      );
-      res.send(pdfBuffer);
-    } catch (error) {
-      this.logger.error('[CandidateController] Error generating PDF:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to generate PDF',
-      });
-    }
-  }
-
   // Admission and matriculation endpoints
   async getAdmissionStatus(req: Request, res: Response): Promise<void> {
     try {
@@ -1236,109 +1040,6 @@ export class CandidateController {
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve payment purposes',
-        timestamp: new Date(),
-      });
-    }
-  }
-
-  /**
-   * Get candidate's payment history
-   */
-  async getPaymentHistory(req: Request, res: Response): Promise<void> {
-    try {
-      const { candidateId } = req.params;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-
-      const result = await this.candidateService.getCandidatePaymentHistory(
-        candidateId,
-        page,
-        limit
-      );
-
-      res.status(200).json({
-        success: true,
-        data: result.data,
-        pagination: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          totalPages: Math.ceil(result.total / result.limit),
-        },
-        message: result.message,
-        timestamp: new Date(),
-      });
-    } catch (error) {
-      this.logger.error(`[CandidateController] Failed to get payment history: ${error}`);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve payment history',
-        timestamp: new Date(),
-      });
-    }
-  }
-
-  /**
-   * Check payment status
-   */
-  async checkPaymentStatus(req: Request, res: Response): Promise<void> {
-    try {
-      const { paymentId } = req.params;
-
-      const result = await this.candidateService.checkPaymentStatus(paymentId);
-
-      if (result.success) {
-        res.status(200).json({
-          success: true,
-          data: result.data,
-          message: result.message,
-          timestamp: new Date(),
-        });
-      } else {
-        res.status(404).json({
-          success: false,
-          error: result.message,
-          timestamp: new Date(),
-        });
-      }
-    } catch (error) {
-      this.logger.error(`[CandidateController] Failed to check payment status: ${error}`);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to check payment status',
-        timestamp: new Date(),
-      });
-    }
-  }
-
-  /**
-   * Get payment summary for candidate
-   */
-  async getPaymentSummary(req: Request, res: Response): Promise<void> {
-    try {
-      const { candidateId } = req.params;
-
-      const result = await this.candidateService.getPaymentSummary(candidateId);
-
-      if (result.success) {
-        res.status(200).json({
-          success: true,
-          data: result.data,
-          message: result.message,
-          timestamp: new Date(),
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          error: result.message,
-          timestamp: new Date(),
-        });
-      }
-    } catch (error) {
-      this.logger.error(`[CandidateController] Failed to get payment summary: ${error}`);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve payment summary',
         timestamp: new Date(),
       });
     }

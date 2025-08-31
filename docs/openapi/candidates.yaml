@@ -12,6 +12,25 @@ info:
     - Enhanced admin integration and analytics
 
 paths:
+  # Get all candidates
+  /api/candidates/candidates:
+    get:
+      summary: Get all candidates
+      tags: [Candidates]
+      responses:
+        '200':
+          description: List of candidates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Candidate' }
+                  timestamp: { type: string, format: date-time }
+
   # JAMB verification and registration initiation
   /api/candidates/check-jamb:
     post:
@@ -308,63 +327,24 @@ paths:
                     items: { $ref: '#/components/schemas/PaymentPurpose' }
                   timestamp: { type: string, format: date-time }
 
-  /api/candidates/{candidateId}/payment/history:
-    get:
-      summary: Get candidate payment history
-      tags: [Candidates]
-      parameters:
-        - in: path
-          name: candidateId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Payment history
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/PaymentTransaction' }
-                  timestamp: { type: string, format: date-time }
-
-  /api/candidates/{candidateId}/payment/summary:
-    get:
-      summary: Get candidate payment summary
-      tags: [Candidates]
-      parameters:
-        - in: path
-          name: candidateId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Payment summary
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                  data: { $ref: '#/components/schemas/PaymentSummary' }
-                  timestamp: { type: string, format: date-time }
-
   # Profile management
-  /api/candidates/profile/{jambRegNo}:
+  /api/candidates/{candidateId}/profile:
     get:
-      summary: Get candidate profile by JAMB registration number
+      summary: Get candidate profile by candidate ID
       tags: [Candidates]
       parameters:
         - in: path
-          name: jambRegNo
+          name: candidateId
           required: true
-          schema: { type: string, maxLength: 20 }
+          schema: { type: string, format: uuid }
+        - in: query
+          name: customField
+          required: false
+          schema: { type: string }
+          description: Optional custom field to filter by
       responses:
         '200':
-          description: Candidate profile
+          description: Candidate profile retrieved successfully
           content:
             application/json:
               schema:
@@ -374,6 +354,35 @@ paths:
                   data: { $ref: '#/components/schemas/Candidate' }
                   timestamp: { type: string, format: date-time }
         '404': { description: Candidate not found }
+        '400': { description: Invalid candidate ID }
+
+  /api/candidates/profile/jamb/{jambRegNo}:
+    get:
+      summary: Get candidate profile by JAMB registration number
+      tags: [Candidates]
+      parameters:
+        - in: path
+          name: jambRegNo
+          required: true
+          schema: { type: string, maxLength: 20 }
+        - in: query
+          name: customField
+          required: false
+          schema: { type: string }
+          description: Optional custom field to filter by
+      responses:
+        '200':
+          description: Candidate profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
+        '400': { description: Invalid JAMB registration number }
 
   /api/candidates/profile/{candidateId}:
     put:

@@ -24,6 +24,7 @@ export function createPaymentRoutes(controller: PaymentController): Router {
   // Parameterized routes (must come after static routes)
   router.get('/:paymentId', controller.getPaymentStatus.bind(controller));
   router.post('/:paymentId/verify', paymentRateLimit, controller.verifyPayment.bind(controller));
+  router.post('/verify/rrr', controller.verifyRRR.bind(controller));
   router.get('/:paymentId/receipt', controller.getPaymentReceipt.bind(controller));
 
   return router;

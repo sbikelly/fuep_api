@@ -29,21 +29,25 @@ export const PaymentStatusSchema = z.enum([
   'refunded',
 ]);
 
-// Payment purpose types (these are the payment purposes for clarity)
-export type PaymentPurpose =
+// Payment purpose code types (these are the payment purpose codes)
+export type PaymentPurposeName =
   | 'POST_UTME'
   | 'ACCEPTANCE'
   | 'SCHOOL_FEES'
+  | 'SPILL_OVER'
+  | 'TEACHING_PRACTICE'
   | 'LIBRARY_FEE'
   | 'HOSTEL_FEE'
   | 'MEDICAL_FEE'
   | 'SPORTS_FEE'
   | 'other';
 
-export const PaymentPurposeSchema = z.enum([
+export const PaymentPurposeNameSchema = z.enum([
   'POST_UTME',
   'ACCEPTANCE',
   'SCHOOL_FEES',
+  'SPILL_OVER',
+  'TEACHING_PRACTICE',
   'LIBRARY_FEE',
   'HOSTEL_FEE',
   'MEDICAL_FEE',
@@ -51,73 +55,77 @@ export const PaymentPurposeSchema = z.enum([
   'other',
 ]);
 
-// Simplified Payment Transaction interface
-export interface PaymentTransaction extends BaseEntity {
+// Payment interface (aligned with database schema)
+export interface Payment extends BaseEntity {
   candidateId: string;
   rrr: string; // Remita Retrieval Reference
-  purpose: PaymentPurpose;
+  purpose: PaymentPurposeName;
   amount: number;
   session: string;
   status: PaymentStatus;
   paymentLevel?: string; // e.g., '100', '200', '100L', etc.
   paymentUrl?: string;
-  expiresAt?: Date;
   webhookReceivedAt?: Date;
   verifiedAt?: Date;
 }
 
-export const PaymentTransactionSchema = BaseEntitySchema.extend({
+export const PaymentSchema = BaseEntitySchema.extend({
   candidateId: z.string().uuid(),
   rrr: z.string().min(1).max(50),
-  purpose: PaymentPurposeSchema,
+  purpose: PaymentPurposeNameSchema,
   amount: z.number().positive(),
   session: z.string().max(16),
   status: PaymentStatusSchema,
   paymentLevel: z.string().max(16).optional(),
   paymentUrl: z.string().url().optional(),
-  expiresAt: z.date().optional(),
   webhookReceivedAt: z.date().optional(),
   verifiedAt: z.date().optional(),
 });
 
-// Payment purpose configuration - simplified structure
-export interface PaymentPurposeConfig extends BaseEntity {
-  name: string;
-  purpose: PaymentPurpose;
+// Payment purpose configuration - aligned with database schema
+export interface PaymentPurpose extends BaseEntity {
+  name: PaymentPurposeName;
+  purpose: PaymentPurposeName;
   description?: string;
   amount: number;
   isActive: boolean;
   session: string;
   level: string;
+  facultyId?: string; //because payment amount vary by faculties
   createdBy?: string;
+  updated_at?: Date;
+  created_at?: Date;
 }
 
-export const PaymentPurposeConfigSchema = BaseEntitySchema.extend({
+export const PaymentPurposeSchema = BaseEntitySchema.extend({
   name: z.string().max(100),
-  purpose: PaymentPurposeSchema,
+  purpose: PaymentPurposeNameSchema,
   description: z.string().optional(),
   amount: z.number().positive(),
   isActive: z.boolean(),
   session: z.string().max(16),
   level: z.string().max(10),
+  facultyId: z.string().uuid().optional(),
   createdBy: z.string().uuid().optional(),
+  updated_at: z.date().optional(),
+  created_at: z.date().optional(),
 });
 
 // Payment initiation request
 export interface PaymentInitiationRequest {
-  candidateId: string;
+  userId: string;
+  userName: string; //
+  registrationNumber: string;
   purpose: PaymentPurpose;
-  amount: number;
-  session: string;
   email: string;
   phone: string;
 }
 
 export const PaymentInitiationRequestSchema = z.object({
-  candidateId: z.string().uuid(),
+  userId: z.string().uuid(),
+  userName: z.string().max(100),
+  registrationNumber: z.string().max(50),
   purpose: PaymentPurposeSchema,
-  amount: z.number().positive(),
-  session: z.string().max(16),
   email: z.string().email(),
   phone: z.string().min(10).max(15),
 });
@@ -127,7 +135,6 @@ export interface PaymentInitiationResponse {
   success: boolean;
   rrr: string;
   paymentUrl: string;
-  expiresAt: Date;
   paymentId: string;
 }
 
@@ -135,7 +142,6 @@ export const PaymentInitiationResponseSchema = z.object({
   success: z.boolean(),
   rrr: z.string(),
   paymentUrl: z.string().url(),
-  expiresAt: z.date(),
   paymentId: z.string().uuid(),
 });
 
@@ -176,7 +182,7 @@ export interface PaymentReceiptResponse {
   success: boolean;
   rrr: string;
   amount: number;
-  purpose: PaymentPurpose;
+  purpose: PaymentPurposeName;
   session: string;
   candidateId: string;
   status: PaymentStatus;
@@ -188,7 +194,7 @@ export const PaymentReceiptResponseSchema = z.object({
   success: z.boolean(),
   rrr: z.string(),
   amount: z.number().positive(),
-  purpose: PaymentPurposeSchema,
+  purpose: PaymentPurposeNameSchema,
   session: z.string(),
   candidateId: z.string().uuid(),
   status: PaymentStatusSchema,
@@ -218,7 +224,7 @@ export const PaymentStatisticsSchema = z.object({
 // Payment history response
 export interface PaymentHistoryResponse {
   success: boolean;
-  data: PaymentTransaction[];
+  data: Payment[];
   total: number;
   page: number;
   limit: number;
@@ -226,11 +232,36 @@ export interface PaymentHistoryResponse {
 
 export const PaymentHistoryResponseSchema = z.object({
   success: z.boolean(),
-  data: z.array(PaymentTransactionSchema),
+  data: z.array(PaymentSchema),
   total: z.number(),
   page: z.number(),
   limit: z.number(),
 });
+
+export interface RemitaPaymentRequest {
+  userId: string;
+  userName: string;
+  registrationNumber: string;
+  purpose: PaymentPurpose;
+  email: string;
+  phone: string;
+}
+
+export interface RemitaRRRResponse {
+  statuscode: string;
+  status: string;
+  rrr: string;
+  message: string;
+}
+
+export interface RemitaStatusResponse {
+  statuscode: string;
+  status: string;
+  rrr: string;
+  amount: string;
+  transactionId: string;
+  message: string;
+}
 
 // Webhook payload from Remita
 export interface RemitaWebhookPayload {
@@ -255,8 +286,8 @@ export const RemitaWebhookPayloadSchema = z.object({
 
 // Export all schemas
 export const PaymentSchemas = {
-  PaymentTransactionSchema,
-  PaymentPurposeConfigSchema,
+  PaymentSchema,
+  PaymentPurposeSchema,
   PaymentInitiationRequestSchema,
   PaymentInitiationResponseSchema,
   PaymentStatusCheckRequestSchema,

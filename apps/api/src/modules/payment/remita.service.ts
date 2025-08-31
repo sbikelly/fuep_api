@@ -1,29 +1,11 @@
-import { PaymentPurpose, PaymentStatus } from '@fuep/types';
-
-export interface RemitaPaymentRequest {
-  candidateId: string;
-  purpose: PaymentPurpose;
-  amount: number;
-  session: string;
-  email: string;
-  phone: string;
-}
-
-export interface RemitaRRRResponse {
-  statuscode: string;
-  status: string;
-  rrr: string;
-  message: string;
-}
-
-export interface RemitaStatusResponse {
-  statuscode: string;
-  status: string;
-  rrr: string;
-  amount: string;
-  transactionId: string;
-  message: string;
-}
+import {
+  PaymentPurpose,
+  PaymentPurposeName,
+  PaymentStatus,
+  RemitaPaymentRequest,
+  RemitaRRRResponse,
+  RemitaStatusResponse,
+} from '@fuep/types';
 
 export class RemitaService {
   private readonly publicKey: string;
@@ -52,28 +34,33 @@ export class RemitaService {
       const payload = {
         merchantId: this.merchantId,
         serviceTypeId: this.getServiceTypeId(request.purpose),
-        amount: request.amount,
-        orderId: `${request.candidateId}_${request.purpose}_${Date.now()}`,
-        payerName: request.candidateId,
+        amount: request.purpose.amount,
+        orderId: `${request.userId}_${request.userName}_${Date.now()}`,
+        payerName: request.userName,
         payerEmail: request.email,
         payerPhone: request.phone,
-        description: `FUEP ${request.purpose} Payment - ${request.session}`,
+        description: `FUEP ${request.purpose.purpose} Payment - ${request.purpose.session}`,
         returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/success`,
         onCloseUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/cancelled`,
         customFields: [
           {
-            name: 'candidate_id',
-            value: request.candidateId,
+            name: 'Registration Number',
+            value: request.registrationNumber,
             type: 'String',
           },
           {
-            name: 'purpose',
-            value: request.purpose,
+            name: 'Purpose',
+            value: request.purpose.purpose,
             type: 'String',
           },
           {
-            name: 'session',
-            value: request.session,
+            name: 'Session',
+            value: request.purpose.session,
+            type: 'String',
+          },
+          {
+            name: 'Level',
+            value: request.purpose.level,
             type: 'String',
           },
         ],
@@ -174,7 +161,7 @@ export class RemitaService {
   }
 
   /**
-   * Map Remita status to internal payment status
+   * Map Remita status to internal payment status types
    */
   private mapRemitaStatus(remitaStatus: string): PaymentStatus {
     const status = remitaStatus.toLowerCase();
@@ -209,18 +196,20 @@ export class RemitaService {
    */
   private getServiceTypeId(purpose: PaymentPurpose): string {
     // These are example service type IDs - you'll need to get the actual ones from Remita
-    const serviceTypeMap: Record<PaymentPurpose, string> = {
+    const serviceTypeMap: Record<PaymentPurposeName, string> = {
       POST_UTME: '4430731',
       ACCEPTANCE: '4430732',
       SCHOOL_FEES: '4430733',
-      LIBRARY_FEE: '4430734',
-      HOSTEL_FEE: '4430735',
-      MEDICAL_FEE: '4430736',
-      SPORTS_FEE: '4430737',
-      other: '4430738',
+      SPILL_OVER: '4430734',
+      TEACHING_PRACTICE: '4430735',
+      LIBRARY_FEE: '4430736',
+      HOSTEL_FEE: '4430737',
+      MEDICAL_FEE: '4430738',
+      SPORTS_FEE: '4430739',
+      other: '4430740',
     };
 
-    return serviceTypeMap[purpose] || '4430738';
+    return serviceTypeMap[purpose.name] || '4430738';
   }
 
   /**

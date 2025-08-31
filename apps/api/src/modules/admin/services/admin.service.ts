@@ -3,6 +3,9 @@ import { AdminAdmissionService } from './admin-admission.service.js';
 import { AdminCandidateService } from './admin-candidate.service.js';
 import { AdminPaymentService } from './admin-payment.service.js';
 import { AdminReportService } from './admin-report.service.js';
+// import { SystemMetricsService } from '../../services/system-metrics.service.js';
+// import { AnalyticsService } from '../../services/analytics.service.js';
+// import { db } from '../../db/knex.js';
 
 export interface AdminDashboardSummary {
   totalCandidates: number;
@@ -68,13 +71,19 @@ export interface AdminAnalytics {
 }
 
 export class AdminService {
+  // private systemMetricsService: SystemMetricsService;
+  // private analyticsService: AnalyticsService;
+
   constructor(
     private academicService: AdminAcademicService,
     private candidateService: AdminCandidateService,
     private paymentService: AdminPaymentService,
     private admissionService: AdminAdmissionService,
     private reportService: AdminReportService
-  ) {}
+  ) {
+    // this.systemMetricsService = new SystemMetricsService();
+    // this.analyticsService = new AnalyticsService();
+  }
 
   // Dashboard and Analytics
   async getDashboardSummary(): Promise<AdminDashboardSummary> {
@@ -246,10 +255,15 @@ export class AdminService {
 
   async getRecentActivity(limit: number = 10): Promise<AdminDashboardSummary['recentActivity']> {
     try {
-      // This would typically come from the audit service
-      // For now, return a placeholder
+      // For now, return empty array since audit service doesn't provide recent activity
+      // In production, this would be implemented with proper audit logging
       return [];
     } catch (error) {
+      console.warn('Failed to get recent activity, returning empty array', {
+        module: 'admin',
+        operation: 'getRecentActivity',
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -258,8 +272,10 @@ export class AdminService {
     timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['applicationTrends']> {
     try {
-      // This would calculate trends based on the time range
-      // For now, return placeholder data
+      // Use the analytics service to get real application trends
+      // const trends = await this.analyticsService.getApplicationTrends(timeRange);
+
+      // For now, return placeholder data until services are properly integrated
       const days =
         timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
       const trends = [];
@@ -269,13 +285,19 @@ export class AdminService {
         date.setDate(date.getDate() - i);
         trends.push({
           date: date.toISOString().split('T')[0],
-          applications: Math.floor(Math.random() * 20) + 5, // Placeholder
-          payments: Math.floor(Math.random() * 15) + 3, // Placeholder
+          applications: Math.floor(Math.random() * 20) + 5,
+          payments: Math.floor(Math.random() * 15) + 3,
         });
       }
 
       return trends;
     } catch (error) {
+      console.error('Failed to get application trends', {
+        module: 'admin',
+        operation: 'getApplicationTrends',
+        metadata: { timeRange },
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -284,8 +306,10 @@ export class AdminService {
     timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['topPerformingPrograms']> {
     try {
-      // This would analyze program performance
-      // For now, return placeholder data
+      // Use the analytics service to get real program performance data
+      // const programs = await this.analyticsService.getTopPerformingPrograms(timeRange);
+
+      // For now, return placeholder data until services are properly integrated
       return [
         {
           program: 'Computer Science',
@@ -304,6 +328,12 @@ export class AdminService {
         },
       ];
     } catch (error) {
+      console.error('Failed to get top performing programs', {
+        module: 'admin',
+        operation: 'getTopPerformingPrograms',
+        metadata: { timeRange },
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -385,26 +415,35 @@ export class AdminService {
 
   async getPerformanceMetrics(): Promise<AdminAnalytics['performanceMetrics']> {
     try {
-      const systemHealth = await this.getSystemHealth();
-      const uptime = process.uptime();
+      // Use the system metrics service to get real performance data
+      // const metrics = await this.systemMetricsService.collectSystemMetrics();
+      // const peakUsageHours = this.systemMetricsService.getPeakUsageHours();
 
-      // These would be collected from the metrics middleware
-      const averageResponseTime = 150; // ms - placeholder
-      const errorRate = 0.5; // % - placeholder
-      const activeUsers = 25; // placeholder
-      const peakUsageHours = ['09:00', '14:00', '16:00']; // placeholder
+      // For now, return placeholder data until services are properly integrated
+      const uptime = process.uptime();
 
       return {
         systemUptime: Math.round(uptime),
-        averageResponseTime,
-        errorRate,
-        activeUsers,
-        peakUsageHours,
+        averageResponseTime: 150, // Placeholder
+        errorRate: 0.5, // Placeholder
+        activeUsers: 25, // Placeholder
+        peakUsageHours: ['09:00', '14:00', '16:00'], // Placeholder
       };
     } catch (error) {
-      throw new Error(
-        `Failed to get performance metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('Failed to get performance metrics', {
+        module: 'admin',
+        operation: 'getPerformanceMetrics',
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Return fallback metrics
+      return {
+        systemUptime: Math.round(process.uptime()),
+        averageResponseTime: 0,
+        errorRate: 0,
+        activeUsers: 0,
+        peakUsageHours: [],
+      };
     }
   }
 
@@ -412,6 +451,10 @@ export class AdminService {
     timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['predictiveAnalytics']> {
     try {
+      // Use the analytics service to get real predictive analytics
+      // const analytics = await this.analyticsService.getPredictiveAnalytics(timeRange);
+
+      // For now, return placeholder data until services are properly integrated
       const currentApplications = await this.candidateService.getTotalCandidates();
       const currentRevenue = await this.paymentService.getTotalRevenue(timeRange);
 
@@ -428,9 +471,20 @@ export class AdminService {
         riskFactors,
       };
     } catch (error) {
-      throw new Error(
-        `Failed to get predictive analytics: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('Failed to get predictive analytics', {
+        module: 'admin',
+        operation: 'getPredictiveAnalytics',
+        metadata: { timeRange },
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Return fallback analytics
+      return {
+        expectedApplications: 0,
+        projectedRevenue: 0,
+        capacityUtilization: 0,
+        riskFactors: ['Unable to generate predictions'],
+      };
     }
   }
 
@@ -563,16 +617,26 @@ export class AdminService {
     pendingJobs: number;
   }> {
     try {
-      // This would gather system statistics
-      // For now, return placeholder data
+      // Use the system metrics service to get real system statistics
+      // const metrics = await this.systemMetricsService.collectSystemMetrics();
+
+      // For now, return placeholder data until services are properly integrated
+      const uptime = process.uptime();
+
       return {
         totalStorageUsed: 1024 * 1024 * 100, // 100MB placeholder
         activeUsers: 25, // Placeholder
-        systemUptime: Date.now() - new Date('2024-01-01').getTime(), // Placeholder
+        systemUptime: Math.round(uptime),
         lastBackup: new Date('2024-01-15'), // Placeholder
         pendingJobs: 5, // Placeholder
       };
     } catch (error) {
+      console.error('Failed to get system statistics', {
+        module: 'admin',
+        operation: 'getSystemStatistics',
+        error: error instanceof Error ? error.message : String(error),
+      });
+
       return {
         totalStorageUsed: 0,
         activeUsers: 0,
@@ -580,6 +644,35 @@ export class AdminService {
         lastBackup: null,
         pendingJobs: 0,
       };
+    }
+  }
+
+  // private async getDatabaseSize(): Promise<number> {
+  //   try {
+  //     const result = await db.raw('SELECT pg_database_size(current_database()) as size');
+  //     return parseInt(result.rows[0]?.size || '0');
+  //   } catch (error) {
+  //     return 0;
+  //   }
+  // }
+
+  private async getLastBackupTime(): Promise<Date | null> {
+    try {
+      // In production, this would check actual backup logs
+      // For now, return null
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private async getPendingJobsCount(): Promise<number> {
+    try {
+      // In production, this would check actual job queues
+      // For now, return 0
+      return 0;
+    } catch (error) {
+      return 0;
     }
   }
 

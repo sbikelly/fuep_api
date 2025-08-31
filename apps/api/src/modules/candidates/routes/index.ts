@@ -51,14 +51,16 @@ export function createCandidateRoutes(controller: CandidateController): Router {
     '/:candidateId/payment/purposes',
     controller.getAvailablePaymentPurposes.bind(controller)
   );
-  router.get('/:candidateId/payment/history', controller.getPaymentHistory.bind(controller));
-  router.get('/:candidateId/payment/summary', controller.getPaymentSummary.bind(controller));
-  router.get('/payment/:paymentId/status', controller.checkPaymentStatus.bind(controller));
 
   // Profile management
-  router.get('/profile/:jambRegNo', controller.getCandidateProfile.bind(controller));
+  // Get candidate profile by candidateId
+  router.get('/:candidateId/profile', controller.getCandidateById.bind(controller));
+  // Get candidate profile by JAMB registration number
+  router.get('/profile/jamb/:jambRegNo', controller.getCandidateProfile.bind(controller));
+  //get all candidates
+  router.get('/candidates', controller.getAllCandidates.bind(controller));
+  // Update candidate profile
   router.put('/profile/:candidateId', controller.updateCandidateProfile.bind(controller));
-  router.get('/jamb/:jambRegNo', controller.getCandidateByJambRegNo.bind(controller));
 
   // Next of Kin
   router.get('/:candidateId/next-of-kin', controller.getNextOfKin.bind(controller));
@@ -86,21 +88,13 @@ export function createCandidateRoutes(controller: CandidateController): Router {
   router.get('/:candidateId/application', controller.getApplication.bind(controller));
   router.put('/:candidateId/application', controller.updateApplication.bind(controller));
   router.get('/:candidateId/registration-form', controller.getRegistrationForm.bind(controller));
-  router.get(
-    '/:candidateId/registration-form.pdf',
-    controller.getRegistrationFormPDF.bind(controller)
-  );
   router.get('/:candidateId/admission-status', controller.getAdmissionStatus.bind(controller));
-  router.get(
-    '/:candidateId/admission-letter.pdf',
-    controller.getAdmissionLetterPDF.bind(controller)
-  );
   router.get('/:candidateId/matric-number', controller.getMatricNumber.bind(controller));
   router.get('/:candidateId/migration-status', controller.getMigrationStatus.bind(controller));
 
   // Legacy routes for backward compatibility (moved from main.ts)
-  router.put('/profile', controller.updateProfile.bind(controller));
-  router.post('/applications', controller.createApplicationLegacy.bind(controller));
+  router.put('/profile', controller.updateCandidateProfile.bind(controller));
+  router.post('/applications', controller.createApplication.bind(controller));
 
   return router;
 }

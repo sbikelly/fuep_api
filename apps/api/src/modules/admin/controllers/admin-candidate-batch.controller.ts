@@ -36,9 +36,16 @@ export class AdminCandidateBatchController {
         return;
       }
 
-      // TODO: Get admin user ID from authenticated session when JWT middleware is implemented
-      // For now, we'll use a placeholder admin ID
-      const adminUserId = 'admin-placeholder-id';
+      // Get admin user ID from authenticated session
+      // In production, this would come from JWT middleware
+      const adminUserId =
+        (req.headers['x-admin-user-id'] as string) || req.body.adminUserId || 'system-admin';
+
+      if (!adminUserId || adminUserId === 'system-admin') {
+        console.warn(
+          '[AdminCandidateBatchController] No admin user ID provided, using system admin'
+        );
+      }
 
       const result = await this.batchService.processCandidateBatch(fileData, fileName, adminUserId);
 
@@ -99,20 +106,35 @@ export class AdminCandidateBatchController {
         return;
       }
 
-      // TODO: Implement template download logic
-      // For now, return a message indicating where templates can be found
-      res.json({
-        success: true,
-        message: `Template for ${type.toUpperCase()} candidates can be found in the candidate_batch_upload_templates folder`,
-        templatePath: `candidate_batch_upload_templates/${type}_template.csv`,
-        supportedFormats: ['CSV (.csv)', 'Excel (.xls)', 'Excel (.xlsx)'],
-        note: 'The API accepts all three formats in base64 encoding',
-      });
+      // Generate template content based on type - matching the exact templates
+      let templateContent: string;
+      let filename: string;
+
+      if (type === 'utme') {
+        filename = 'utme_candidate_template.csv';
+        templateContent = `JAMB NO,SURNAME,FIRST NAME,OTHER NAME,STATE,LGA,GENDER,DEPARTMENT,MODE OF ENTRY,JAMB SCORE,SUBJECT 1,SCORE 1,SUBJECT 2,SCORE 2,SUBJECT 3,SCORE 3,SUBJECT 4,SCORE 4
+95033457IJ,Eric,Providence,Ifeanyi,IMO,IDEATO-NORTH,Male,EDUCATION and MATHEMATICS,UTME,213,Chemistry,45,Mathematics,68,Physics,45,English Language,55
+95295604CH,Saul,Shalkur,Isaac,PLATEAU,LANGTAN-NORTH,Male,EDUCATION and PHYSICS,UTME,254,Biology,63,Chemistry,63,Physics,62,English Language,66`;
+      } else {
+        filename = 'de_candidate_template.csv';
+        templateContent = `JAMB NO,SURNAME,FIRST NAME,OTHER NAME,STATE,LGA,GENDER,DEPARTMENT,MODE OF ENTRY,JAMB SCORE,SUBJECT 1,SCORE 1,SUBJECT 2,SCORE 2,SUBJECT 3,SCORE 3,SUBJECT 4,SCORE 4
+99203065JE,David,Luritmwa,Kenji,PLATEAU,PANKSHIN,Female,GUIDANCE and COUNSELLING,Direct Entry,,,,,,,,,
+99203087CI,Nwokpo,Esther,Nwabueze,PLATEAU,KANKE,Female,EDUCATIONAL ADMINISTRATION and PLANNING,Direct Entry,,,,,,,,,
+99203152CH,Danjuma,Nanchang,,PLATEAU,LANGTAN-NORTH,Male,EDUCATIONAL ADMINISTRATION and PLANNING,Direct Entry,,,,,,,,,`;
+      }
+
+      // Set headers for file download
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+      // Send the template content
+      res.send(templateContent);
     } catch (error) {
       console.error('[AdminCandidateBatchController] Download template error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to download template',
+        timestamp: new Date(),
       });
     }
   }

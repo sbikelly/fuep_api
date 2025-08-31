@@ -15,7 +15,7 @@ export class PaymentPurposeController {
    */
   async createPaymentPurpose(req: Request, res: Response): Promise<void> {
     try {
-      const { name, purpose, description, amount, session, level } = req.body;
+      const { name, purpose, description, amount, session, level, facultyId } = req.body;
 
       /**
        * const createdBy = (req as any).user?.id;
@@ -40,6 +40,8 @@ export class PaymentPurposeController {
         amount: parseFloat(amount),
         session,
         level,
+        facultyId,
+        isActive: true,
         createdBy,
       };
 
@@ -66,12 +68,13 @@ export class PaymentPurposeController {
    */
   async getPaymentPurposes(req: Request, res: Response): Promise<void> {
     try {
-      const { session, purpose, level, isActive } = req.query;
+      const { session, purpose, level, faculty, isActive } = req.query;
 
       const filters: any = {};
       if (session) filters.session = session as string;
       if (purpose) filters.purpose = purpose as string;
       if (level) filters.level = level as string;
+      if (faculty) filters.faculty = faculty as string;
       if (isActive !== undefined) filters.isActive = isActive === 'true';
 
       const paymentPurposes = await this.paymentPurposeService.getPaymentPurposes(filters);
@@ -282,6 +285,36 @@ export class PaymentPurposeController {
         data: paymentPurposes,
         total: paymentPurposes.length,
         purpose,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      logger.error(
+        `[PaymentPurposeController] Failed to get payment purposes by purpose: ${error}`
+      );
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve payment purposes by purpose',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Get payment purposes by purpose type
+   */
+  async getPaymentPurposesByFaculty(req: Request, res: Response): Promise<void> {
+    try {
+      const { facultyId } = req.params;
+
+      const paymentPurposes = await this.paymentPurposeService.getPaymentPurposesByPurpose(
+        facultyId as any
+      );
+
+      res.status(200).json({
+        success: true,
+        data: paymentPurposes,
+        total: paymentPurposes.length,
+        purpose: facultyId,
         timestamp: new Date(),
       });
     } catch (error) {

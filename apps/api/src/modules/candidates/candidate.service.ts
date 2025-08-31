@@ -6,25 +6,41 @@ import {
   EducationRecord,
   NextOfKin,
   NextStepInfo,
+  PaymentHistoryResponse,
+  PaymentPurpose,
+  PaymentPurposeName,
+  PaymentStatus,
   ProfileCompletionStatus,
   Sponsor,
-  // Upload type removed - documents module no longer exists
 } from '@fuep/types';
 
 import { db } from '../../db/knex.js';
 import { logger } from '../../middleware/logging.js';
 import { withDatabaseLogging, withPerformanceLogging } from '../../middleware/logging.js';
 import { EmailService } from '../../services/email.service.js';
+import { PDFService } from '../../services/pdf.service.js';
 import { SMSService } from '../../services/sms.service.js';
 import { PasswordUtils } from '../../utils/password.utils.js';
+import { PaymentService } from '../payment/payment.service.js';
 
 export class CandidateService {
   private emailService: EmailService;
   private smsService: SMSService;
+  private pdfService: PDFService;
+  private _paymentService?: PaymentService;
 
   constructor(private logger: Console) {
     this.emailService = new EmailService();
     this.smsService = new SMSService();
+    this.pdfService = new PDFService();
+  }
+
+  // Lazy getter for payment service
+  private get paymentService(): PaymentService {
+    if (!this._paymentService) {
+      this._paymentService = new PaymentService();
+    }
+    return this._paymentService;
   }
 
   /**
@@ -358,7 +374,12 @@ export class CandidateService {
         // Get candidate type
         const candidate = await db('candidates').where('id', candidateId).first();
         if (!candidate) {
-          throw new Error('Candidate not found');
+          logger.error('Candidate not found for education completion', {
+            module: 'candidate',
+            operation: 'completeEducation',
+            metadata: { candidateId },
+          });
+          throw new Error('Candidate not found. Please ensure you are properly registered.');
         }
 
         // Create education record
@@ -783,119 +804,29 @@ export class CandidateService {
   }
 
   /**
-   * Get candidate by JAMB registration number
+   * Get candidate profile by JAMB registration number or candidate ID.
+   * Includes department and faculty information, application, and admission details.
+   * Accepts either jambRegNo (string) or candidateId (string).
+   * And optionally, some custom fields
    */
-  async getCandidateByJambRegNo(jambRegNo: string): Promise<any | null> {
-    return withPerformanceLogging(
-      'getCandidateByJambRegNo',
-      async () => {
-        return withDatabaseLogging(
-          'SELECT',
-          'candidates',
-          async () => {
-            // Get candidate from database
-            const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
-
-            if (!candidate) {
-              logger.info('Candidate not found by JAMB reg no', {
-                module: 'candidates',
-                operation: 'getCandidateByJambRegNo',
-                metadata: { jambRegNo, found: false },
-              });
-              return null;
-            }
-
-            // Get additional data from related tables
-            const application = await db('applications')
-              .where('candidate_id', candidate.id)
-              .first();
-            const admission = await db('admissions').where('candidate_id', candidate.id).first();
-
-            const candidateData: any = {
-              id: candidate.id,
-              jambRegNo: candidate.jamb_reg_no,
-              firstname: candidate.firstname,
-              surname: candidate.surname,
-              othernames: candidate.othernames,
-              gender: candidate.gender,
-              dob: candidate.dob,
-              address: candidate.address,
-              state: candidate.state,
-              lga: candidate.lga,
-              email: candidate.email,
-              phone: candidate.phone,
-              department: candidate.department,
-              departmentId: candidate.department_id,
-              modeOfEntry: candidate.mode_of_entry,
-              maritalStatus: candidate.marital_status,
-              passportPhotoUrl: candidate.passport_photo_url,
-              signatureUrl: candidate.signature_url,
-              registrationCompleted: candidate.registration_completed,
-              biodataCompleted: candidate.biodata_completed,
-              educationCompleted: candidate.education_completed,
-              nextOfKinCompleted: candidate.next_of_kin_completed,
-              sponsorCompleted: candidate.sponsor_completed,
-              admissionStatus: candidate.admission_status,
-              paymentStatus: candidate.payment_status,
-              rrr: candidate.rrr,
-              application: application
-                ? {
-                    id: application.id,
-                    session: application.session,
-                    departmentCode: application.department_code,
-                    facultyCode: application.faculty_code,
-                    status: application.status,
-                  }
-                : null,
-              admission: admission
-                ? {
-                    id: admission.id,
-                    decision: admission.decision,
-                    decidedAt: admission.decided_at,
-                    notes: admission.notes,
-                  }
-                : null,
-              createdAt: candidate.created_at,
-              updatedAt: candidate.updated_at,
-            };
-
-            logger.info('Candidate found by JAMB reg no', {
-              module: 'candidates',
-              operation: 'getCandidateByJambRegNo',
-              metadata: { jambRegNo, candidateId: candidate.id, found: true },
-            });
-
-            return candidateData;
-          },
-          { metadata: { jambRegNo } }
-        );
-      },
-      { metadata: { jambRegNo } }
-    );
-  }
-
   /**
-   * Get candidate profile
-   * including department information with faculty details
-   * using jamb_reg_no
+   * Get candidate profile by jambRegNo or candidateId, with optional custom fields.
+   * Accepts a single parameter: string (jambRegNo or candidateId), and optional customFields.
    */
-  async getCandidate(jambRegNo: string): Promise<any | null> {
+  async getCandidateProfile(
+    identifier: string,
+    customFields?: Record<string, any>
+  ): Promise<any | null> {
     return withPerformanceLogging(
-      'getCandidate',
+      'getCandidateProfile',
       async () => {
         return withDatabaseLogging(
           'SELECT',
-          'candidates,departments,faculties',
+          'candidates,departments,faculties,applications,admissions',
           async () => {
             try {
-              logger.info('Getting candidate profile', {
-                module: 'candidates',
-                operation: 'getCandidate',
-                metadata: { jambRegNo },
-              });
-
-              // Get candidate with department and faculty information
-              const candidate = await db('candidates as c')
+              // Try to detect if identifier is a jambRegNo (contains only digits/letters, usually length 10) or candidateId (uuid)
+              let candidateQuery = db('candidates as c')
                 .select(
                   'c.*',
                   'd.id as department_id',
@@ -907,20 +838,39 @@ export class CandidateService {
                   'f.code as faculty_code'
                 )
                 .leftJoin('departments as d', 'c.department_id', 'd.id')
-                .leftJoin('faculties as f', 'd.faculty_id', 'f.id')
-                .where('c.jamb_reg_no', jambRegNo)
-                .first();
+                .leftJoin('faculties as f', 'd.faculty_id', 'f.id');
+
+              // If identifier looks like a UUID, treat as candidateId, else as jambRegNo
+              if (/^[0-9a-fA-F-]{36}$/.test(identifier)) {
+                candidateQuery = candidateQuery.where('c.id', identifier);
+              } else {
+                candidateQuery = candidateQuery.where('c.jamb_reg_no', identifier);
+              }
+
+              // Apply custom fields if provided
+              if (customFields && typeof customFields === 'object') {
+                Object.entries(customFields).forEach(([key, value]) => {
+                  candidateQuery = candidateQuery.andWhere(`c.${key}`, value);
+                });
+              }
+
+              const candidate = await candidateQuery.first();
 
               if (!candidate) {
                 logger.info('Candidate not found for profile', {
                   module: 'candidates',
-                  operation: 'getCandidate',
-                  metadata: { jambRegNo, found: false },
+                  operation: 'getCandidateProfile',
+                  metadata: { identifier, found: false },
                 });
                 return null;
               }
 
-              // Build the result with department information
+              // Get additional data from related tables
+              const application = await db('applications')
+                .where('candidate_id', candidate.id)
+                .first();
+              const admission = await db('admissions').where('candidate_id', candidate.id).first();
+
               const result = {
                 id: candidate.id,
                 jambRegNo: candidate.jamb_reg_no,
@@ -935,7 +885,7 @@ export class CandidateService {
                 address: candidate.address,
                 email: candidate.email,
                 phone: candidate.phone,
-                department: candidate.department, // Keep for backward compatibility
+                department: candidate.department, // For backward compatibility
                 departmentId: candidate.department_id,
                 departmentInfo: candidate.department_id
                   ? {
@@ -964,15 +914,32 @@ export class CandidateService {
                 admissionStatus: candidate.admission_status,
                 paymentStatus: candidate.payment_status,
                 rrr: candidate.rrr,
+                application: application
+                  ? {
+                      id: application.id,
+                      session: application.session,
+                      departmentCode: application.department_code,
+                      facultyCode: application.faculty_code,
+                      status: application.status,
+                    }
+                  : null,
+                admission: admission
+                  ? {
+                      id: admission.id,
+                      decision: admission.decision,
+                      decidedAt: admission.decided_at,
+                      notes: admission.notes,
+                    }
+                  : null,
                 createdAt: candidate.created_at,
                 updatedAt: candidate.updated_at,
               };
 
               logger.info('Candidate profile retrieved successfully', {
                 module: 'candidates',
-                operation: 'getCandidate',
+                operation: 'getCandidateProfile',
                 metadata: {
-                  jambRegNo,
+                  identifier,
                   candidateId: candidate.id,
                   found: true,
                   hasDepartment: !!candidate.department_id,
@@ -983,18 +950,141 @@ export class CandidateService {
             } catch (error) {
               logger.error('Failed to get candidate profile', {
                 module: 'candidates',
-                operation: 'getCandidate',
-                metadata: { jambRegNo },
+                operation: 'getCandidateProfile',
+                metadata: { identifier },
                 error: error instanceof Error ? error.message : String(error),
               });
-              throw new Error('Failed to get candidate profile');
+              throw new Error('Failed to retrieve candidate profile. Please try again later.');
             }
           },
-          { metadata: { jambRegNo } }
+          { metadata: { identifier, customFields } }
         );
       },
-      { metadata: { jambRegNo } }
+      { metadata: { identifier, customFields } }
     );
+  }
+
+  /**
+   * Get All Candidates along with their data from other related tables
+   */
+  async getAllCandidates(): Promise<any[]> {
+    return withPerformanceLogging('getAllCandidatesWithDetails', async () => {
+      return withDatabaseLogging(
+        'SELECT',
+        'candidates,departments,faculties,applications,admissions',
+        async () => {
+          try {
+            // Get all candidates
+            const candidates = await db('candidates as c')
+              .select(
+                'c.*',
+                'd.id as department_id',
+                'd.name as department_name',
+                'd.code as department_code',
+                'f.id as faculty_id',
+                'f.name as faculty_name',
+                'f.code as faculty_code'
+              )
+              .leftJoin('departments as d', 'c.department_id', 'd.id')
+              .leftJoin('faculties as f', 'd.faculty_id', 'f.id');
+
+            // For each candidate, get related data
+            const results = await Promise.all(
+              candidates.map(async (candidate: any) => {
+                const [application, admission, education, nextOfKin, sponsor] = await Promise.all([
+                  db('applications').where('candidate_id', candidate.id).first(),
+                  db('admissions').where('candidate_id', candidate.id).first(),
+                  db('education_records').where('candidate_id', candidate.id),
+                  db('next_of_kin').where('candidate_id', candidate.id).first(),
+                  db('sponsors').where('candidate_id', candidate.id).first(),
+                ]);
+
+                return {
+                  id: candidate.id,
+                  jambRegNo: candidate.jamb_reg_no,
+                  firstname: candidate.firstname,
+                  surname: candidate.surname,
+                  othernames: candidate.othernames,
+                  gender: candidate.gender,
+                  dob: candidate.dob,
+                  nationality: candidate.nationality,
+                  state: candidate.state,
+                  lga: candidate.lga,
+                  address: candidate.address,
+                  email: candidate.email,
+                  phone: candidate.phone,
+                  department: candidate.department,
+                  departmentId: candidate.department_id,
+                  departmentInfo: candidate.department_id
+                    ? {
+                        id: candidate.department_id,
+                        name: candidate.department_name,
+                        code: candidate.department_code,
+                        faculty: candidate.faculty_id
+                          ? {
+                              id: candidate.faculty_id,
+                              name: candidate.faculty_name,
+                              code: candidate.faculty_code,
+                            }
+                          : undefined,
+                      }
+                    : undefined,
+                  modeOfEntry: candidate.mode_of_entry,
+                  maritalStatus: candidate.marital_status,
+                  passportPhotoUrl: candidate.passport_photo_url,
+                  signatureUrl: candidate.signature_url,
+                  registrationCompleted: candidate.registration_completed,
+                  biodataCompleted: candidate.biodata_completed,
+                  educationCompleted: candidate.education_completed,
+                  nextOfKinCompleted: candidate.next_of_kin_completed,
+                  sponsorCompleted: candidate.sponsor_completed,
+                  admissionStatus: candidate.admission_status,
+                  paymentStatus: candidate.payment_status,
+                  rrr: candidate.rrr,
+                  application: application
+                    ? {
+                        id: application.id,
+                        session: application.session,
+                        departmentCode: application.department_code,
+                        facultyCode: application.faculty_code,
+                        status: application.status,
+                      }
+                    : null,
+                  admission: admission
+                    ? {
+                        id: admission.id,
+                        decision: admission.decision,
+                        decidedAt: admission.decided_at,
+                        notes: admission.notes,
+                      }
+                    : null,
+                  educationRecords: education,
+                  nextOfKin,
+                  sponsor,
+                  createdAt: candidate.created_at,
+                  updatedAt: candidate.updated_at,
+                };
+              })
+            );
+
+            logger.info('All candidates with details retrieved successfully', {
+              module: 'candidates',
+              operation: 'getAllCandidatesWithDetails',
+              metadata: { count: results.length },
+            });
+
+            return results;
+          } catch (error) {
+            logger.error('Failed to get all candidates with details', {
+              module: 'candidates',
+              operation: 'getAllCandidatesWithDetails',
+              error: error instanceof Error ? error.message : String(error),
+            });
+            throw new Error('Failed to retrieve all candidates with details.');
+          }
+        }
+      );
+    });
   }
 
   /**
@@ -1013,14 +1103,21 @@ export class CandidateService {
         .returning('*');
 
       if (!updatedCandidate) {
-        throw new Error('Candidate not found');
+        logger.error('Candidate not found during profile update', {
+          module: 'candidate',
+          operation: 'updateCandidate',
+          metadata: { candidateId },
+        });
+        throw new Error('Candidate not found. Please ensure you are properly registered.');
       }
 
       this.logger.log(`[CandidateService] Candidate updated successfully: ${candidateId}`);
       return updatedCandidate;
     } catch (error) {
       this.logger.error('[CandidateService] Error updating candidate profile:', error);
-      throw new Error('Failed to update candidate profile');
+      throw new Error(
+        'Failed to update candidate profile. Please ensure all required fields are provided and try again.'
+      );
     }
   }
 
@@ -1036,7 +1133,7 @@ export class CandidateService {
       return nok as NextOfKin | null;
     } catch (error) {
       this.logger.error('[CandidateService] Error getting next of kin:', error);
-      throw new Error('Failed to get next of kin information');
+      throw new Error('Failed to retrieve next of kin information. Please try again later.');
     }
   }
 
@@ -1075,7 +1172,9 @@ export class CandidateService {
       }
     } catch (error) {
       this.logger.error('[CandidateService] Error upserting next of kin:', error);
-      throw new Error('Failed to save next of kin information');
+      throw new Error(
+        'Failed to save next of kin information. Please ensure all required fields are provided and try again.'
+      );
     }
   }
 
@@ -1091,7 +1190,7 @@ export class CandidateService {
       return sponsor as Sponsor | null;
     } catch (error) {
       this.logger.error('[CandidateService] Error getting sponsor:', error);
-      throw new Error('Failed to get sponsor information');
+      throw new Error('Failed to retrieve sponsor information. Please try again later.');
     }
   }
 
@@ -1130,7 +1229,9 @@ export class CandidateService {
       }
     } catch (error) {
       this.logger.error('[CandidateService] Error upserting sponsor:', error);
-      throw new Error('Failed to save sponsor information');
+      throw new Error(
+        'Failed to save sponsor information. Please ensure all required fields are provided and try again.'
+      );
     }
   }
 
@@ -1196,7 +1297,14 @@ export class CandidateService {
         .returning('*');
 
       if (!updatedRecord) {
-        throw new Error('Education record not found');
+        logger.error('Education record not found during update', {
+          module: 'candidate',
+          operation: 'updateEducationRecord',
+          metadata: { recordId },
+        });
+        throw new Error(
+          'Education record not found. Please ensure the record exists before updating.'
+        );
       }
 
       this.logger.log(`[CandidateService] Education record updated: ${recordId}`);
@@ -1217,7 +1325,14 @@ export class CandidateService {
       const deleted = await db('education_records').where('id', recordId).del();
 
       if (deleted === 0) {
-        throw new Error('Education record not found');
+        logger.error('Education record not found during deletion', {
+          module: 'candidate',
+          operation: 'deleteEducationRecord',
+          metadata: { recordId },
+        });
+        throw new Error(
+          'Education record not found. Please ensure the record exists before deleting.'
+        );
       }
 
       this.logger.log(`[CandidateService] Education record deleted: ${recordId}`);
@@ -1286,7 +1401,7 @@ export class CandidateService {
 
       const [profile, nok, sponsor, educationRecords, applications, payments, completionStatus] =
         await Promise.all([
-          this.getCandidate(candidateId),
+          this.getCandidateProfile(candidateId),
           this.getNextOfKin(candidateId),
           this.getSponsor(candidateId),
           this.getEducationRecords(candidateId),
@@ -1509,20 +1624,6 @@ export class CandidateService {
     }
   }
 
-  async generateRegistrationFormPDF(candidateId: string): Promise<Buffer> {
-    try {
-      this.logger.log(`[CandidateService] Generating PDF for candidate: ${candidateId}`);
-
-      // TODO: Implement actual PDF generation
-      // For now, return a mock PDF buffer
-      const mockPdfContent = `Registration Form for Candidate ${candidateId}`;
-      return Buffer.from(mockPdfContent, 'utf-8');
-    } catch (error) {
-      this.logger.error('[CandidateService] Error generating PDF:', error);
-      throw new Error('Failed to generate PDF');
-    }
-  }
-
   // Admission and matriculation methods
   async getAdmissionStatus(candidateId: string): Promise<any> {
     try {
@@ -1558,13 +1659,34 @@ export class CandidateService {
         `[CandidateService] Generating admission letter for candidate: ${candidateId}`
       );
 
-      // TODO: Implement actual PDF generation with admission letter template
-      // For now, return a mock PDF buffer
-      const mockPdfContent = `Admission Letter for Candidate ${candidateId}`;
-      return Buffer.from(mockPdfContent, 'utf-8');
+      // Get candidate and admission data
+      const [candidate, admission] = await Promise.all([
+        db('candidates').where('id', candidateId).first(),
+        db('admissions').where('candidate_id', candidateId).orderBy('created_at', 'desc').first(),
+      ]);
+
+      if (!candidate) {
+        throw new Error('Candidate not found for admission letter generation');
+      }
+
+      if (!admission) {
+        throw new Error('No admission record found for this candidate');
+      }
+
+      // Generate PDF using the PDF service
+      const pdfBuffer = await this.pdfService.generateAdmissionLetterPDF(
+        `${candidate.firstname} ${candidate.surname}`,
+        candidate.jamb_reg_no,
+        admission
+      );
+
+      this.logger.log(
+        `[CandidateService] Admission letter generated successfully for candidate: ${candidateId}`
+      );
+      return pdfBuffer;
     } catch (error) {
       this.logger.error('[CandidateService] Error generating admission letter:', error);
-      throw new Error('Failed to generate admission letter');
+      throw new Error('Failed to generate admission letter. Please try again later.');
     }
   }
 
@@ -1756,7 +1878,7 @@ export class CandidateService {
    */
   async getAvailablePaymentPurposes(candidateId: string): Promise<{
     success: boolean;
-    data: any[];
+    data: PaymentPurpose[];
     message: string;
   }> {
     return await withDatabaseLogging(
@@ -1775,17 +1897,28 @@ export class CandidateService {
             };
           }
 
-          // Get candidate's information to determine level
+          // Get candidate's information to determine mode_of_entry
           const candidate = await db('candidates').where('id', candidateId).first();
+          if (!candidate) {
+            return {
+              success: false,
+              data: [],
+              message: 'Candidate not found.',
+            };
+          }
+
+          // Get Candidate's department to determine faculty
+          const department = await db('departments').where('id', candidate.departmentId).first();
 
           // Determine level - for new candidates, default to 100 level
           const level = candidate?.level || application?.level || '100';
           const session = application.session;
 
-          // Fetch available payment purposes for this session and level
+          // Fetch available payment purposes for this session, level and faculty
           const paymentPurposes = await db('payment_purposes')
             .where('session', session)
             .andWhere('level', level)
+            .andWhere('faculty', department?.facultyId)
             .andWhere('is_active', true)
             .orderBy(['purpose', 'amount']);
 
@@ -1805,6 +1938,9 @@ export class CandidateService {
               amount: pp.amount,
               session: pp.session,
               level: pp.level,
+              faculty: pp.faculty,
+              createdAt: pp.created_at,
+              updatedAt: pp.updated_at,
               isActive: pp.is_active,
             })),
             message: `Found ${paymentPurposes.length} available payment purposes for ${session} session, level ${level}`,
@@ -1820,233 +1956,5 @@ export class CandidateService {
         }
       }
     );
-  }
-
-  /**
-   * Get candidate's payment history
-   */
-  async getCandidatePaymentHistory(
-    candidateId: string,
-    page: number = 1,
-    limit: number = 10
-  ): Promise<{
-    success: boolean;
-    data: any[];
-    total: number;
-    page: number;
-    limit: number;
-    message: string;
-  }> {
-    return await withDatabaseLogging('getCandidatePaymentHistory', 'payments', async () => {
-      try {
-        const offset = (page - 1) * limit;
-
-        const [payments, total] = await Promise.all([
-          db('payments')
-            .where('candidateId', candidateId)
-            .orderBy('createdAt', 'desc')
-            .limit(limit)
-            .offset(offset)
-            .select('*'),
-          db('payments').where('candidateId', candidateId).count('* as total').first(),
-        ]);
-
-        const formattedPayments = payments.map((payment: any) => ({
-          id: payment.id,
-          rrr: payment.rrr,
-          purpose: payment.purpose,
-          amount: payment.amount,
-          session: payment.session,
-          level: payment.level,
-          status: payment.status,
-          paymentUrl: payment.payment_url,
-          expiresAt: payment.expires_at,
-          createdAt: payment.created_at,
-          verifiedAt: payment.verified_at,
-        }));
-
-        logger.info('Payment history retrieved successfully', {
-          module: 'candidate',
-          operation: 'getCandidatePaymentHistory',
-          metadata: { candidateId, count: payments.length, total: total?.total || 0 },
-        });
-
-        return {
-          success: true,
-          data: formattedPayments,
-          total: parseInt((total?.total as string) || '0'),
-          page,
-          limit,
-          message: `Retrieved ${payments.length} payment records`,
-        };
-      } catch (error) {
-        logger.error('Failed to get candidate payment history', {
-          module: 'candidate',
-          operation: 'getCandidatePaymentHistory',
-          metadata: { candidateId },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Check payment status for a specific payment
-   */
-  async checkPaymentStatus(paymentId: string): Promise<{
-    success: boolean;
-    data: any;
-    message: string;
-  }> {
-    return await withDatabaseLogging('checkPaymentStatus', 'payments', async () => {
-      try {
-        const payment = await db('payments').where('id', paymentId).first();
-
-        if (!payment) {
-          return {
-            success: false,
-            data: null,
-            message: 'Payment not found',
-          };
-        }
-
-        logger.info('Payment status checked successfully', {
-          module: 'candidate',
-          operation: 'checkPaymentStatus',
-          metadata: { paymentId, status: payment.status },
-        });
-
-        return {
-          success: true,
-          data: {
-            id: payment.id,
-            rrr: payment.rrr,
-            purpose: payment.purpose,
-            amount: payment.amount,
-            session: payment.session,
-            level: payment.level,
-            status: payment.status,
-            paymentUrl: payment.payment_url,
-            expiresAt: payment.expires_at,
-            createdAt: payment.created_at,
-            verifiedAt: payment.verified_at,
-          },
-          message: `Payment status: ${payment.status}`,
-        };
-      } catch (error) {
-        logger.error('Failed to check payment status', {
-          module: 'candidate',
-          operation: 'checkPaymentStatus',
-          metadata: { paymentId },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Get payment summary for candidate
-   */
-  async getPaymentSummary(candidateId: string): Promise<{
-    success: boolean;
-    data: {
-      totalPayments: number;
-      successfulPayments: number;
-      pendingPayments: number;
-      failedPayments: number;
-      totalAmount: number;
-      nextPaymentRequired: string | null;
-      nextPaymentAmount: number | null;
-    };
-    message: string;
-  }> {
-    return await withDatabaseLogging('getPaymentSummary', 'payments', async () => {
-      try {
-        // Get all payments for the candidate
-        const payments = await db('payments').where('candidateId', candidateId).select('*');
-
-        // Get candidate's application to determine required payments
-        const application = await db('applications').where('candidate_id', candidateId).first();
-
-        if (!application) {
-          return {
-            success: false,
-            data: {
-              totalPayments: 0,
-              successfulPayments: 0,
-              pendingPayments: 0,
-              failedPayments: 0,
-              totalAmount: 0,
-              nextPaymentRequired: null,
-              nextPaymentAmount: null,
-            },
-            message: 'No application found',
-          };
-        }
-
-        // Calculate payment statistics
-        const totalPayments = payments.length;
-        const successfulPayments = payments.filter((p) => p.status === 'success').length;
-        const pendingPayments = payments.filter((p) => p.status === 'pending').length;
-        const failedPayments = payments.filter((p) => p.status === 'failed').length;
-        const totalAmount = payments
-          .filter((p) => p.status === 'success')
-          .reduce((sum, p) => sum + parseFloat(p.amount), 0);
-
-        // Determine next payment required
-        let nextPaymentRequired: string | null = null;
-        let nextPaymentAmount: number | null = null;
-
-        // Check if Post-UTME payment is completed
-        const postUtmePayment = payments.find(
-          (p) => p.purpose === 'POST_UTME' && p.status === 'success'
-        );
-
-        if (!postUtmePayment) {
-          // Get Post-UTME payment purpose amount
-          const postUtmePurpose = await db('payment_purposes')
-            .where('session', application.session)
-            .andWhere('level', application.level || '100')
-            .andWhere('purpose', 'POST_UTME')
-            .andWhere('is_active', true)
-            .first();
-
-          if (postUtmePurpose) {
-            nextPaymentRequired = 'POST_UTME';
-            nextPaymentAmount = parseFloat(postUtmePurpose.amount);
-          }
-        }
-
-        logger.info('Payment summary retrieved successfully', {
-          module: 'candidate',
-          operation: 'getPaymentSummary',
-          metadata: { candidateId, totalPayments, successfulPayments },
-        });
-
-        return {
-          success: true,
-          data: {
-            totalPayments,
-            successfulPayments,
-            pendingPayments,
-            failedPayments,
-            totalAmount,
-            nextPaymentRequired,
-            nextPaymentAmount,
-          },
-          message: `Payment summary: ${successfulPayments} successful, ${pendingPayments} pending`,
-        };
-      } catch (error) {
-        logger.error('Failed to get payment summary', {
-          module: 'candidate',
-          operation: 'getPaymentSummary',
-          metadata: { candidateId },
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
-    });
   }
 }

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 
+import { logger } from '../../middleware/logging.js';
+import { CandidateService } from '../candidates/candidate.service.js';
 import { PaymentController } from './payment.controller.js';
 import { PaymentService } from './payment.service.js';
 import { RemitaService } from './remita.service.js';
@@ -13,9 +15,11 @@ export interface PaymentModule {
 }
 
 export function createPaymentModule(): PaymentModule {
+  logger.info('Creating payment module');
   const paymentService = new PaymentService();
   const remitaService = new RemitaService();
-  const paymentController = new PaymentController(paymentService);
+  const candidateService = new CandidateService(console);
+  const paymentController = new PaymentController(candidateService, paymentService, remitaService);
 
   const router = createPaymentRoutes(paymentController);
 
