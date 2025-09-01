@@ -25,6 +25,11 @@ export function createPaymentPurposeRoutes(controller: PaymentPurposeController)
   router.get('/purposes/level/:level', controller.getPaymentPurposesByLevel.bind(controller));
   router.get('/purposes/purpose/:purpose', controller.getPaymentPurposesByPurpose.bind(controller));
   router.get(
+    '/purposes/category/:category',
+    controller.getPaymentPurposesByCategory.bind(controller)
+  );
+  router.get('/purposes/statistics', controller.getPaymentPurposeStatistics.bind(controller));
+  router.get(
     '/purposes/key/:session/:purpose/:level',
     controller.getPaymentPurposeByKey.bind(controller)
   );
@@ -52,14 +57,6 @@ export function createPaymentPurposeRoutes(controller: PaymentPurposeController)
   router.patch(
     '/purposes/:id/toggle',
     /* authMiddleware(['admin_payment_purposes', 'update']), */ controller.togglePaymentPurposeStatus.bind(
-      controller
-    )
-  );
-
-  // TEMPORARILY DISABLED: Statistics route (read permission required)
-  router.get(
-    '/purposes/stats/statistics',
-    /* authMiddleware(['admin_payment_purposes', 'read']), */ controller.getPaymentPurposeStatistics.bind(
       controller
     )
   );

@@ -28,194 +28,57 @@ sequenceDiagram
     participant A as API Gateway
     participant CS as Candidate Service
     participant ES as Email Service
+    participant SMS as SMS Service
     participant PS as Password Service
     participant DB as Database
     participant M as MailHog
 
-    C->>F: Enter JAMB Number
+    C->>F: Enter JAMB Registration Number
     F->>A: POST /api/candidates/check-jamb
     A->>CS: checkJambAndInitiateRegistration()
 
-    CS->>DB: Query candidates table
-    alt JAMB Number Found
-        CS-->>A: Contact info required
-        CS->>DB: Update existing candidate
-        ES->>PS: generateTemporaryPassword()
-        CS->>ES: sendTemporaryPassword()
-        PS-->>ES: temporaryPassword
-        ES->>M: Send email with temp password
-        M-->>ES: Email sent successfully
-        ES-->>CS: Email sent
-        A-->>F: Response: requires contact update
-        F-->>C: Show contact form
-    else JAMB Number Not Found
-        CS->>DB: Create new candidate record
+    CS->>DB: Query candidates table by JAMB number
+    alt JAMB Number Not Found
+        CS-->>A: Error: JAMB not found in database
+        A-->>F: Response: Contact admin for assistance
+        F-->>C: Show error message
+    else JAMB Number Found & Password Already Set
+        CS-->>A: Candidate already initiated registration
+        A-->>F: Response: Please login to continue
+        F-->>C: Redirect to login page
+    else JAMB Number Found & No Password Set
+        alt Contact Info Missing (email or phone)
+            CS-->>A: Contact information required
+            A-->>F: Response: Complete contact info required
+            F-->>C: Show contact info form
+
+            C->>F: Provide email and phone
+            F->>A: POST /api/candidates/{id}/complete-contact
+            A->>CS: completeContactInfo()
+            CS->>DB: Update candidate contact info
+
+            Note over CS: After contact info updated, proceed to password creation
+        end
+
         CS->>PS: generateTemporaryPassword()
         PS-->>CS: temporaryPassword
-        CS->>DB: Store hashed password
-        CS->>ES: sendTemporaryPassword()
-        ES->>M: Send email with temp password
-        M-->>ES: Email sent successfully
-        ES-->>CS: Email sent
-        CS-->>A: Account created successfully
-        A-->>F: Response: account created
-        F-->>C: Show success message
-    end
-```
+        CS->>PS: hashPassword(temporaryPassword)
+        PS-->>CS: hashedPassword
+        CS->>DB: Update candidate with password_hash and is_first_login=true
 
-### **Step 2 — Initiate Post-UTME Payment & Account Creation**
+        par Send Email and SMS
+            CS->>ES: sendTemporaryPassword(email, jambRegNo, tempPassword, name)
+            ES->>M: Send email with temp password
+            M-->>ES: Email sent successfully
+            ES-->>CS: Email sent confirmation
+        and
+            CS->>SMS: sendTemporaryPasswordSMS(phone, jambRegNo, tempPassword, name)
+            SMS-->>CS: SMS sent confirmation (or warning if failed)
+        end
 
-```mermaid
-sequenceDiagram
-    participant C as Candidate
-    participant F as Frontend
-    participant A as API Gateway
-    participant PS as Payment Service
-    participant CS as Candidate Service
-    participant DB as Database
-    participant R as Remita
-
-    C->>F: Complete contact information
-    F->>A: POST /api/candidates/{id}/complete-contact
-    A->>CS: completeContactInfo()
-
-    CS->>DB: Update candidate contact info
-    CS->>ES: sendTemporaryPassword() (re-send)
-    ES->>M: Send updated temp password email
-    M-->>ES: Email sent successfully
-    ES-->>CS: Email sent
-    CS-->>A: Contact info updated
-    A-->>F: Response: next step is payment
-
-    C->>F: Initiate Post-UTME payment
-    F->>A: POST /api/payments/initiate
-    A->>PS: initiatePayment()
-
-    PS->>DB: Validate payment amount
-    PS->>DB: Create payment record
-    PS->>R: Initialize payment gateway
-    R-->>PS: Payment reference
-    PS-->>A: Payment initiated
-    A-->>F: Payment gateway redirect
-    F-->>C: Redirect to payment page
-```
-
-### **Step 3 — Payment Confirmation & Account Activation**
-
-```mermaid
-sequenceDiagram
-    participant C as Candidate
-    participant R as Remita
-    participant A as API Gateway
-    participant PS as Payment Service
-    participant CS as Candidate Service
-    participant ES as Email Service
-    participant DB as Database
-    participant M as MailHog
-
-    R->>A: POST /api/payments/webhook
-    A->>PS: confirmPayment()
-
-    PS->>R: Verify payment status
-    R-->>PS: Payment confirmed
-    PS->>DB: Update payment status
-    PS->>DB: Update candidate payment flags
-    PS->>CS: getCandidateByEmail()
-    CS->>DB: Query candidate details
-    DB-->>CS: Candidate information
-    CS-->>PS: Candidate details
-    PS->>ES: sendPaymentConfirmation()
-    ES->>M: Send payment confirmation email
-    M-->>ES: Email sent successfully
-    ES-->>PS: Email sent
-    PS-->>A: Payment confirmed
-    A-->>R: Success response
-
-    C->>F: Return from payment gateway
-    F->>A: GET /api/candidates/{id}/next-step
-    A->>CS: getNextStep()
-    CS->>DB: Check candidate status
-    DB-->>CS: Next step: complete profile
-    CS-->>A: Next step information
-    A-->>F: Profile completion required
-    F-->>C: Show profile completion form
-```
-
-### **Step 4 — Progressive Profile Completion**
-
-```mermaid
-sequenceDiagram
-    participant C as Candidate
-    participant F as Frontend
-    participant A as API Gateway
-    participant CS as Candidate Service
-    participant DB as Database
-
-    C->>F: Complete biodata information
-    F->>A: POST /api/candidates/{id}/biodata
-    A->>CS: completeBiodata()
-    CS->>DB: Update profile biodata
-    DB-->>CS: Update successful
-    CS-->>A: Biodata completed
-    A-->>F: Response: biodata saved
-
-    C->>F: Complete education background
-    F->>A: POST /api/candidates/{id}/education
-    A->>CS: completeEducation()
-    CS->>DB: Update profile education
-    DB-->>CS: Update successful
-    CS-->>A: Education completed
-    A-->>F: Response: education saved
-
-    C->>F: Complete next of kin information
-    F->>A: POST /api/candidates/{id}/next-of-kin
-    A->>CS: completeNextOfKin()
-    CS->>DB: Update profile next of kin
-    DB-->>CS: Update successful
-    CS-->>A: Next of kin completed
-    A-->>F: Response: next of kin saved
-
-    C->>F: Complete sponsor information
-    F->>A: POST /api/candidates/{id}/sponsor
-    A->>CS: completeSponsor()
-    CS->>DB: Update profile sponsor
-    DB-->>CS: Update successful
-    CS-->>A: Sponsor completed
-    A-->>F: Response: sponsor saved
-```
-
-### **Step 5 — Complete Candidate Registration Flow**
-
-```mermaid
-sequenceDiagram
-    participant C as Candidate
-    participant F as Frontend
-    participant A as API Gateway
-    participant CS as Candidate Service
-    participant ES as Email Service
-    participant DB as Database
-    participant M as MailHog
-
-    C->>F: Submit final registration
-    F->>A: POST /api/candidates/{id}/finalize
-    A->>CS: finalizeRegistration()
-
-    CS->>DB: Check profile completion status
-    DB-->>CS: Profile completion status
-    alt All sections completed
-        CS->>DB: Mark registration as complete
-        CS->>DB: Update registration status
-        CS->>ES: sendRegistrationCompletion()
-        ES->>M: Send completion email
-        M-->>ES: Email sent successfully
-        ES-->>CS: Email sent
-        CS-->>A: Registration finalized
-        A-->>F: Response: registration complete
-        F-->>C: Show completion message
-    else Incomplete sections
-        CS-->>A: Registration incomplete
-        A-->>F: Response: sections missing
-        F-->>C: Show missing sections
+        CS-->>A: Temporary password sent to email
+        A-->>F: Response: Check email for login credentials
+        F-->>C: Show success message with login instructions
     end
 ```
 

@@ -39,10 +39,13 @@ export class PaymentController {
         throw new Error(`Candidate with ID ${candidateId} not found`);
       }
 
+      console.log('[PaymentController] Candidate object:', JSON.stringify(candidate, null, 2));
+
       const result = await this.paymentService.initiatePayment({
-        userId: candidate.candidateId,
-        userName: candidate.surname + ' ' + candidate.firstname + ' ' + candidate.othernames,
-        registrationNumber: candidate.registrationNumber,
+        userId: candidate.id,
+        userName:
+          candidate.surname + ' ' + candidate.firstname + ' ' + (candidate.othernames || ''),
+        registrationNumber: candidate.jambRegNo,
         purpose: PaymentPurpose,
         email: candidate.email,
         phone: candidate.phone,

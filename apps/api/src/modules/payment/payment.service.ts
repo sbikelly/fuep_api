@@ -61,14 +61,8 @@ export class PaymentService {
   async initiatePayment(request: PaymentInitiationRequest): Promise<PaymentInitiationResponse> {
     try {
       console.log(
-        `[PaymentService] Processing payment initiation for candidate: ${request.userId}, purpose: ${request.purpose}`
+        `[PaymentService] Processing payment initiation for candidate: ${request.userId}, purpose: ${request.purpose.purpose}`
       );
-
-      // Get candidate details
-      const candidate = await this.candidateService.getCandidateProfile(request.userId);
-      if (!candidate) {
-        throw new Error(`Candidate with ID ${request.userId} not found`);
-      }
 
       // Validate payment purpose and get configured amount, session, and level
       const paymentPurpose = await this.validatePaymentPurpose(request);
@@ -236,7 +230,7 @@ export class PaymentService {
         amount: pp.amount,
         session: pp.session,
         level: pp.level,
-        facultyId: pp.faculty_id,
+        category: pp.category, // Changed from facultyId to category
         createdBy: pp.created_by,
         updated_at: pp.updated_at,
         created_at: pp.created_at,
@@ -338,18 +332,64 @@ export class PaymentService {
 
   /**
    * Validate payment purpose and get configured details using new simplified structure
+   * For school fee payments, check candidate's department category
    */
   private async validatePaymentPurpose(request: PaymentInitiationRequest): Promise<any> {
     const paymentPurposes = await this.getPaymentPurposes(request.purpose.session);
-    const configuredPaymentPurpose = paymentPurposes.find((pt) => pt.purpose === request.purpose);
 
-    if (!configuredPaymentPurpose) {
-      throw new Error(
-        `Payment purpose '${request.purpose}' not configured for session '${request.purpose.session}'`
+    // For school fee payments, we need to check the candidate's department category
+    if (request.purpose.purpose === 'SCHOOL_FEES') {
+      // Get candidate's department information
+      const candidate = await db('candidates')
+        .select('candidates.*', 'departments.payment_category')
+        .leftJoin('departments', 'candidates.department_id', 'departments.id')
+        .where('candidates.id', request.userId)
+        .first();
+
+      if (!candidate) {
+        throw new Error(`Candidate with ID ${request.userId} not found`);
+      }
+
+      if (!candidate.department_id) {
+        throw new Error(`Candidate ${request.userId} is not associated with any department`);
+      }
+
+      if (!candidate.payment_category) {
+        throw new Error(
+          `Department for candidate ${request.userId} does not have a payment category configured`
+        );
+      }
+
+      // Find payment purpose that matches the candidate's department category
+      const configuredPaymentPurpose = paymentPurposes.find(
+        (pt) => pt.purpose === request.purpose.purpose && pt.category === candidate.payment_category
       );
-    }
 
-    return configuredPaymentPurpose;
+      if (!configuredPaymentPurpose) {
+        throw new Error(
+          `School fee payment purpose not configured for department category '${candidate.payment_category}' in session '${request.purpose.session}'`
+        );
+      }
+
+      logger.info(
+        `[PaymentService] Found school fee payment purpose for category '${candidate.payment_category}': ${JSON.stringify(configuredPaymentPurpose)}`
+      );
+
+      return configuredPaymentPurpose;
+    } else {
+      // For non-school fee payments, use the original logic
+      const configuredPaymentPurpose = paymentPurposes.find(
+        (pt) => pt.purpose === request.purpose.purpose
+      );
+
+      if (!configuredPaymentPurpose) {
+        throw new Error(
+          `Payment purpose '${request.purpose.purpose}' not configured for session '${request.purpose.session}'`
+        );
+      }
+
+      return configuredPaymentPurpose;
+    }
   }
 
   /**

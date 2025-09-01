@@ -1,10 +1,43 @@
 -- ============================================
--- Migration: Associate Candidates with Departments
+-- Migration: Associate Candidates with Departments and Add Payment Categories
 -- ============================================
 -- This migration properly associates candidates with departments
 -- by converting the department string field to a department_id foreign key
+-- and adds payment category to departments for school fee determination
 
 BEGIN;
+
+-- Add payment category column to departments table for school fee determination
+ALTER TABLE departments 
+ADD COLUMN IF NOT EXISTS payment_category VARCHAR(50);
+
+-- Create index on the payment category column
+CREATE INDEX IF NOT EXISTS idx_departments_payment_category ON departments(payment_category);
+
+-- Add constraint to ensure valid payment categories
+ALTER TABLE departments 
+ADD CONSTRAINT chk_departments_payment_category 
+CHECK (payment_category IN (
+    'SCIENCES', 'ARTS', 'LANGUAGES', 'SOCIAL SCIENCES', 'EDUCATION', 
+    'SPECIAL EDUCATION', 'PRIMARY EDUCATION', 'SECONDARY EDUCATION', 
+    'VOCATIONAL EDUCATION', 'ENVIRONMENTAL SCIENCES', 'MANAGEMENT', 
+    'HEALTH', 'ENGINEERING', 'BUSINESS', 'OTHER'
+));
+
+-- Update existing departments with default payment categories based on faculty
+-- This mapping can be customized based on your specific requirements
+UPDATE departments 
+SET payment_category = CASE 
+    WHEN faculty_id = (SELECT id FROM faculties WHERE code = 'ENG') THEN 'ENGINEERING'
+    WHEN faculty_id = (SELECT id FROM faculties WHERE code = 'SCI') THEN 'SCIENCES'
+    WHEN faculty_id = (SELECT id FROM faculties WHERE code = 'MGT') THEN 'BUSINESS'
+    WHEN faculty_id = (SELECT id FROM faculties WHERE code = 'SOC') THEN 'SOCIAL SCIENCES'
+    ELSE 'OTHER'
+END
+WHERE payment_category IS NULL;
+
+-- Add comment to document the payment category column
+COMMENT ON COLUMN departments.payment_category IS 'Payment category for school fee determination. Used to determine the correct school fee amount for students in this department.';
 
 -- First, let's see what departments currently exist in the candidates table
 -- and map them to actual department IDs

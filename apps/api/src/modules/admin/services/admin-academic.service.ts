@@ -5,6 +5,7 @@ import {
   DepartmentQuery,
   Faculty,
   FacultyQuery,
+  PaymentPurposeCategory,
   UpdateDepartmentRequest,
   UpdateFacultyRequest,
 } from '@fuep/types';
@@ -285,6 +286,7 @@ export class AdminAcademicService {
           name: data.name,
           code: data.code,
           description: data.description,
+          payment_category: data.paymentCategory,
           is_active: data.isActive ?? true,
           created_at: new Date(),
           updated_at: new Date(),
@@ -307,6 +309,7 @@ export class AdminAcademicService {
         name: department.name,
         code: department.code,
         description: department.description,
+        paymentCategory: department.payment_category,
         isActive: department.is_active,
         faculty: {
           id: faculty.id,
@@ -388,6 +391,7 @@ export class AdminAcademicService {
         name: dept.name,
         code: dept.code,
         description: dept.description,
+        paymentCategory: dept.payment_category,
         isActive: dept.is_active,
         faculty: dept.faculty_id
           ? {
@@ -448,6 +452,7 @@ export class AdminAcademicService {
         name: department.name,
         code: department.code,
         description: department.description,
+        paymentCategory: department.payment_category,
         isActive: department.is_active,
         faculty: department.faculty_id
           ? {
@@ -514,6 +519,7 @@ export class AdminAcademicService {
       if (data.name !== undefined) updateData.name = data.name;
       if (data.code !== undefined) updateData.code = data.code;
       if (data.description !== undefined) updateData.description = data.description;
+      if (data.paymentCategory !== undefined) updateData.payment_category = data.paymentCategory;
       if (data.isActive !== undefined) updateData.is_active = data.isActive;
 
       await db('departments').where({ id }).update(updateData);

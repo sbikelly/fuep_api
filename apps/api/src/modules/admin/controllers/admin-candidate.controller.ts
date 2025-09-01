@@ -6,6 +6,45 @@ export class AdminCandidateController {
   constructor(private adminService: AdminService) {}
 
   /**
+   * Create a new candidate
+   */
+  async createCandidate(req: Request, res: Response): Promise<void> {
+    try {
+      const candidateData = req.body;
+
+      // Get admin user ID from authentication middleware or request body
+      let adminUserId = (req as any).adminUser?.id || (req as any).user?.sub;
+
+      // For testing purposes, allow admin user ID from request body if not in auth
+      if (!adminUserId && req.body.adminUserId) {
+        adminUserId = req.body.adminUserId;
+      }
+
+      // Fallback to temp admin ID for testing
+      if (!adminUserId) {
+        adminUserId = 'temp-admin-id';
+        console.warn(
+          '[AdminCandidateController] No admin user ID provided, using temp admin ID for testing'
+        );
+      }
+
+      const candidate = await this.adminService.createCandidate(candidateData, adminUserId);
+
+      res.status(201).json({
+        success: true,
+        data: candidate,
+        message: 'Candidate created successfully',
+      });
+    } catch (error) {
+      console.error('[AdminCandidateController] Create candidate error:', error);
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create candidate',
+      });
+    }
+  }
+
+  /**
    * Get all candidates with filters
    */
   async getCandidates(req: Request, res: Response): Promise<void> {
@@ -65,6 +104,35 @@ export class AdminCandidateController {
       }
     } catch (error) {
       console.error('[AdminCandidateController] Get candidate error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get candidate',
+      });
+    }
+  }
+
+  /**
+   * Get candidate by JAMB registration number
+   */
+  async getCandidateByJambRegNo(req: Request, res: Response): Promise<void> {
+    try {
+      const { jambRegNo } = req.params;
+
+      const candidate = await this.adminService.getCandidateByJambRegNo(jambRegNo);
+
+      if (candidate) {
+        res.json({
+          success: true,
+          data: candidate,
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: 'Candidate not found',
+        });
+      }
+    } catch (error) {
+      console.error('[AdminCandidateController] Get candidate by JAMB error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to get candidate',
@@ -174,6 +242,37 @@ export class AdminCandidateController {
       res.status(500).json({
         success: false,
         error: 'Failed to get candidate notes',
+      });
+    }
+  }
+
+  /**
+   * Get candidate statistics
+   */
+  async getCandidateStats(req: Request, res: Response): Promise<void> {
+    try {
+      const [totalCandidates, candidatesByStatus, candidatesByProgram, candidatesByState] =
+        await Promise.all([
+          this.adminService.getTotalCandidates(),
+          this.adminService.getCandidatesByStatus(),
+          this.adminService.getCandidatesByProgram(),
+          this.adminService.getCandidatesByState(),
+        ]);
+
+      res.json({
+        success: true,
+        data: {
+          totalCandidates,
+          candidatesByStatus,
+          candidatesByProgram,
+          candidatesByState,
+        },
+      });
+    } catch (error) {
+      console.error('[AdminCandidateController] Get candidate stats error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get candidate statistics',
       });
     }
   }

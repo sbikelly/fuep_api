@@ -1,11 +1,11 @@
+// import { SystemMetricsService } from '../../services/system-metrics.service.js';
+// import { AnalyticsService } from '../../services/analytics.service.js';
+import { db } from '../../../db/knex.js';
 import { AdminAcademicService } from './admin-academic.service.js';
 import { AdminAdmissionService } from './admin-admission.service.js';
 import { AdminCandidateService } from './admin-candidate.service.js';
 import { AdminPaymentService } from './admin-payment.service.js';
 import { AdminReportService } from './admin-report.service.js';
-// import { SystemMetricsService } from '../../services/system-metrics.service.js';
-// import { AnalyticsService } from '../../services/analytics.service.js';
-// import { db } from '../../db/knex.js';
 
 export interface AdminDashboardSummary {
   totalCandidates: number;
@@ -272,21 +272,50 @@ export class AdminService {
     timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['applicationTrends']> {
     try {
-      // Use the analytics service to get real application trends
-      // const trends = await this.analyticsService.getApplicationTrends(timeRange);
-
-      // For now, return placeholder data until services are properly integrated
       const days =
         timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
-      const trends = [];
 
+      const trends = [];
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Get real application data from the database
+      const applications = await db('applications')
+        .whereBetween('created_at', [startDate, endDate])
+        .select('created_at')
+        .orderBy('created_at');
+
+      // Get real payment data from the database
+      const payments = await db('payments')
+        .whereBetween('created_at', [startDate, endDate])
+        .select('created_at')
+        .orderBy('created_at');
+
+      // Group by date
+      const applicationCounts: { [date: string]: number } = {};
+      const paymentCounts: { [date: string]: number } = {};
+
+      applications.forEach((app: any) => {
+        const date = app.created_at.toISOString().split('T')[0];
+        applicationCounts[date] = (applicationCounts[date] || 0) + 1;
+      });
+
+      payments.forEach((payment: any) => {
+        const date = payment.created_at.toISOString().split('T')[0];
+        paymentCounts[date] = (paymentCounts[date] || 0) + 1;
+      });
+
+      // Generate trends for each day
       for (let i = days - 1; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+
         trends.push({
-          date: date.toISOString().split('T')[0],
-          applications: Math.floor(Math.random() * 20) + 5,
-          payments: Math.floor(Math.random() * 15) + 3,
+          date: dateStr,
+          applications: applicationCounts[dateStr] || 0,
+          payments: paymentCounts[dateStr] || 0,
         });
       }
 
@@ -306,27 +335,33 @@ export class AdminService {
     timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['topPerformingPrograms']> {
     try {
-      // Use the analytics service to get real program performance data
-      // const programs = await this.analyticsService.getTopPerformingPrograms(timeRange);
+      const days =
+        timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
 
-      // For now, return placeholder data until services are properly integrated
-      return [
-        {
-          program: 'Computer Science',
-          applications: 150,
-          conversionRate: 0.85,
-        },
-        {
-          program: 'Mathematics',
-          applications: 120,
-          conversionRate: 0.78,
-        },
-        {
-          program: 'Physics',
-          applications: 95,
-          conversionRate: 0.72,
-        },
-      ];
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Get real program performance data from the database
+      const programStats = await db('candidates as c')
+        .leftJoin('applications as a', 'c.id', 'a.candidate_id')
+        .leftJoin('admissions as adm', 'c.id', 'adm.candidate_id')
+        .whereBetween('c.created_at', [startDate, endDate])
+        .select(
+          'c.department',
+          db.raw('COUNT(DISTINCT c.id) as applications'),
+          db.raw("COUNT(DISTINCT CASE WHEN adm.decision = 'admitted' THEN c.id END) as admitted")
+        )
+        .groupBy('c.department')
+        .orderBy('applications', 'desc')
+        .limit(10);
+
+      return programStats.map((stat: any) => ({
+        program: stat.department || 'Unknown',
+        applications: parseInt(stat.applications),
+        conversionRate:
+          stat.applications > 0 ? parseFloat(stat.admitted) / parseInt(stat.applications) : 0,
+      }));
     } catch (error) {
       console.error('Failed to get top performing programs', {
         module: 'admin',
@@ -415,19 +450,26 @@ export class AdminService {
 
   async getPerformanceMetrics(): Promise<AdminAnalytics['performanceMetrics']> {
     try {
-      // Use the system metrics service to get real performance data
-      // const metrics = await this.systemMetricsService.collectSystemMetrics();
-      // const peakUsageHours = this.systemMetricsService.getPeakUsageHours();
-
-      // For now, return placeholder data until services are properly integrated
       const uptime = process.uptime();
+
+      // Get real performance data from the database
+      const totalCandidates = await this.candidateService.getTotalCandidates();
+      const totalPayments = await this.paymentService.getTotalPayments();
+
+      // Calculate active users (candidates who logged in recently)
+      const activeUsersResult = await db('candidates')
+        .where('updated_at', '>=', new Date(Date.now() - 24 * 60 * 60 * 1000)) // Last 24 hours
+        .count('* as count')
+        .first();
+
+      const activeUsers = activeUsersResult ? parseInt(activeUsersResult.count as string) : 0;
 
       return {
         systemUptime: Math.round(uptime),
-        averageResponseTime: 150, // Placeholder
-        errorRate: 0.5, // Placeholder
-        activeUsers: 25, // Placeholder
-        peakUsageHours: ['09:00', '14:00', '16:00'], // Placeholder
+        averageResponseTime: 150, // This would come from actual metrics in production
+        errorRate: 0.5, // This would come from actual error tracking in production
+        activeUsers,
+        peakUsageHours: ['09:00', '14:00', '16:00'], // This would be calculated from usage patterns
       };
     } catch (error) {
       console.error('Failed to get performance metrics', {
@@ -451,18 +493,57 @@ export class AdminService {
     timeRange: '7d' | '30d' | '90d' | '1y' = '30d'
   ): Promise<AdminAnalytics['predictiveAnalytics']> {
     try {
-      // Use the analytics service to get real predictive analytics
-      // const analytics = await this.analyticsService.getPredictiveAnalytics(timeRange);
+      const days =
+        timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
 
-      // For now, return placeholder data until services are properly integrated
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Get real historical data for predictions
       const currentApplications = await this.candidateService.getTotalCandidates();
       const currentRevenue = await this.paymentService.getTotalRevenue(timeRange);
 
-      // Simple predictive models (would be enhanced with ML in production)
-      const expectedApplications = Math.round(currentApplications * 1.15); // 15% growth
-      const projectedRevenue = Math.round(currentRevenue * 1.2); // 20% growth
-      const capacityUtilization = 75; // % - placeholder
-      const riskFactors = ['Payment failures', 'System downtime', 'Capacity limits'];
+      // Get recent application trends for growth calculation
+      const recentApplications = await db('candidates')
+        .whereBetween('created_at', [startDate, endDate])
+        .count('* as count')
+        .first();
+
+      const recentCount = recentApplications ? parseInt(recentApplications.count as string) : 0;
+      const previousPeriodStart = new Date(startDate);
+      previousPeriodStart.setDate(previousPeriodStart.getDate() - days);
+
+      const previousApplications = await db('candidates')
+        .whereBetween('created_at', [previousPeriodStart, startDate])
+        .count('* as count')
+        .first();
+
+      const previousCount = previousApplications
+        ? parseInt(previousApplications.count as string)
+        : 0;
+
+      // Calculate growth rate
+      const growthRate = previousCount > 0 ? (recentCount - previousCount) / previousCount : 0.15; // Default 15% growth
+
+      // Simple predictive models based on historical trends
+      const expectedApplications = Math.round(currentApplications * (1 + growthRate));
+      const projectedRevenue = Math.round(currentRevenue * (1 + growthRate + 0.05)); // Additional 5% for revenue growth
+
+      // Calculate capacity utilization based on current system load
+      const totalCandidates = await this.candidateService.getTotalCandidates();
+      const capacityLimit = 10000; // Example capacity limit
+      const capacityUtilization = Math.min(
+        100,
+        Math.round((totalCandidates / capacityLimit) * 100)
+      );
+
+      // Identify risk factors based on system health
+      const riskFactors: string[] = [];
+      if (capacityUtilization > 80) riskFactors.push('High capacity utilization');
+      if (growthRate > 0.5) riskFactors.push('Rapid growth may strain resources');
+      if (currentRevenue === 0) riskFactors.push('No revenue generated in period');
+      if (riskFactors.length === 0) riskFactors.push('System operating normally');
 
       return {
         expectedApplications,
@@ -617,18 +698,32 @@ export class AdminService {
     pendingJobs: number;
   }> {
     try {
-      // Use the system metrics service to get real system statistics
-      // const metrics = await this.systemMetricsService.collectSystemMetrics();
-
-      // For now, return placeholder data until services are properly integrated
       const uptime = process.uptime();
 
+      // Get real system statistics from the database
+      const totalCandidates = await this.candidateService.getTotalCandidates();
+      const totalPayments = await this.paymentService.getTotalPayments();
+
+      // Calculate active users (candidates who logged in recently)
+      const activeUsersResult = await db('candidates')
+        .where('updated_at', '>=', new Date(Date.now() - 24 * 60 * 60 * 1000)) // Last 24 hours
+        .count('* as count')
+        .first();
+
+      const activeUsers = activeUsersResult ? parseInt(activeUsersResult.count as string) : 0;
+
+      // Estimate storage usage based on data volume
+      const estimatedStoragePerCandidate = 1024; // 1KB per candidate record
+      const estimatedStoragePerPayment = 512; // 512B per payment record
+      const totalStorageUsed =
+        totalCandidates * estimatedStoragePerCandidate + totalPayments * estimatedStoragePerPayment;
+
       return {
-        totalStorageUsed: 1024 * 1024 * 100, // 100MB placeholder
-        activeUsers: 25, // Placeholder
+        totalStorageUsed,
+        activeUsers,
         systemUptime: Math.round(uptime),
-        lastBackup: new Date('2024-01-15'), // Placeholder
-        pendingJobs: 5, // Placeholder
+        lastBackup: await this.getLastBackupTime(),
+        pendingJobs: await this.getPendingJobsCount(),
       };
     } catch (error) {
       console.error('Failed to get system statistics', {
@@ -681,6 +776,14 @@ export class AdminService {
   // ============================================
 
   // Candidate Management
+
+  /**
+   * Create a new candidate
+   */
+  async createCandidate(candidateData: any, adminUserId: string) {
+    return this.candidateService.createCandidate(candidateData, adminUserId);
+  }
+
   async getCandidates(limit: number = 50, offset: number = 0, filters?: any) {
     return this.candidateService.getAllCandidates(filters, {
       page: Math.floor(offset / limit) + 1,
@@ -690,6 +793,26 @@ export class AdminService {
 
   async getCandidate(candidateId: string) {
     return this.candidateService.getCandidateById(candidateId);
+  }
+
+  async getCandidateByJambRegNo(jambRegNo: string) {
+    return this.candidateService.getCandidateByJambRegNo(jambRegNo);
+  }
+
+  async getTotalCandidates() {
+    return this.candidateService.getTotalCandidates();
+  }
+
+  async getCandidatesByStatus() {
+    return this.candidateService.getCandidatesByStatus();
+  }
+
+  async getCandidatesByProgram() {
+    return this.candidateService.getCandidatesByProgram();
+  }
+
+  async getCandidatesByState() {
+    return this.candidateService.getCandidatesByState();
   }
 
   async updateCandidate(candidateId: string, updates: any, adminUserId: string) {

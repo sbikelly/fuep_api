@@ -16,11 +16,33 @@ export function createAdminCandidateRoutes(
   const authMiddleware = createAdminAuthMiddleware(authService, permissionService);
 
   // Candidate management routes
+
+  // Create a new candidate
+  router.post(
+    '/',
+    authMiddleware(['candidates', 'create']),
+    candidateController.createCandidate.bind(candidateController)
+  );
   router.get(
     '/',
     authMiddleware(['candidates', 'read']),
     candidateController.getCandidates.bind(candidateController)
   );
+
+  // Candidate statistics (must come before /:id routes)
+  router.get(
+    '/stats',
+    authMiddleware(['candidates', 'read']),
+    candidateController.getCandidateStats.bind(candidateController)
+  );
+
+  // Get candidate by JAMB registration number (must come before /:id routes)
+  router.get(
+    '/jamb/:jambRegNo',
+    authMiddleware(['candidates', 'read']),
+    candidateController.getCandidateByJambRegNo.bind(candidateController)
+  );
+
   router.get(
     '/:id',
     authMiddleware(['candidates', 'read']),
@@ -47,6 +69,13 @@ export function createAdminCandidateRoutes(
     '/:id/notes',
     authMiddleware(['candidates', 'read']),
     candidateController.getCandidateNotes.bind(candidateController)
+  );
+
+  // Candidate statistics
+  router.get(
+    '/stats',
+    authMiddleware(['candidates', 'read']),
+    candidateController.getCandidateStats.bind(candidateController)
   );
 
   return router;

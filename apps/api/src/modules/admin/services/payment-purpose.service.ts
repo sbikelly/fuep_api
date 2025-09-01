@@ -1,4 +1,4 @@
-import { PaymentPurpose, PaymentPurposeName } from '@fuep/types';
+import { PaymentPurpose, PaymentPurposeCategory,PaymentPurposeName } from '@fuep/types';
 
 import { db } from '../../../db/knex.js';
 import { logger } from '../../../middleware/logging.js';
@@ -11,18 +11,20 @@ export interface CreatePaymentPurposeRequest {
   isActive: boolean;
   session: string;
   level: string;
-  facultyId?: string; //because payment amount vary by faculties
+  category?: PaymentPurposeCategory; // Changed from facultyId to category
   createdBy?: string;
   updated_at?: Date;
   created_at?: Date;
 }
 
 export interface UpdatePaymentPurposeRequest {
-  name?: string;
+  name?: PaymentPurposeName;
+  purpose?: PaymentPurposeName;
   description?: string;
   amount?: number;
   isActive?: boolean;
   level?: string;
+  category?: PaymentPurposeCategory;
   updated_at?: Date;
 }
 
@@ -30,7 +32,7 @@ export interface PaymentPurposeFilters {
   session?: string;
   purpose?: PaymentPurposeName;
   level?: string;
-  faculty?: string;
+  category?: PaymentPurposeCategory;
   isActive?: boolean;
 }
 
@@ -44,19 +46,19 @@ export class PaymentPurposeService {
         `[PaymentPurposeService] Creating payment purpose: ${request.name} for session ${request.session}`
       );
 
-      // Check if payment purpose already exists for this session, purpose, level and faculty
+      // Check if payment purpose already exists for this session, purpose, level and category
       const existing = await db('payment_purposes')
         .where({
           session: request.session,
           purpose: request.purpose,
           level: request.level,
-          faculty_id: request.facultyId,
+          category: request.category,
         })
         .first();
 
       if (existing) {
         throw new Error(
-          `Payment purpose ${request.purpose} already exists for session ${request.session} level ${request.level} and faculty ${request.facultyId}`
+          `Payment purpose ${request.purpose} already exists for session ${request.session} level ${request.level} and category ${request.category}`
         );
       }
 
@@ -68,7 +70,7 @@ export class PaymentPurposeService {
           amount: request.amount,
           session: request.session,
           level: request.level,
-          faculty_id: request.facultyId,
+          category: request.category,
           is_active: true,
           created_by: request.createdBy,
           created_at: new Date(),
@@ -110,8 +112,8 @@ export class PaymentPurposeService {
         query = query.where('level', filters.level);
       }
 
-      if (filters.faculty) {
-        query = query.where('faculty_id', filters.faculty);
+      if (filters.category) {
+        query = query.where('category', filters.category);
       }
 
       if (filters.isActive !== undefined) {
@@ -204,6 +206,7 @@ export class PaymentPurposeService {
       if (updates.amount !== undefined) updateData.amount = updates.amount;
       if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
       if (updates.level !== undefined) updateData.level = updates.level;
+      if (updates.category !== undefined) updateData.category = updates.category;
 
       const [updatedPaymentPurpose] = await db('payment_purposes')
         .where('id', id)
@@ -279,8 +282,8 @@ export class PaymentPurposeService {
         .orderBy(['session', 'purpose']);
 
       if (paymentPurposes.length === 0) {
-        logger.warn(`[PaymentPurposeService] No payment purposes found for faculty ${level}`);
-        throw new Error(`No payment purposes found for faculty ${level}`);
+        logger.warn(`[PaymentPurposeService] No payment purposes found for level ${level}`);
+        throw new Error(`No payment purposes found for level ${level}`);
       }
 
       logger.info(
@@ -323,29 +326,29 @@ export class PaymentPurposeService {
   }
 
   /**
-   * Get payment purpose by faculty
+   * Get payment purpose by category
    */
-  async getPaymentPurposesByFaculty(facultyId: string): Promise<PaymentPurpose[]> {
+  async getPaymentPurposesByCategory(category: PaymentPurposeCategory): Promise<PaymentPurpose[]> {
     try {
-      logger.info(`[PaymentPurposeService] Getting payment purposes for faculty: ${facultyId}`);
+      logger.info(`[PaymentPurposeService] Getting payment purposes for category: ${category}`);
 
       const paymentPurposes = await db('payment_purposes')
-        .where('faculty_id', facultyId)
+        .where('category', category)
         .andWhere('is_active', true)
         .orderBy(['session', 'level', 'purpose']);
 
       if (paymentPurposes.length === 0) {
-        logger.warn(`[PaymentPurposeService] No payment purposes found for faculty ${facultyId}`);
-        throw new Error(`No payment purposes found for faculty ${facultyId}`);
+        logger.warn(`[PaymentPurposeService] No payment purposes found for category ${category}`);
+        throw new Error(`No payment purposes found for category ${category}`);
       }
 
       logger.info(
-        `[PaymentPurposeService] Found ${paymentPurposes.length} active payment purposes for purpose ${facultyId}`
+        `[PaymentPurposeService] Found ${paymentPurposes.length} active payment purposes for category ${category}`
       );
 
       return paymentPurposes.map(this.mapDatabaseToType);
     } catch (error) {
-      logger.error(`[PaymentPurposeService] Failed to get payment purposes by facultyId: ${error}`);
+      logger.error(`[PaymentPurposeService] Failed to get payment purposes by category: ${error}`);
       throw error;
     }
   }
@@ -424,7 +427,7 @@ export class PaymentPurposeService {
       isActive: dbRecord.is_active,
       session: dbRecord.session,
       level: dbRecord.level,
-      facultyId: dbRecord.faculty_id,
+      category: dbRecord.category,
       createdBy: dbRecord.created_by,
       createdAt: new Date(dbRecord.created_at),
       updatedAt: new Date(dbRecord.updated_at),

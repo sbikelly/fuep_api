@@ -174,6 +174,115 @@ paths:
 
   # Admin candidate management
   /api/admin/candidates:
+    post:
+      summary: Create a new candidate
+      tags: [Admin]
+      description: |
+        Create a new candidate in the system. This endpoint is used by administrators to manually add candidates.
+
+        **Authentication Required:**
+        - Admin user must be authenticated via Bearer token in Authorization header
+        - Admin user ID will be extracted from the JWT token
+
+        **For Testing (when auth middleware is disabled):**
+        - You can include `adminUserId` in the request body as a fallback
+
+        **Required fields:**
+        - jambRegNo: JAMB registration number (must be unique)
+        - firstname: Candidate's first name
+        - surname: Candidate's surname
+        - departmentId: UUID of the department
+        - modeOfEntry: Either 'UTME' or 'DE'
+
+        **Optional fields:**
+        - othernames: Middle name or other names
+        - email: Email address
+        - phone: Phone number
+        - gender: 'male', 'female', or 'other'
+        - department: Department name (for backward compatibility)
+        - adminUserId: Admin user ID (for testing when auth is disabled)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jambRegNo, firstname, surname, departmentId, modeOfEntry]
+              properties:
+                jambRegNo:
+                  type: string
+                  maxLength: 20
+                  description: JAMB registration number (must be unique)
+                firstname:
+                  type: string
+                  maxLength: 100
+                  description: Candidate's first name
+                surname:
+                  type: string
+                  maxLength: 100
+                  description: Candidate's surname
+                othernames:
+                  type: string
+                  maxLength: 100
+                  description: Middle name or other names
+                email:
+                  type: string
+                  format: email
+                  maxLength: 160
+                  description: Email address
+                phone:
+                  type: string
+                  maxLength: 32
+                  description: Phone number
+                gender:
+                  type: string
+                  enum: [male, female, other]
+                  default: other
+                  description: Gender
+                departmentId:
+                  type: string
+                  format: uuid
+                  description: UUID of the department
+                department:
+                  type: string
+                  maxLength: 100
+                  description: Department name (for backward compatibility)
+                modeOfEntry:
+                  type: string
+                  enum: [UTME, DE]
+                  description: Mode of entry
+                adminUserId:
+                  type: string
+                  format: uuid
+                  description: Admin user ID (for testing when authentication middleware is disabled)
+      responses:
+        '201':
+          description: Candidate created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Bad request - validation error or duplicate JAMB number
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  error: { type: string }
+        '401':
+          description: Unauthorized - admin user not authenticated
+        '409':
+          description: Conflict - JAMB registration number already exists
+
     get:
       summary: Get all candidates with pagination and filters
       tags: [Admin]
@@ -273,6 +382,66 @@ paths:
                   success: { type: boolean }
                   message: { type: string }
                   timestamp: { type: string, format: date-time }
+
+  /api/admin/candidates/stats:
+    get:
+      summary: Get candidate statistics
+      tags: [Admin]
+      description: |
+        Get comprehensive statistics about candidates including:
+        - Total number of candidates
+        - Candidates grouped by status
+        - Candidates grouped by program/department
+        - Candidates grouped by state
+      responses:
+        '200':
+          description: Candidate statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      totalCandidates: { type: integer }
+                      candidatesByStatus:
+                        type: object
+                        additionalProperties: { type: integer }
+                        description: Number of candidates by status
+                      candidatesByProgram:
+                        type: object
+                        additionalProperties: { type: integer }
+                        description: Number of candidates by program/department
+                      candidatesByState:
+                        type: object
+                        additionalProperties: { type: integer }
+                        description: Number of candidates by state
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/candidates/jamb/{jambRegNo}:
+    get:
+      summary: Get candidate by JAMB registration number
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: jambRegNo
+          required: true
+          schema: { type: string, maxLength: 20 }
+          description: JAMB registration number
+      responses:
+        '200':
+          description: Candidate details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Candidate' }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: Candidate not found }
 
   /api/admin/candidates/{candidateId}/notes:
     post:
@@ -879,6 +1048,13 @@ paths:
         totalPages: { type: integer }
         hasNext: { type: boolean }
         hasPrev: { type: boolean }
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for admin authentication
 
 tags:
   - name: Admin

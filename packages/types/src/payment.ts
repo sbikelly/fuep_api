@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { PaymentPurposeCategory, PaymentPurposeCategorySchema } from './academic';
 import { ApiResponse, BaseEntity, BaseEntitySchema } from './common';
 
 // Payment provider types - simplified to just Remita
@@ -29,7 +30,7 @@ export const PaymentStatusSchema = z.enum([
   'refunded',
 ]);
 
-// Payment purpose code types (these are the payment purpose codes)
+// Payment purpose names
 export type PaymentPurposeName =
   | 'POST_UTME'
   | 'ACCEPTANCE'
@@ -91,7 +92,7 @@ export interface PaymentPurpose extends BaseEntity {
   isActive: boolean;
   session: string;
   level: string;
-  facultyId?: string; //because payment amount vary by faculties
+  category?: PaymentPurposeCategory; // Changed from facultyId to category
   createdBy?: string;
   updated_at?: Date;
   created_at?: Date;
@@ -105,7 +106,7 @@ export const PaymentPurposeSchema = BaseEntitySchema.extend({
   isActive: z.boolean(),
   session: z.string().max(16),
   level: z.string().max(10),
-  facultyId: z.string().uuid().optional(),
+  category: PaymentPurposeCategorySchema.optional(), // Changed from facultyId to category
   createdBy: z.string().uuid().optional(),
   updated_at: z.date().optional(),
   created_at: z.date().optional(),

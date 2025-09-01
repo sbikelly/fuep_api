@@ -43,6 +43,95 @@ export class AdminCandidateService {
   constructor(private auditService: AdminAuditService) {}
 
   // Basic CRUD Operations
+
+  // Create a new candidate
+  async createCandidate(candidateData: Candidate, adminUserId: string): Promise<Candidate> {
+    try {
+      // Validate required fields(jambRegNo, firstname, surname, departmentId, modeOfEntry)
+      const requiredFields = ['jambRegNo', 'firstname', 'surname', 'departmentId', 'modeOfEntry'];
+
+      for (const field of requiredFields) {
+        if (!candidateData[field as keyof typeof candidateData]) {
+          throw new Error(`${field} is required`);
+        }
+      }
+
+      // Check for existing candidate by JAMB registration number
+      const existingByJamb = await db('candidates')
+        .where('jamb_reg_no', candidateData.jambRegNo)
+        .first();
+
+      if (existingByJamb) {
+        throw new Error(
+          `Candidate with JAMB registration number ${candidateData.jambRegNo} already exists`
+        );
+      }
+
+      // Prepare candidate data for insertion
+      const candidateRecord = {
+        jamb_reg_no: candidateData.jambRegNo.toUpperCase(),
+        firstname: candidateData.firstname.trim(),
+        surname: candidateData.surname.trim(),
+        othernames: candidateData.othernames?.trim() || '',
+        email: candidateData.email?.toLowerCase().trim() || null,
+        phone: candidateData.phone?.trim() || null,
+        gender: candidateData.gender || 'other',
+        department: candidateData.department || 'N/A',
+        department_id: candidateData.departmentId,
+        mode_of_entry: candidateData.modeOfEntry,
+        is_first_login: true,
+        created_at: new Date(),
+      };
+
+      // Insert candidate into database
+      const [result] = await db('candidates').insert(candidateRecord).returning('id');
+
+      const candidateId = typeof result === 'object' ? result.id : result;
+
+      // Log audit action
+      try {
+        await this.auditService.logAction({
+          adminUserId: adminUserId,
+          action: 'create_candidate',
+          resource: 'candidate',
+          resourceId: candidateId,
+          details: {
+            jambRegNo: candidateData.jambRegNo,
+            email: candidateData.email,
+            department: candidateData.department,
+            modeOfEntry: candidateData.modeOfEntry,
+          },
+        });
+      } catch (auditError) {
+        // Log audit error but don't fail the main operation
+        console.error('Failed to log audit action for candidate creation:', auditError);
+      }
+
+      // Retrieve and return the created candidate
+      const createdCandidate = await this.getCandidateById(candidateId);
+      if (!createdCandidate) {
+        throw new Error('Failed to retrieve created candidate');
+      }
+
+      console.log(
+        `Successfully created candidate with ID: ${candidateId}, JAMB: ${candidateData.jambRegNo}`
+      );
+
+      return createdCandidate;
+    } catch (error) {
+      console.error('Failed to create candidate:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        jambRegNo: candidateData?.jambRegNo,
+        email: candidateData?.email,
+      });
+
+      throw new Error(
+        `Failed to create candidate: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  // Get a candidate by id
   async getCandidateById(id: string): Promise<Candidate | null> {
     try {
       const candidate = await db('candidates').where('id', id).first();
@@ -57,6 +146,7 @@ export class AdminCandidateService {
     }
   }
 
+  // Get a candidate by JAMB registration number
   async getCandidateByJambRegNo(jambRegNo: string): Promise<Candidate | null> {
     try {
       const candidate = await db('candidates').where('jamb_reg_no', jambRegNo).first();
@@ -71,6 +161,7 @@ export class AdminCandidateService {
     }
   }
 
+  // Get all candidates
   async getAllCandidates(
     filters?: CandidateFilters,
     pagination?: { page: number; limit: number }
@@ -238,21 +329,26 @@ export class AdminCandidateService {
         .insert({
           candidate_id: candidateId,
           admin_user_id: adminUserId,
-          note,
+          content: note,
           note_type: noteType,
-          is_internal: isInternal,
+          is_private: isInternal,
           created_at: new Date(),
         })
         .returning('id');
 
       // Log audit
-      await this.auditService.logAction({
-        adminUserId,
-        action: 'add_candidate_note',
-        resource: 'candidate_note',
-        resourceId: noteId,
-        details: { candidateId, noteType, isInternal },
-      });
+      try {
+        await this.auditService.logAction({
+          adminUserId,
+          action: 'add_candidate_note',
+          resource: 'candidate_note',
+          resourceId: noteId,
+          details: { candidateId, noteType, isInternal },
+        });
+      } catch (auditError) {
+        // Log audit error but don't fail the main operation
+        console.error('Failed to log audit action:', auditError);
+      }
 
       // Return created note
       const createdNote = await this.getCandidateNotes(candidateId);
@@ -284,9 +380,9 @@ export class AdminCandidateService {
         id: note.id,
         candidateId: note.candidate_id,
         adminUserId: note.admin_user_id,
-        note: note.note,
+        note: note.content,
         noteType: note.note_type,
-        isInternal: note.is_internal,
+        isInternal: note.is_private,
         createdAt: note.created_at,
       }));
     } catch (error) {
@@ -544,6 +640,8 @@ export class AdminCandidateService {
       );
     }
   }
+
+  // Private Helper Methods
 
   // Private Helper Methods
   private mapDbRecordToCandidate(record: any): Candidate {

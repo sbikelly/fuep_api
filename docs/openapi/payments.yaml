@@ -1,25 +1,32 @@
 openapi: 3.0.3
 info:
-  title: FUEP Post-UTME Portal - Simplified Payment Management API
-  version: '2.0.0'
+  title: FUEP Post-UTME Portal - Payment Management API
+  version: '3.0.0'
   description: |
-    Payment processing, verification, and management endpoints.
+    Simplified payment processing and management endpoints for the FUEP Post-UTME Portal.
 
-    This API has been significantly simplified and optimized:
-    - Direct Remita integration eliminating provider complexity
-    - Simplified payment purpose management
-    - Streamlined payment flow and verification
-    - Enhanced webhook handling and status updates
-    - Cleaner interfaces and improved performance
-    - Removed the document upload endpoints as they are not needed for the simplified API
+    This API provides:
+    - Payment initiation with Remita RRR generation
+    - Payment status verification
+    - Payment purpose management
+    - Payment history and statistics
+    - Webhook processing for payment updates
+
+    **Key Features:**
+    - Direct Remita integration
+    - Simplified payment flow
+    - Real-time status updates
+    - Comprehensive payment tracking
 
 paths:
   # Payment initiation
   /api/payments/initiate:
     post:
-      summary: Initiate Payment by generating RRR
+      summary: Initiate payment and generate RRR
       tags: [Payments]
-      security: []
+      description: |
+        Initiate a payment for a candidate and generate a Remita Retrieval Reference (RRR).
+        The system will validate the payment purpose and check for existing payments.
       requestBody:
         required: true
         content:
@@ -27,21 +34,64 @@ paths:
             schema:
               type: object
               required: [candidateId, PaymentPurpose]
+              properties:
+                candidateId:
+                  type: string
+                  format: uuid
+                  description: Candidate ID
+                PaymentPurpose:
+                  $ref: '#/components/schemas/PaymentPurpose'
+                  description: Payment purpose configuration
       responses:
         '201':
-          description: Payment created successfully
+          description: Payment initiated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaymentInitiationResponse'
-        '400': { description: Invalid payment data }
-        '500': { description: Payment initiation failed }
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      paymentId: { type: string, format: uuid }
+                      rrr: { type: string, maxLength: 100 }
+                      paymentUrl: { type: string, format: uri }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid payment data or duplicate payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Candidate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Payment initiation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # Payment purposes
   /api/payments/purposes:
     get:
-      summary: Get all payment purposes
+      summary: Get payment purposes for a session
       tags: [Payments]
+      description: |
+        Retrieve all active payment purposes for a specific academic session.
+        Payment purposes define the types of payments that can be made.
+      parameters:
+        - in: query
+          name: session
+          schema: { type: string, maxLength: 16 }
+          description: Academic session (e.g., 2024/2025)
+          example: '2024/2025'
       responses:
         '200':
           description: List of payment purposes
@@ -54,33 +104,177 @@ paths:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/PaymentPurpose' }
+                  total: { type: integer }
+                  session: { type: string }
                   timestamp: { type: string, format: date-time }
+        '500':
+          description: Failed to retrieve payment purposes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  # Provider status
-  /api/payments/providers/status:
+  # Payment status check
+  /api/payments/{paymentId}:
     get:
-      summary: Get payment provider status
+      summary: Get payment status and details
       tags: [Payments]
+      description: |
+        Get the current status and details of a payment using the payment ID or RRR.
+        This endpoint checks the payment status with Remita and updates the local database.
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, maxLength: 100 }
+          description: Payment ID or RRR (Remita Retrieval Reference)
       responses:
         '200':
-          description: Provider status information
+          description: Payment details retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
-                  data: { $ref: '#/components/schemas/ProviderStatus' }
+                  data: { $ref: '#/components/schemas/PaymentStatusCheckResponse' }
                   timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid payment ID or RRR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to retrieve payment status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Payment verification
+  /api/payments/{paymentId}/verify:
+    post:
+      summary: Manually verify payment with Remita
+      tags: [Payments]
+      description: |
+        Manually trigger payment verification with Remita.
+        This endpoint checks the payment status with Remita and updates the local database.
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, maxLength: 100 }
+          description: Payment ID or RRR (Remita Retrieval Reference)
+      responses:
+        '200':
+          description: Payment verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentStatusCheckResponse' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid payment ID or verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # RRR verification
+  /api/payments/verify/rrr:
+    post:
+      summary: Verify RRR with Remita
+      tags: [Payments]
+      description: |
+        Verify a Remita Retrieval Reference (RRR) directly with Remita.
+        This endpoint checks the payment status without updating the local database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rrr]
+              properties:
+                rrr:
+                  type: string
+                  maxLength: 100
+                  description: Remita Retrieval Reference to verify
+      responses:
+        '200':
+          description: RRR status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        {
+                          type: string,
+                          enum:
+                            [
+                              'initiated',
+                              'pending',
+                              'processing',
+                              'success',
+                              'failed',
+                              'cancelled',
+                              'disputed',
+                              'refunded',
+                            ],
+                        }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid RRR or verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # Payment statistics
   /api/payments/statistics:
     get:
       summary: Get payment statistics
       tags: [Payments]
+      description: |
+        Retrieve comprehensive payment statistics including totals, amounts, and status breakdowns.
       responses:
         '200':
-          description: Payment statistics
+          description: Payment statistics retrieved successfully
           content:
             application/json:
               schema:
@@ -89,20 +283,81 @@ paths:
                   success: { type: boolean }
                   data: { $ref: '#/components/schemas/PaymentStatistics' }
                   timestamp: { type: string, format: date-time }
+        '500':
+          description: Failed to retrieve payment statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # Candidate payment history
   /api/payments/candidate/{candidateId}/history:
     get:
       summary: Get candidate payment history
       tags: [Payments]
+      description: |
+        Retrieve the payment history for a specific candidate with pagination support.
       parameters:
         - in: path
           name: candidateId
           required: true
           schema: { type: string, format: uuid }
+          description: Candidate ID
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+          description: Number of records per page
       responses:
         '200':
-          description: Candidate payment history
+          description: Candidate payment history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentHistoryResponse' }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Candidate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to retrieve payment history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Payment receipt
+  /api/payments/{paymentId}/receipt:
+    get:
+      summary: Get payment receipt
+      tags: [Payments]
+      description: |
+        Generate or retrieve a payment receipt for a successful payment.
+        This is a placeholder endpoint for future receipt generation functionality.
+      parameters:
+        - in: path
+          name: paymentId
+          required: true
+          schema: { type: string, format: uuid }
+          description: Payment ID
+      responses:
+        '200':
+          description: Payment receipt retrieved successfully
           content:
             application/json:
               schema:
@@ -110,15 +365,73 @@ paths:
                 properties:
                   success: { type: boolean }
                   data:
-                    type: array
-                    items: { $ref: '#/components/schemas/PaymentTransaction' }
+                    type: object
+                    properties:
+                      paymentId: { type: string, format: uuid }
+                      receiptUrl: { type: string, format: uri }
+                      message: { type: string }
                   timestamp: { type: string, format: date-time }
+        '400':
+          description: Payment not successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to generate receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Provider status
+  /api/payments/providers/status:
+    get:
+      summary: Get payment provider status
+      tags: [Payments]
+      description: |
+        Get the current status of payment providers.
+        Currently only Remita is supported.
+      responses:
+        '200':
+          description: Provider status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      remita:
+                        type: object
+                        properties:
+                          enabled: { type: boolean }
+                          isPrimary: { type: boolean }
+                          status: { type: string, enum: ['active', 'inactive', 'maintenance'] }
+                  timestamp: { type: string, format: date-time }
+        '500':
+          description: Failed to retrieve provider status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # Webhook endpoints
   /api/payments/webhook/remita:
     post:
       summary: Remita webhook callback
       tags: [Payments]
+      description: |
+        Process webhook callbacks from Remita for payment status updates.
+        This endpoint is called by Remita when payment status changes.
       security: []
       requestBody:
         required: true
@@ -136,87 +449,22 @@ paths:
                   success: { type: boolean }
                   message: { type: string }
                   timestamp: { type: string, format: date-time }
-
-  # Payment status and details
-  /api/payments/{paymentId}:
-    get:
-      summary: Get payment status and details
-      tags: [Payments]
-      parameters:
-        - in: path
-          name: paymentId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Payment details
+        '400':
+          description: Invalid webhook data or signature
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaymentStatusCheckResponse'
-        '404': { description: Payment not found }
-
-  # RRR Verification
-  /api/payments/verify/{rrr}:
-    get:
-      summary: Verify RRR
-      tags: [Payments]
-      parameters:
-        - in: path
-          name: rrr
-          required: true
-          schema: { type: string, maxLength: 100 }
-      responses:
-        '200':
-          description: RRR verification result
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Webhook processing failed
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-
-  # Payment verification
-  /api/payments/{paymentId}/verify:
-    post:
-      summary: Manually verify payment with provider
-      tags: [Payments]
-      parameters:
-        - in: path
-          name: paymentId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Payment verification result
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaymentVerificationResponse'
-        '404': { description: Payment not found }
-
-  # Payment receipt
-  /api/payments/{paymentId}/receipt:
-    get:
-      summary: Get payment receipt
-      tags: [Payments]
-      parameters:
-        - in: path
-          name: paymentId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Payment receipt
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaymentReceiptResponse'
-        '400': { description: Payment not successful' }
-        '404': { description: Payment not found }
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:
+    # Payment Purpose
     PaymentPurpose:
       type: object
       properties:
@@ -228,148 +476,133 @@ components:
         isActive: { type: boolean }
         session: { type: string, maxLength: 16 }
         level: { type: string, maxLength: 10 }
+        category:
+          {
+            type: string,
+            enum:
+              [
+                'SCIENCES',
+                'ARTS',
+                'LANGUAGES',
+                'SOCIAL SCIENCES',
+                'EDUCATION',
+                'SPECIAL EDUCATION',
+                'PRIMARY EDUCATION',
+                'SECONDARY EDUCATION',
+                'VOCATIONAL EDUCATION',
+                'ENVIRONMENTAL SCIENCES',
+                'MANAGEMENT',
+                'HEALTH',
+                'ENGINEERING',
+                'BUSINESS',
+                'OTHER',
+              ],
+          }
         createdBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
-    PaymentTransaction:
+    # Payment
+    Payment:
       type: object
       properties:
         id: { type: string, format: uuid }
         candidateId: { type: string, format: uuid }
-        purposeId: { type: string, format: uuid }
-        amount: { type: number, format: float }
-        status: { type: string, enum: ['pending', 'paid', 'failed', 'refunded'] }
         rrr: { type: string, maxLength: 100 }
-        provider: { type: string, default: 'remita' }
-        providerReference: { type: string }
-        metadata: { type: object }
+        purpose: { type: string, maxLength: 50 }
+        amount: { type: number, format: float }
+        session: { type: string, maxLength: 16 }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                'initiated',
+                'pending',
+                'processing',
+                'success',
+                'failed',
+                'cancelled',
+                'disputed',
+                'refunded',
+              ],
+          }
+        paymentLevel: { type: string, maxLength: 16 }
+        paymentUrl: { type: string, format: uri }
+        webhookReceivedAt: { type: string, format: date-time }
+        verifiedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
-    PaymentInitiationRequest:
-      type: object
-      required: [purposeId, amount, session, email, phone, jambRegNo]
-      properties:
-        purposeId: { type: string, format: uuid }
-        amount: { type: number, format: float }
-        session: { type: string, maxLength: 16 }
-        email: { type: string, format: email }
-        phone: { type: string, maxLength: 32 }
-        jambRegNo: { type: string, maxLength: 20 }
-
-    PaymentInitiationResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        data:
-          type: object
-          properties:
-            paymentId: { type: string, format: uuid }
-            rrr: { type: string, maxLength: 100 }
-            amount: { type: number, format: float }
-            status: { type: string, enum: ['pending'] }
-            redirectUrl: { type: string }
-            message: { type: string }
-        timestamp: { type: string, format: date-time }
-
+    # Payment Status Check Response
     PaymentStatusCheckResponse:
       type: object
       properties:
         success: { type: boolean }
-        data:
-          type: object
-          properties:
-            paymentId: { type: string, format: uuid }
-            status: { type: string, enum: ['pending', 'paid', 'failed', 'refunded'] }
-            amount: { type: number, format: float }
-            rrr: { type: string, maxLength: 100 }
-            provider: { type: string }
-            providerReference: { type: string }
-            metadata: { type: object }
-            createdAt: { type: string, format: date-time }
-            updatedAt: { type: string, format: date-time }
-        timestamp: { type: string, format: date-time }
-
-    PaymentVerificationResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        data:
-          type: object
-          properties:
-            paymentId: { type: string, format: uuid }
-            status: { type: string, enum: ['pending', 'paid', 'failed', 'refunded'] }
-            verified: { type: boolean }
-            verificationTime: { type: string, format: date-time }
-            message: { type: string }
-        timestamp: { type: string, format: date-time }
-
-    PaymentReceiptResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        data:
-          type: object
-          properties:
-            paymentId: { type: string, format: uuid }
-            receiptNumber: { type: string }
-            amount: { type: number, format: float }
-            status: { type: string, enum: ['paid'] }
-            paidAt: { type: string, format: date-time }
-            rrr: { type: string, maxLength: 100 }
-            purpose: { $ref: '#/components/schemas/PaymentPurpose' }
-            candidate: { $ref: '#/components/schemas/CandidateSummary' }
-        timestamp: { type: string, format: date-time }
-
-    RemitaWebhookPayload:
-      type: object
-      properties:
         rrr: { type: string, maxLength: 100 }
-        status: { type: string, enum: ['success', 'failed', 'pending'] }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                'initiated',
+                'pending',
+                'processing',
+                'success',
+                'failed',
+                'cancelled',
+                'disputed',
+                'refunded',
+              ],
+          }
         amount: { type: number, format: float }
-        transactionId: { type: string }
-        paymentDate: { type: string, format: date-time }
-        channel: { type: string }
-        narration: { type: string }
-        signature: { type: string }
+        purpose: { $ref: '#/components/schemas/PaymentPurpose' }
+        session: { type: string, maxLength: 16 }
+        candidateId: { type: string, format: uuid }
+        verifiedAt: { type: string, format: date-time }
 
-    ProviderStatus:
-      type: object
-      properties:
-        remita:
-          type: object
-          properties:
-            status: { type: string, enum: ['online', 'offline', 'maintenance'] }
-            lastCheck: { type: string, format: date-time }
-            responseTime: { type: number }
-
+    # Payment Statistics
     PaymentStatistics:
       type: object
       properties:
         totalPayments: { type: integer }
         totalAmount: { type: number, format: float }
         successfulPayments: { type: integer }
-        failedPayments: { type: integer }
         pendingPayments: { type: integer }
+        failedPayments: { type: integer }
         averageAmount: { type: number, format: float }
-        topPurposes:
-          type: array
-          items:
-            type: object
-            properties:
-              purpose: { type: string }
-              count: { type: integer }
-              totalAmount: { type: number, format: float }
 
-    CandidateSummary:
+    # Payment History Response
+    PaymentHistoryResponse:
       type: object
       properties:
-        id: { type: string, format: uuid }
-        jambRegNo: { type: string, maxLength: 20 }
-        firstname: { type: string, maxLength: 100 }
-        surname: { type: string, maxLength: 100 }
-        email: { type: string, format: email }
+        success: { type: boolean }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Payment' }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    # Remita Webhook Payload
+    RemitaWebhookPayload:
+      type: object
+      properties:
+        rrr: { type: string, maxLength: 100 }
+        status: { type: string }
+        amount: { type: string }
+        transactionId: { type: string }
+        orderId: { type: string }
+        message: { type: string }
+        timestamp: { type: string }
+
+    # Error Response
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        error: { type: string }
+        timestamp: { type: string, format: date-time }
 
 tags:
   - name: Payments

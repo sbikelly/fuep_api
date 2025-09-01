@@ -15,7 +15,7 @@ export class PaymentPurposeController {
    */
   async createPaymentPurpose(req: Request, res: Response): Promise<void> {
     try {
-      const { name, purpose, description, amount, session, level, facultyId } = req.body;
+      const { name, purpose, description, amount, session, level, category, createdBy } = req.body;
 
       /**
        * const createdBy = (req as any).user?.id;
@@ -30,8 +30,9 @@ export class PaymentPurposeController {
       }
        */
 
-      // TEMPORARILY DISABLED FOR TESTING - Use real admin user ID
-      const createdBy = (req as any).user?.id || '63d52b0e-359d-47f3-8842-f03e150ecc13';
+      // Use createdBy from request body or fallback to authenticated user
+      const adminUserId =
+        createdBy || (req as any).user?.id || '08dc1f4d-4eb0-4ebf-8875-777eacee5b05';
 
       const request: CreatePaymentPurposeRequest = {
         name,
@@ -40,9 +41,9 @@ export class PaymentPurposeController {
         amount: parseFloat(amount),
         session,
         level,
-        facultyId,
+        category,
         isActive: true,
-        createdBy,
+        createdBy: adminUserId,
       };
 
       const paymentPurpose = await this.paymentPurposeService.createPaymentPurpose(request);
@@ -68,13 +69,13 @@ export class PaymentPurposeController {
    */
   async getPaymentPurposes(req: Request, res: Response): Promise<void> {
     try {
-      const { session, purpose, level, faculty, isActive } = req.query;
+      const { session, purpose, level, category, isActive } = req.query;
 
       const filters: any = {};
       if (session) filters.session = session as string;
       if (purpose) filters.purpose = purpose as string;
       if (level) filters.level = level as string;
-      if (faculty) filters.faculty = faculty as string;
+      if (category) filters.category = category as string;
       if (isActive !== undefined) filters.isActive = isActive === 'true';
 
       const paymentPurposes = await this.paymentPurposeService.getPaymentPurposes(filters);
@@ -300,30 +301,30 @@ export class PaymentPurposeController {
   }
 
   /**
-   * Get payment purposes by purpose type
+   * Get payment purposes by category
    */
-  async getPaymentPurposesByFaculty(req: Request, res: Response): Promise<void> {
+  async getPaymentPurposesByCategory(req: Request, res: Response): Promise<void> {
     try {
-      const { facultyId } = req.params;
+      const { category } = req.params;
 
-      const paymentPurposes = await this.paymentPurposeService.getPaymentPurposesByPurpose(
-        facultyId as any
+      const paymentPurposes = await this.paymentPurposeService.getPaymentPurposesByCategory(
+        category as any
       );
 
       res.status(200).json({
         success: true,
         data: paymentPurposes,
         total: paymentPurposes.length,
-        purpose: facultyId,
+        category,
         timestamp: new Date(),
       });
     } catch (error) {
       logger.error(
-        `[PaymentPurposeController] Failed to get payment purposes by purpose: ${error}`
+        `[PaymentPurposeController] Failed to get payment purposes by category: ${error}`
       );
       res.status(500).json({
         success: false,
-        error: 'Failed to retrieve payment purposes by purpose',
+        error: 'Failed to retrieve payment purposes by category',
         timestamp: new Date(),
       });
     }
