@@ -1,3 +1,4 @@
+import { AdminPaymentController } from './controllers/admin-payment.controller.js';
 import { PaymentPurposeController } from './controllers/payment-purpose.controller.js';
 import { createAdminRoutes } from './routes/index.js';
 import { AdminService } from './services/admin.service.js';
@@ -19,6 +20,7 @@ export interface AdminModule {
   adminAcademicService: AdminAcademicService;
   paymentPurposeService: PaymentPurposeService;
   paymentPurposeController: PaymentPurposeController;
+  adminPaymentController: AdminPaymentController;
 }
 
 export function createAdminModule(): AdminModule {
@@ -66,6 +68,10 @@ export function createAdminModule(): AdminModule {
     const paymentPurposeController = new PaymentPurposeController(paymentPurposeService);
     console.log('[AdminModule] PaymentPurposeController created successfully');
 
+    console.log('[AdminModule] Creating AdminPaymentController...');
+    const adminPaymentController = new AdminPaymentController();
+    console.log('[AdminModule] AdminPaymentController created successfully');
+
     console.log('[AdminModule] Creating AdminService...');
     const adminService = new AdminService(
       adminAcademicService,
@@ -86,6 +92,7 @@ export function createAdminModule(): AdminModule {
       adminAcademicService,
       paymentPurposeService,
       paymentPurposeController,
+      adminPaymentController,
     });
     console.log('[AdminModule] Admin routes created successfully');
 
@@ -99,6 +106,7 @@ export function createAdminModule(): AdminModule {
       adminAcademicService,
       paymentPurposeService,
       paymentPurposeController,
+      adminPaymentController,
     };
   } catch (error) {
     console.error('[AdminModule] Error creating admin module:', error);

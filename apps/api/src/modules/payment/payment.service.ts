@@ -43,16 +43,25 @@ import { RemitaService } from './remita.service.js';
  */
 
 export class PaymentService {
-  private remitaService: RemitaService;
+  private remitaService: RemitaService | null = null;
   private emailService: EmailService;
   private candidateService: CandidateService;
 
   constructor(candidateService?: CandidateService) {
     console.log('[PaymentService] Constructor called');
-    this.remitaService = new RemitaService();
+    try {
+      this.remitaService = new RemitaService();
+      console.log('[PaymentService] Remita service initialized successfully');
+    } catch (error) {
+      console.log(
+        '[PaymentService] Remita service initialization failed, continuing without Remita:',
+        error
+      );
+      this.remitaService = null;
+    }
     this.emailService = new EmailService();
     this.candidateService = candidateService || new CandidateService(console);
-    console.log('[PaymentService] Initialized with Remita service');
+    console.log('[PaymentService] Initialized');
   }
 
   /**
@@ -83,10 +92,17 @@ export class PaymentService {
         );
       }
 
+      //TODO: for acceptance payment, check if the candidate paid for post-utme, else return error
+
+      //TODO: for school fee payment, check whether the candidate paid post-utme and acceptance, else return error
+
       // Create Remita payment request with all required fields
       const remitaRequest: RemitaPaymentRequest = request;
 
       // Generate RRR using Remita
+      if (!this.remitaService) {
+        throw new Error('Remita service is not available. Please check configuration.');
+      }
       const rrr = await this.remitaService.generateRRR(remitaRequest);
 
       //check if the rrr was generated
@@ -138,6 +154,9 @@ export class PaymentService {
       }
 
       // Get status from Remita
+      if (!this.remitaService) {
+        throw new Error('Remita service is not available. Please check configuration.');
+      }
       const status = await this.remitaService.getPaymentStatus(rrr);
 
       // Update local database
@@ -175,6 +194,9 @@ export class PaymentService {
 
       // Verify webhook signature
       const payload = JSON.stringify(webhookData);
+      if (!this.remitaService) {
+        throw new Error('Remita service is not available. Please check configuration.');
+      }
       if (!this.remitaService.verifyWebhookSignature(payload, signature)) {
         throw new Error('Invalid webhook signature');
       }
@@ -189,7 +211,7 @@ export class PaymentService {
       }
 
       // Update payment status
-      const mappedStatus = this.remitaService['mapRemitaStatus'](status);
+      const mappedStatus = this.mapRemitaStatus(status);
       await this.updatePaymentStatus(rrr, mappedStatus);
 
       // Send notifications
@@ -203,6 +225,32 @@ export class PaymentService {
         error: error instanceof Error ? error.message : String(error),
       });
       throw error;
+    }
+  }
+
+  /**
+   * Map Remita status to our PaymentStatus enum
+   */
+  private mapRemitaStatus(remitaStatus: string): PaymentStatus {
+    switch (remitaStatus.toLowerCase()) {
+      case '00':
+      case 'success':
+      case 'completed':
+        return 'success';
+      case '01':
+      case 'pending':
+      case 'initiated':
+        return 'pending';
+      case '02':
+      case 'failed':
+      case 'error':
+        return 'failed';
+      case '03':
+      case 'cancelled':
+      case 'abandoned':
+        return 'cancelled';
+      default:
+        return 'pending';
     }
   }
 
@@ -448,6 +496,14 @@ export class PaymentService {
       throw error;
     }
   }
+
+  /**
+   * Get payment by ID
+   */
+
+  /**
+   * Delete payment record by ID
+   */
 
   /**
    * Update payment status

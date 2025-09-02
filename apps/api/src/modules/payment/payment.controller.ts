@@ -95,6 +95,14 @@ export class PaymentController {
   }
 
   /**
+   * Get payment by ID
+   */
+
+  /**
+   * Delete payment
+   */
+
+  /**
    * Get payment status by RRR
    */
   async getPaymentStatus(req: Request, res: Response): Promise<void> {

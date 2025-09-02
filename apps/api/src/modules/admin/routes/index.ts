@@ -5,6 +5,7 @@ import { adminRateLimit } from '../../../middleware/rateLimiting.js';
 import { AdminAuthController } from '../controllers/admin-auth.controller.js';
 import { AdminCandidateController } from '../controllers/admin-candidate.controller.js';
 import { AdminDashboardController } from '../controllers/admin-dashboard.controller.js';
+import { AdminPaymentController } from '../controllers/admin-payment.controller.js';
 import { AdminUserController } from '../controllers/admin-user.controller.js';
 import { PaymentPurposeController } from '../controllers/payment-purpose.controller.js';
 import { AdminService } from '../services/admin.service.js';
@@ -17,6 +18,7 @@ import { createAdminAuthRoutes } from './admin-auth.routes.js';
 import { createAdminCandidateRoutes } from './admin-candidate.routes.js';
 import { createAdminCandidateBatchRoutes } from './admin-candidate-batch.routes.js';
 import { createAdminDashboardRoutes } from './admin-dashboard.routes.js';
+import { createAdminPaymentRoutes } from './admin-payment.routes.js';
 import { createAdminUserRoutes } from './admin-user.routes.js';
 import { createPaymentPurposeRoutes } from './payment-purpose.routes.js';
 
@@ -27,6 +29,7 @@ export interface AdminRoutesDependencies {
   adminAcademicService: AdminAcademicService;
   paymentPurposeService: PaymentPurposeService;
   paymentPurposeController: PaymentPurposeController;
+  adminPaymentController: AdminPaymentController;
 }
 
 export function createAdminRoutes(deps: AdminRoutesDependencies): Router {
@@ -75,6 +78,9 @@ export function createAdminRoutes(deps: AdminRoutesDependencies): Router {
 
   // Mount payment purpose routes
   router.use('/payment', createPaymentPurposeRoutes(deps.paymentPurposeController));
+
+  // Mount admin payment routes
+  router.use('/', createAdminPaymentRoutes(deps.adminPaymentController));
 
   return router;
 }

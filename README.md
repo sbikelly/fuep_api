@@ -20,8 +20,9 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Token Management** - Secure logout and token invalidation
 - **Cloud Deployment** - Production deployment on Render.com using Docker containers
 - **Admin Module Integration** - Simplified admin-candidate operations with clean interfaces
+- **Docker Hub Integration** - Containerized application available on Docker Hub
 
-### �� **In Progress**
+### 🚀 **In Progress**
 
 - Advanced reporting dashboard
 - Enhanced admin management features
@@ -67,6 +68,212 @@ A comprehensive Post-UTME application and management system for Federal Universi
 - **Security**: JWT with refresh tokens, bcrypt, helmet, rate limiting
 - **Monitoring**: Winston logging, metrics collection
 - **Validation**: Zod schemas for type-safe API requests
+
+## Docker Container Management
+
+### **Docker Hub Repository**
+
+The application is available on Docker Hub at: **https://hub.docker.com/r/sbikelly/fuep-api**
+
+#### **Available Tags**
+
+- `latest` - Latest version (always points to the most recent build)
+- `v1.0.0` - Semantic version tag for this release
+- `8f9d79f` - Git commit hash tag for specific version tracking
+
+#### **Pull and Run Commands**
+
+```bash
+# Pull the latest version
+docker pull sbikelly/fuep-api:latest
+
+# Run the container locally
+docker run -p 4000:4000 sbikelly/fuep-api:latest
+
+# Run with environment variables
+docker run -p 4000:4000 \
+  -e NODE_ENV=production \
+  -e DB_HOST=your-db-host \
+  -e DB_PORT=5432 \
+  -e DB_USER=your-db-user \
+  -e DB_PASSWORD=your-db-password \
+  -e DB_NAME=your-db-name \
+  sbikelly/fuep-api:latest
+
+# Run with Docker Compose
+docker-compose up -d
+```
+
+### **Building and Pushing to Docker Hub**
+
+#### **Prerequisites**
+
+```bash
+# Install Docker Desktop or Docker Engine
+# Login to Docker Hub
+docker login
+```
+
+#### **Build Commands**
+
+```bash
+# Build the Docker image
+docker build -f apps/api/Dockerfile -t fuep-postutme-api .
+
+# Build with specific target
+docker build -f apps/api/Dockerfile --target runtime -t fuep-postutme-api .
+
+# Build for different architectures
+docker buildx build --platform linux/amd64,linux/arm64 -f apps/api/Dockerfile -t fuep-postutme-api .
+```
+
+#### **Tagging Commands**
+
+```bash
+# Tag with your Docker Hub username
+docker tag fuep-postutme-api sbikelly/fuep-api:latest
+
+# Tag with version
+docker tag fuep-postutme-api sbikelly/fuep-api:v1.0.0
+
+# Tag with git commit hash
+git rev-parse --short HEAD  # Get commit hash
+docker tag fuep-postutme-api sbikelly/fuep-api:$(git rev-parse --short HEAD)
+```
+
+#### **Push Commands**
+
+```bash
+# Push latest version
+docker push sbikelly/fuep-api:latest
+
+# Push versioned tag
+docker push sbikelly/fuep-api:v1.0.0
+
+# Push commit hash tag
+docker push sbikelly/fuep-api:$(git rev-parse --short HEAD)
+
+# Push all tags
+docker push sbikelly/fuep-api --all-tags
+```
+
+### **Docker Compose Configuration**
+
+#### **Development Environment**
+
+```bash
+# Start development environment
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# View logs
+docker-compose logs -f api
+
+# Stop services
+docker-compose down
+
+# Rebuild and restart
+docker-compose up -d --build api
+```
+
+#### **Production Environment**
+
+```bash
+# Start production environment
+docker-compose up -d
+
+# Scale API service
+docker-compose up -d --scale api=3
+
+# Update services
+docker-compose pull && docker-compose up -d
+```
+
+### **Docker Health Checks**
+
+```bash
+# Check container health
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# View health check logs
+docker inspect --format='{{json .State.Health}}' fuep_api | jq
+
+# Test health endpoint
+curl http://localhost:4000/api/health
+```
+
+### **Docker Networking**
+
+```bash
+# Create custom network
+docker network create fuep-network
+
+# Run with custom network
+docker run --network fuep-network -p 4000:4000 sbikelly/fuep-api:latest
+
+# Inspect network
+docker network inspect fuep-network
+```
+
+### **Docker Volumes**
+
+```bash
+# Create persistent volume
+docker volume create fuep-data
+
+# Run with volume
+docker run -v fuep-data:/app/data -p 4000:4000 sbikelly/fuep-api:latest
+
+# Backup volume
+docker run --rm -v fuep-data:/data -v $(pwd):/backup alpine tar czf /backup/fuep-backup.tar.gz -C /data .
+```
+
+### **Docker Security**
+
+```bash
+# Run as non-root user (already configured in Dockerfile)
+docker run --user node -p 4000:4000 sbikelly/fuep-api:latest
+
+# Scan for vulnerabilities
+docker scan sbikelly/fuep-api:latest
+
+# Run with security options
+docker run --security-opt=no-new-privileges -p 4000:4000 sbikelly/fuep-api:latest
+```
+
+### **Docker Monitoring**
+
+```bash
+# View container stats
+docker stats fuep_api
+
+# Monitor resource usage
+docker stats --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}"
+
+# View container logs
+docker logs -f fuep_api
+
+# Export container logs
+docker logs fuep_api > api-logs.txt
+```
+
+### **Docker Cleanup**
+
+```bash
+# Remove unused containers
+docker container prune
+
+# Remove unused images
+docker image prune
+
+# Remove unused volumes
+docker volume prune
+
+# Remove unused networks
+docker network prune
+
+# Clean everything
+docker system prune -a
+```
 
 ## Simplified Candidate System
 
@@ -256,6 +463,16 @@ docker compose up -d
 # MailHog: http://localhost:8025
 ```
 
+### **Using Docker Hub Image**
+
+```bash
+# Pull and run the latest version
+docker run -p 4000:4000 sbikelly/fuep-api:latest
+
+# Or use Docker Compose with the image
+docker-compose up -d
+```
+
 ### **Production Deployment**
 
 The application is automatically deployed to production on Render.com using Docker containers:
@@ -376,6 +593,19 @@ curl -X POST http://localhost:4000/api/auth/login \
   -d '{"username":"JAMB123","password":"temp123"}'
 ```
 
+### **Docker Testing**
+
+```bash
+# Test container health
+docker exec fuep_api curl -f http://localhost:4000/api/health
+
+# Test container logs
+docker logs fuep_api
+
+# Test container performance
+docker stats fuep_api
+```
+
 ### **Email Testing**
 
 - Access MailHog at `http://localhost:8025`
@@ -424,6 +654,22 @@ pnpm test
 pnpm build
 ```
 
+### **Docker Development**
+
+```bash
+# Start development environment
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# View logs
+docker-compose logs -f api
+
+# Rebuild container
+docker-compose up -d --build api
+
+# Stop services
+docker-compose down
+```
+
 ### **Code Standards**
 
 - TypeScript for type safety
@@ -449,8 +695,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - GitHub Issues: [Report a Bug](https://github.com/sbikelly/fuep_api/issues)
 - Feature Requests: [Request Feature](https://github.com/sbikelly/fuep_api/issues/new)
 
+### **Docker Support**
+
+- **Docker Hub**: https://hub.docker.com/r/sbikelly/fuep-api
+- **Container Issues**: Report Docker-related issues via GitHub Issues
+- **Deployment Help**: Check the [DEVELOPMENT.md](DEVELOPMENT.md) for detailed Docker instructions
+
 ---
 
 **Built with dedication for Federal University of Education, Pankshin**
 
-_Last updated: August 2025_
+_Last updated: December 2024_

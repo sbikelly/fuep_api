@@ -463,6 +463,36 @@ The admin module has been fully integrated with the simplified candidate system:
          └─────────────────────────────────────────────────┘
 ```
 
+### **Docker Hub Integration**
+
+The application is available on Docker Hub at: **https://hub.docker.com/r/sbikelly/fuep-api**
+
+#### **Available Tags**
+
+- `latest` - Latest version (always points to the most recent build)
+- `v1.0.0` - Semantic version tag for this release
+- `8f9d79f` - Git commit hash tag for specific version tracking
+
+#### **Container Management Commands**
+
+```bash
+# Pull and run the latest version
+docker pull sbikelly/fuep-api:latest
+docker run -p 4000:4000 sbikelly/fuep-api:latest
+
+# Build and push to Docker Hub
+docker build -f apps/api/Dockerfile -t fuep-postutme-api .
+docker tag fuep-postutme-api sbikelly/fuep-api:latest
+docker push sbikelly/fuep-api:latest
+
+# Run with Docker Compose
+docker-compose up -d
+
+# Health checks
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+curl http://localhost:4000/api/health
+```
+
 ### **Deployment Configuration**
 
 #### **API Service (fuep-api)**
@@ -473,6 +503,7 @@ The admin module has been fully integrated with the simplified candidate system:
 - **Context**: Root directory for build context
 - **Health Check**: `/api/health` endpoint
 - **Auto-deploy**: Enabled for continuous deployment
+- **Docker Hub**: Pre-built images available at `sbikelly/fuep-api:latest`
 
 #### **Database Service (fuep-postgres)**
 
@@ -491,6 +522,7 @@ The admin module has been fully integrated with the simplified candidate system:
 ### **Deployment Features**
 
 - **Docker-Based Deployment**: Containerized application deployment on Render.com
+- **Docker Hub Integration**: Pre-built images available for quick deployment
 - **Managed Cloud Platform**: Render.com handles infrastructure management and scaling
 - **Automatic Scaling**: Built-in horizontal scaling capabilities for Docker containers
 - **Health Checks**: Comprehensive service health monitoring via `/api/health`

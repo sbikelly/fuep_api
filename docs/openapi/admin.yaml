@@ -862,6 +862,434 @@ paths:
                   message: { type: string }
                   timestamp: { type: string, format: date-time }
 
+  # ============================================
+  # Admin Payment Management Routes
+  # ============================================
+
+  /api/admin/payment-purposes:
+    post:
+      summary: Create a new payment purpose
+      tags: [Admin]
+      description: Create a new payment purpose for the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentPurposeCreateRequest'
+      responses:
+        '200':
+          description: Payment purpose created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/PaymentPurpose' }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid request data
+        '500':
+          description: Internal server error
+
+    get:
+      summary: Get all payment purposes
+      tags: [Admin]
+      description: Retrieve all payment purposes with optional filtering
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+          description: Number of items per page
+        - in: query
+          name: category
+          schema: { type: string }
+          description: Filter by payment category
+        - in: query
+          name: session
+          schema: { type: string }
+          description: Filter by session
+        - in: query
+          name: level
+          schema: { type: string }
+          description: Filter by level
+      responses:
+        '200':
+          description: Payment purposes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaymentPurpose' }
+                  pagination: { $ref: '#/components/schemas/PaginationInfo' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payment-purposes/{id}:
+    get:
+      summary: Get payment purpose by ID
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment purpose details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentPurpose' }
+                  timestamp: { type: string, format: date-time }
+        '404':
+          description: Payment purpose not found
+
+    put:
+      summary: Update payment purpose
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentPurposeUpdateRequest'
+      responses:
+        '200':
+          description: Payment purpose updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/PaymentPurpose' }
+                  timestamp: { type: string, format: date-time }
+
+    delete:
+      summary: Delete payment purpose (soft delete)
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment purpose deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payment-purposes/statistics:
+    get:
+      summary: Get payment purpose statistics
+      tags: [Admin]
+      description: Get statistics for payment purposes
+      responses:
+        '200':
+          description: Payment purpose statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentPurposeStatistics' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments:
+    get:
+      summary: Get all payments
+      tags: [Admin]
+      description: Retrieve all payments with optional filtering
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+          description: Number of items per page
+        - in: query
+          name: status
+          schema: { type: string }
+          description: Filter by payment status
+        - in: query
+          name: purpose
+          schema: { type: string }
+          description: Filter by payment purpose
+        - in: query
+          name: startDate
+          schema: { type: string, format: date }
+          description: Filter by start date
+        - in: query
+          name: endDate
+          schema: { type: string, format: date }
+          description: Filter by end date
+      responses:
+        '200':
+          description: Payments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Payment' }
+                  pagination: { $ref: '#/components/schemas/PaginationInfo' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/{id}:
+    get:
+      summary: Get payment by ID
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Payment' }
+                  timestamp: { type: string, format: date-time }
+        '404':
+          description: Payment not found
+
+  /api/admin/payments/{id}/verify:
+    post:
+      summary: Verify payment
+      tags: [Admin]
+      description: Verify or unverify a payment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentVerificationRequest'
+      responses:
+        '200':
+          description: Payment verification updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Payment' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/{id}/refund:
+    post:
+      summary: Refund payment
+      tags: [Admin]
+      description: Process a refund for a payment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRefundRequest'
+      responses:
+        '200':
+          description: Payment refunded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Payment' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/statistics:
+    get:
+      summary: Get payment statistics
+      tags: [Admin]
+      description: Get overall payment statistics
+      responses:
+        '200':
+          description: Payment statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentStatistics' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/monthly:
+    get:
+      summary: Get payments by month
+      tags: [Admin]
+      description: Get payment statistics grouped by month
+      parameters:
+        - in: query
+          name: year
+          schema: { type: integer }
+          description: Year to filter by (defaults to current year)
+      responses:
+        '200':
+          description: Monthly payment statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/MonthlyPaymentStats' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/revenue:
+    get:
+      summary: Get total revenue
+      tags: [Admin]
+      description: Get total revenue statistics
+      responses:
+        '200':
+          description: Total revenue statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/RevenueStatistics' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/counts:
+    get:
+      summary: Get payment counts by status
+      tags: [Admin]
+      description: Get count of payments by status
+      responses:
+        '200':
+          description: Payment counts by status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentCounts' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/by-status/{status}:
+    get:
+      summary: Get payments by status
+      tags: [Admin]
+      description: Get payments filtered by specific status
+      parameters:
+        - in: path
+          name: status
+          required: true
+          schema: { type: string }
+          description: Payment status to filter by
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+          description: Number of items per page
+      responses:
+        '200':
+          description: Payments by status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Payment' }
+                  pagination: { $ref: '#/components/schemas/PaginationInfo' }
+                  timestamp: { type: string, format: date-time }
+
+  /api/admin/payments/by-purpose/{purpose}:
+    get:
+      summary: Get payments by purpose
+      tags: [Admin]
+      description: Get payments filtered by specific purpose
+      parameters:
+        - in: path
+          name: purpose
+          required: true
+          schema: { type: string }
+          description: Payment purpose to filter by
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+          description: Number of items per page
+      responses:
+        '200':
+          description: Payments by purpose
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Payment' }
+                  pagination: { $ref: '#/components/schemas/PaginationInfo' }
+                  timestamp: { type: string, format: date-time }
+
   components:
   schemas:
     AdminUser:
@@ -1038,6 +1466,146 @@ paths:
         programId: { type: string, format: uuid }
         departmentId: { type: string, format: uuid }
         isActive: { type: boolean, default: true }
+
+    # ============================================
+    # Payment Purpose Schemas
+    # ============================================
+
+    PaymentPurpose:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        purpose: { type: string, maxLength: 100 }
+        description: { type: string }
+        amount: { type: number, format: float }
+        session: { type: string, maxLength: 20 }
+        level: { type: string, maxLength: 20 }
+        category: { type: string, maxLength: 50 }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentPurposeCreateRequest:
+      type: object
+      required: [name, purpose, amount, session, level]
+      properties:
+        name: { type: string, maxLength: 200 }
+        purpose: { type: string, maxLength: 100 }
+        description: { type: string }
+        amount: { type: number, format: float }
+        session: { type: string, maxLength: 20 }
+        level: { type: string, maxLength: 20 }
+        category: { type: string, maxLength: 50 }
+        isActive: { type: boolean, default: true }
+
+    PaymentPurposeUpdateRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        purpose: { type: string, maxLength: 100 }
+        description: { type: string }
+        amount: { type: number, format: float }
+        session: { type: string, maxLength: 20 }
+        level: { type: string, maxLength: 20 }
+        category: { type: string, maxLength: 50 }
+        isActive: { type: boolean }
+
+    PaymentPurposeStatistics:
+      type: object
+      properties:
+        total: { type: integer }
+        active: { type: integer }
+        inactive: { type: integer }
+        byCategory:
+          type: object
+          additionalProperties: { type: integer }
+        bySession:
+          type: object
+          additionalProperties: { type: integer }
+        byLevel:
+          type: object
+          additionalProperties: { type: integer }
+
+    # ============================================
+    # Payment Schemas
+    # ============================================
+
+    Payment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        rrr: { type: string, maxLength: 50 }
+        purpose: { type: string, maxLength: 100 }
+        amount: { type: number, format: float }
+        session: { type: string, maxLength: 20 }
+        level: { type: string, maxLength: 20 }
+        status: { type: string, enum: ['initiated', 'pending', 'success', 'failed', 'cancelled'] }
+        paymentUrl: { type: string }
+        webhookReceivedAt: { type: string, format: date-time }
+        verifiedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentVerificationRequest:
+      type: object
+      required: [isVerified]
+      properties:
+        isVerified: { type: boolean }
+        notes: { type: string }
+        externalReference: { type: string }
+
+    PaymentRefundRequest:
+      type: object
+      required: [amount, reason]
+      properties:
+        amount: { type: number, format: float }
+        reason: { type: string }
+        notes: { type: string }
+
+    PaymentStatistics:
+      type: object
+      properties:
+        total: { type: integer }
+        successful: { type: integer }
+        pending: { type: integer }
+        failed: { type: integer }
+        cancelled: { type: integer }
+        totalAmount: { type: number, format: float }
+        successfulAmount: { type: number, format: float }
+        pendingAmount: { type: number, format: float }
+        failedAmount: { type: number, format: float }
+
+    MonthlyPaymentStats:
+      type: object
+      properties:
+        month: { type: string }
+        year: { type: integer }
+        total: { type: integer }
+        successful: { type: integer }
+        pending: { type: integer }
+        failed: { type: integer }
+        totalAmount: { type: number, format: float }
+        successfulAmount: { type: number, format: float }
+
+    RevenueStatistics:
+      type: object
+      properties:
+        totalRevenue: { type: number, format: float }
+        thisMonth: { type: number, format: float }
+        thisYear: { type: number, format: float }
+        lastMonth: { type: number, format: float }
+        lastYear: { type: number, format: float }
+
+    PaymentCounts:
+      type: object
+      properties:
+        total: { type: integer }
+        successful: { type: integer }
+        pending: { type: integer }
+        failed: { type: integer }
+        cancelled: { type: integer }
 
     PaginationInfo:
       type: object
