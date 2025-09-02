@@ -30,6 +30,16 @@ export function createAdminPaymentRoutes(adminPaymentController: AdminPaymentCon
   );
 
   /**
+   * @route GET /admin/payment-purposes/stats
+   * @desc Get payment purpose statistics
+   * @access Admin only
+   */
+  router.get(
+    '/payment-purposes/stats',
+    adminPaymentController.getPaymentPurposeStatistics.bind(adminPaymentController)
+  );
+
+  /**
    * @route GET /admin/payment-purposes/:id
    * @desc Get payment purpose by ID
    * @access Admin only
@@ -59,16 +69,6 @@ export function createAdminPaymentRoutes(adminPaymentController: AdminPaymentCon
     adminPaymentController.deletePaymentPurpose.bind(adminPaymentController)
   );
 
-  /**
-   * @route GET /admin/payment-purposes/stats
-   * @desc Get payment purpose statistics
-   * @access Admin only
-   */
-  router.get(
-    '/payment-purposes/stats',
-    adminPaymentController.getPaymentPurposeStatistics.bind(adminPaymentController)
-  );
-
   // ============================================
   // Payment Management Routes
   // ============================================
@@ -79,33 +79,6 @@ export function createAdminPaymentRoutes(adminPaymentController: AdminPaymentCon
    * @access Admin only
    */
   router.get('/payments', adminPaymentController.getAllPayments.bind(adminPaymentController));
-
-  /**
-   * @route GET /admin/payments/:id
-   * @desc Get payment by ID
-   * @access Admin only
-   */
-  router.get('/payments/:id', adminPaymentController.getPaymentById.bind(adminPaymentController));
-
-  /**
-   * @route POST /admin/payments/:id/verify
-   * @desc Verify payment
-   * @access Admin only
-   */
-  router.post(
-    '/payments/:id/verify',
-    adminPaymentController.verifyPayment.bind(adminPaymentController)
-  );
-
-  /**
-   * @route POST /admin/payments/:id/refund
-   * @desc Refund payment
-   * @access Admin only
-   */
-  router.post(
-    '/payments/:id/refund',
-    adminPaymentController.refundPayment.bind(adminPaymentController)
-  );
 
   // ============================================
   // Analytics and Statistics Routes
@@ -169,6 +142,33 @@ export function createAdminPaymentRoutes(adminPaymentController: AdminPaymentCon
   router.get(
     '/payments/analytics/by-purpose',
     adminPaymentController.getPaymentsByPurpose.bind(adminPaymentController)
+  );
+
+  /**
+   * @route GET /admin/payments/:id
+   * @desc Get payment by ID
+   * @access Admin only
+   */
+  router.get('/payments/:id', adminPaymentController.getPaymentById.bind(adminPaymentController));
+
+  /**
+   * @route POST /admin/payments/:id/verify
+   * @desc Verify payment
+   * @access Admin only
+   */
+  router.post(
+    '/payments/:id/verify',
+    adminPaymentController.verifyPayment.bind(adminPaymentController)
+  );
+
+  /**
+   * @route POST /admin/payments/:id/refund
+   * @desc Refund payment
+   * @access Admin only
+   */
+  router.post(
+    '/payments/:id/refund',
+    adminPaymentController.refundPayment.bind(adminPaymentController)
   );
 
   return router;

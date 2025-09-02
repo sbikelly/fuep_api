@@ -1,4 +1,4 @@
-import { PaymentPurpose, PaymentPurposeCategory,PaymentPurposeName } from '@fuep/types';
+import { PaymentPurpose, PaymentPurposeCategory, PaymentPurposeName } from '@fuep/types';
 
 import { db } from '../../../db/knex.js';
 import { logger } from '../../../middleware/logging.js';
@@ -380,12 +380,18 @@ export class PaymentPurposeService {
     try {
       logger.info(`[PaymentPurposeService] Getting payment purpose statistics`);
 
-      const [totalCount, activeCount, sessionCount, levelCount] = await Promise.all([
+      const [totalCount, activeCount] = await Promise.all([
         db('payment_purposes').count('* as total').first(),
         db('payment_purposes').where('is_active', true).count('* as active').first(),
-        db('payment_purposes').distinct('session').count('* as sessions').first(),
-        db('payment_purposes').distinct('level').count('* as levels').first(),
       ]);
+
+      // Get distinct sessions count
+      const sessionCount = await db('payment_purposes')
+        .countDistinct('session as sessions')
+        .first();
+
+      // Get distinct levels count
+      const levelCount = await db('payment_purposes').countDistinct('level as levels').first();
 
       const purposeBreakdown = await db('payment_purposes')
         .select('purpose')

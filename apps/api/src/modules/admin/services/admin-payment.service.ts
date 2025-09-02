@@ -272,8 +272,43 @@ export class AdminPaymentService {
         query = query.where('payments.amount', '<=', filters.maxAmount);
       }
 
-      // Get total count
-      const totalResult = await query.clone().count('payments.id as count').first();
+      // Get total count - use a separate query to avoid GROUP BY issues
+      const countQuery = db('payments').leftJoin(
+        'candidates',
+        'payments.candidate_id',
+        'candidates.id'
+      );
+
+      // Apply the same filters to count query
+      if (filters?.status) {
+        countQuery.where('payments.status', filters.status);
+      }
+      if (filters?.purpose) {
+        countQuery.where('payments.purpose', filters.purpose);
+      }
+      if (filters?.session) {
+        countQuery.where('payments.session', filters.session);
+      }
+      if (filters?.level) {
+        countQuery.where('payments.payment_level', filters.level);
+      }
+      if (filters?.startDate) {
+        countQuery.where('payments.created_at', '>=', filters.startDate);
+      }
+      if (filters?.endDate) {
+        countQuery.where('payments.created_at', '<=', filters.endDate);
+      }
+      if (filters?.candidateId) {
+        countQuery.where('payments.candidate_id', filters.candidateId);
+      }
+      if (filters?.minAmount !== undefined) {
+        countQuery.where('payments.amount', '>=', filters.minAmount);
+      }
+      if (filters?.maxAmount !== undefined) {
+        countQuery.where('payments.amount', '<=', filters.maxAmount);
+      }
+
+      const totalResult = await countQuery.count('payments.id as count').first();
       const total = totalResult ? parseInt(totalResult.count as string) : 0;
 
       // Apply pagination
