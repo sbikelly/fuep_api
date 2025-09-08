@@ -59,7 +59,7 @@ export class CandidateService {
    * if the contact info exists, proceed to create and send a temporary password to the candidate's email and also flag the password_hash (by setting the value of candidate's isFirstLogin to true)
    * else if the contact info does not exist, prompt the candidate to complete the contact info by calling the "completeContactInfo" function
    * after the contact info are provided by the candidate, proceed to create and send a temporary password to the candidate's email and also flag the password_hash (by setting the value of candidate's isFirstLogin to true)  send a temporary password to the candidate's email
-   * redirect the candidate to the login page to login page
+   * display the newly created logins details(Jamb reg no and the newly created password) to the candidate and then redirect the candidate to the login page to login page
    * after the candidate successfully logged in using his jambregno as username and the temporary password,check if the candidate's isFirstLogin is set to tru
    * if isFirstLogin is true, propmt the candidate to change his password.
    * check if the candidate has completed the registration process
@@ -73,6 +73,10 @@ export class CandidateService {
     nextStep?: string;
     requiresContactUpdate?: boolean;
     candidateType?: 'UTME' | 'DE';
+    loginDetails?: {
+      username: string;
+      password: string;
+    };
   }> {
     return await withDatabaseLogging('checkJambAndInitiateRegistration', 'candidates', async () => {
       try {
@@ -163,6 +167,10 @@ export class CandidateService {
           candidateId: candidateRecord.id,
           nextStep: 'login',
           candidateType: candidateRecord.mode_of_entry,
+          loginDetails: {
+            username: jambRegNo,
+            password: tempPassword,
+          },
         };
       } catch (error) {
         logger.error('Failed to check JAMB and initiate registration', {
@@ -189,6 +197,10 @@ export class CandidateService {
     success: boolean;
     message: string;
     nextStep?: string;
+    loginDetails?: {
+      username: string;
+      password: string;
+    };
   }> {
     return await withDatabaseLogging('completeContactInfo', 'candidates', async () => {
       try {
@@ -215,8 +227,9 @@ export class CandidateService {
         });
 
         // If candidate needs new password, generate and send
+        let tempPassword: string | undefined;
         if (!candidate.password_hash) {
-          const tempPassword = PasswordUtils.generateTemporaryPassword();
+          tempPassword = PasswordUtils.generateTemporaryPassword();
           const hashedPassword = await PasswordUtils.hashPassword(tempPassword);
 
           // Update password
@@ -256,11 +269,29 @@ export class CandidateService {
           metadata: { candidateId, contactInfo },
         });
 
-        return {
+        const response: {
+          success: boolean;
+          message: string;
+          nextStep?: string;
+          loginDetails?: {
+            username: string;
+            password: string;
+          };
+        } = {
           success: true,
           message: 'Contact information updated successfully',
           nextStep: 'login',
         };
+
+        // Include login details if password was generated
+        if (tempPassword) {
+          response.loginDetails = {
+            username: candidate.jamb_reg_no,
+            password: tempPassword,
+          };
+        }
+
+        return response;
       } catch (error) {
         logger.error('Failed to complete contact information', {
           module: 'candidate',

@@ -39,11 +39,12 @@ paths:
       description: |
         Checks if JAMB registration number exists in the candidates database.
         If found and candidate has no password (not yet initiated registration):
-          - Creates password and sends email
+          - Creates password and sends email/SMS
+          - Displays login details in response for redundancy
           - Redirects to login
         If found but missing contact info:
           - Requests contact info completion
-          - After completion, creates password and sends email
+          - After completion, creates password and sends email/SMS
         If found and already has password:
           - Redirects to login (registration already initiated)
         If not found:
@@ -74,6 +75,17 @@ paths:
                       nextStep: { type: string }
                       requiresContactUpdate: { type: boolean }
                       candidateType: { type: string, enum: [UTME, DE] }
+                      loginDetails:
+                        type: object
+                        properties:
+                          username:
+                            {
+                              type: string,
+                              description: 'JAMB registration number (username for login)',
+                            }
+                          password:
+                            { type: string, description: 'Temporary password for initial login' }
+                        description: 'Login credentials displayed for redundancy (also sent via email/SMS)'
                   timestamp: { type: string, format: date-time }
         '404': { description: JAMB registration not found in candidates database }
         '400': { description: Invalid JAMB registration number }
@@ -83,6 +95,10 @@ paths:
     post:
       summary: Complete candidate contact information
       tags: [Candidates]
+      description: |
+        Updates candidate's email and phone number. If the candidate doesn't have a password yet,
+        generates a temporary password and sends it via email/SMS. Login details are also displayed
+        in the response for redundancy.
       parameters:
         - in: path
           name: candidateId
@@ -109,6 +125,18 @@ paths:
                   success: { type: boolean }
                   data: { $ref: '#/components/schemas/Candidate' }
                   message: { type: string }
+                  nextStep: { type: string }
+                  loginDetails:
+                    type: object
+                    properties:
+                      username:
+                        {
+                          type: string,
+                          description: 'JAMB registration number (username for login)',
+                        }
+                      password:
+                        { type: string, description: 'Temporary password for initial login' }
+                    description: 'Login credentials displayed for redundancy (also sent via email/SMS). Only included when password is generated.'
                   timestamp: { type: string, format: date-time }
 
   /api/candidates/{candidateId}/next-step:
