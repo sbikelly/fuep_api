@@ -357,29 +357,57 @@ export interface CandidateProfileUpdateRequest {
   isFirstLogin?: boolean;
 }
 
-export const CandidateProfileUpdateRequestSchema = z.object({
-  firstname: z.string().min(1).max(100).optional(),
-  surname: z.string().min(1).max(100).optional(),
-  othernames: z.string().max(100).optional(),
-  gender: z.enum(['male', 'female', 'other']).optional(),
-  dob: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  nationality: z.string().max(64).optional(),
-  state: z.string().max(64).optional(),
-  lga: z.string().max(64).optional(),
-  address: z.string().max(500).optional(),
-  email: z.string().email().max(160).optional(),
-  phone: z.string().max(32).optional(),
-  passportPhotoUrl: z.string().max(255).optional(),
-  signatureUrl: z.string().max(255).optional(),
-  department: z.string().max(100).optional(),
-  departmentId: z.string().uuid().optional(),
-  modeOfEntry: z.enum(['UTME', 'DE']).optional(),
-  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
-  // Document upload fields removed
-});
+export const CandidateProfileUpdateRequestSchema = z
+  .object({
+    // Personal Information
+    firstname: z.string().min(1).max(100).optional(),
+    surname: z.string().min(1).max(100).optional(),
+    othernames: z.string().max(100).optional(),
+    gender: z.enum(['male', 'female', 'other']).optional(),
+    dob: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+
+    // Contact Information
+    email: z.string().email().max(160).optional(),
+    phone: z.string().max(32).optional(),
+
+    // Location Information
+    nationality: z.string().max(64).optional(),
+    state: z.string().max(64).optional(),
+    lga: z.string().max(64).optional(),
+    address: z.string().max(500).optional(),
+
+    // Academic Information
+    department: z.string().max(100).optional(), // DEPRECATED - use departmentId
+    departmentId: z.string().uuid().optional(),
+    modeOfEntry: z.enum(['UTME', 'DE']).optional(),
+
+    // Personal Status
+    maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed']).optional(),
+
+    // Document URLs
+    passportPhotoUrl: z.string().max(255).optional(),
+    signatureUrl: z.string().max(255).optional(),
+
+    // Registration Progress Flags (for admin use)
+    registrationCompleted: z.boolean().optional(),
+    biodataCompleted: z.boolean().optional(),
+    educationCompleted: z.boolean().optional(),
+    nextOfKinCompleted: z.boolean().optional(),
+    sponsorCompleted: z.boolean().optional(),
+
+    // Status Fields (for admin use)
+    admissionStatus: z.enum(['pending', 'admitted', 'rejected']).optional(),
+    paymentStatus: z.enum(['pending', 'paid', 'failed', 'refunded']).optional(),
+    rrr: z.string().max(100).optional(),
+
+    // Authentication (for admin use)
+    isFirstLogin: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict(); // Prevent additional unknown fields
 
 // Application Create Request
 export interface ApplicationCreateRequest {

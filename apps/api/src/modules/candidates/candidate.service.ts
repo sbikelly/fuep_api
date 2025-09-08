@@ -1124,32 +1124,135 @@ export class CandidateService {
   async updateCandidate(candidateId: string, profileData: Partial<any>): Promise<any> {
     try {
       this.logger.log(`[CandidateService] Updating profile for candidate: ${candidateId}`);
+      this.logger.log(`[CandidateService] Update data:`, profileData);
 
-      const [updatedCandidate] = await db('candidates')
-        .where('id', candidateId)
-        .update({
-          ...profileData,
-          updated_at: new Date(),
-        })
-        .returning('*');
-
-      if (!updatedCandidate) {
-        logger.error('Candidate not found during profile update', {
-          module: 'candidate',
-          operation: 'updateCandidate',
-          metadata: { candidateId },
-        });
+      // Check if candidate exists first
+      const existingCandidate = await db('candidates').where('id', candidateId).first();
+      if (!existingCandidate) {
+        this.logger.error(`[CandidateService] Candidate not found: ${candidateId}`);
         throw new Error('Candidate not found. Please ensure you are properly registered.');
       }
 
+      // Map camelCase fields to snake_case for database
+      const dbUpdateData: any = {
+        updated_at: new Date(),
+      };
+
+      // Map fields from camelCase to snake_case
+      if (profileData.firstname !== undefined) dbUpdateData.firstname = profileData.firstname;
+      if (profileData.surname !== undefined) dbUpdateData.surname = profileData.surname;
+      if (profileData.othernames !== undefined) dbUpdateData.othernames = profileData.othernames;
+      if (profileData.gender !== undefined) dbUpdateData.gender = profileData.gender;
+      if (profileData.dob !== undefined) dbUpdateData.dob = profileData.dob;
+      if (profileData.nationality !== undefined) dbUpdateData.nationality = profileData.nationality;
+      if (profileData.state !== undefined) dbUpdateData.state = profileData.state;
+      if (profileData.lga !== undefined) dbUpdateData.lga = profileData.lga;
+      if (profileData.address !== undefined) dbUpdateData.address = profileData.address;
+      if (profileData.email !== undefined) dbUpdateData.email = profileData.email;
+      if (profileData.phone !== undefined) dbUpdateData.phone = profileData.phone;
+      if (profileData.passportPhotoUrl !== undefined)
+        dbUpdateData.passport_photo_url = profileData.passportPhotoUrl;
+      if (profileData.signatureUrl !== undefined)
+        dbUpdateData.signature_url = profileData.signatureUrl;
+      if (profileData.department !== undefined) dbUpdateData.department = profileData.department;
+      if (profileData.departmentId !== undefined)
+        dbUpdateData.department_id = profileData.departmentId;
+      if (profileData.modeOfEntry !== undefined)
+        dbUpdateData.mode_of_entry = profileData.modeOfEntry;
+      if (profileData.maritalStatus !== undefined)
+        dbUpdateData.marital_status = profileData.maritalStatus;
+      if (profileData.registrationCompleted !== undefined)
+        dbUpdateData.registration_completed = profileData.registrationCompleted;
+      if (profileData.biodataCompleted !== undefined)
+        dbUpdateData.biodata_completed = profileData.biodataCompleted;
+      if (profileData.educationCompleted !== undefined)
+        dbUpdateData.education_completed = profileData.educationCompleted;
+      if (profileData.nextOfKinCompleted !== undefined)
+        dbUpdateData.next_of_kin_completed = profileData.nextOfKinCompleted;
+      if (profileData.sponsorCompleted !== undefined)
+        dbUpdateData.sponsor_completed = profileData.sponsorCompleted;
+      if (profileData.admissionStatus !== undefined)
+        dbUpdateData.admission_status = profileData.admissionStatus;
+      if (profileData.paymentStatus !== undefined)
+        dbUpdateData.payment_status = profileData.paymentStatus;
+      if (profileData.rrr !== undefined) dbUpdateData.rrr = profileData.rrr;
+      if (profileData.isFirstLogin !== undefined)
+        dbUpdateData.is_first_login = profileData.isFirstLogin;
+      if (profileData.isActive !== undefined) dbUpdateData.is_active = profileData.isActive;
+
+      // Prevent JAMB number updates
+      if (profileData.jambRegNo !== undefined) {
+        this.logger.warn(
+          `[CandidateService] Attempted to update JAMB number for candidate: ${candidateId}`
+        );
+        throw new Error('JAMB registration number cannot be updated.');
+      }
+
+      this.logger.log(`[CandidateService] Database update data:`, dbUpdateData);
+
+      const [updatedCandidate] = await db('candidates')
+        .where('id', candidateId)
+        .update(dbUpdateData)
+        .returning('*');
+
+      if (!updatedCandidate) {
+        this.logger.error(`[CandidateService] Failed to update candidate: ${candidateId}`);
+        throw new Error('Failed to update candidate profile. Please try again.');
+      }
+
       this.logger.log(`[CandidateService] Candidate updated successfully: ${candidateId}`);
-      return updatedCandidate;
+
+      // Return the updated candidate with camelCase field names
+      return this.mapCandidateFromDb(updatedCandidate);
     } catch (error) {
       this.logger.error('[CandidateService] Error updating candidate profile:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error(
         'Failed to update candidate profile. Please ensure all required fields are provided and try again.'
       );
     }
+  }
+
+  /**
+   * Map database candidate record to API format (snake_case to camelCase)
+   */
+  private mapCandidateFromDb(dbCandidate: any): any {
+    return {
+      id: dbCandidate.id,
+      jambRegNo: dbCandidate.jamb_reg_no,
+      firstname: dbCandidate.firstname,
+      surname: dbCandidate.surname,
+      othernames: dbCandidate.othernames,
+      gender: dbCandidate.gender,
+      dob: dbCandidate.dob,
+      nationality: dbCandidate.nationality,
+      state: dbCandidate.state,
+      lga: dbCandidate.lga,
+      address: dbCandidate.address,
+      email: dbCandidate.email,
+      phone: dbCandidate.phone,
+      passportPhotoUrl: dbCandidate.passport_photo_url,
+      signatureUrl: dbCandidate.signature_url,
+      department: dbCandidate.department,
+      departmentId: dbCandidate.department_id,
+      modeOfEntry: dbCandidate.mode_of_entry,
+      maritalStatus: dbCandidate.marital_status,
+      registrationCompleted: dbCandidate.registration_completed,
+      biodataCompleted: dbCandidate.biodata_completed,
+      educationCompleted: dbCandidate.education_completed,
+      nextOfKinCompleted: dbCandidate.next_of_kin_completed,
+      sponsorCompleted: dbCandidate.sponsor_completed,
+      admissionStatus: dbCandidate.admission_status,
+      paymentStatus: dbCandidate.payment_status,
+      rrr: dbCandidate.rrr,
+      passwordHash: dbCandidate.password_hash,
+      isFirstLogin: dbCandidate.is_first_login,
+      isActive: dbCandidate.is_active,
+      createdAt: dbCandidate.created_at,
+      updatedAt: dbCandidate.updated_at,
+    };
   }
 
   /**

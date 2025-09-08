@@ -134,7 +134,7 @@ export class CandidateController {
   }
 
   /**
-   * Update candidate profile
+   * Update candidate profile - Enhanced to allow updating any field except JAMB number
    */
   async updateCandidateProfile(req: Request, res: Response): Promise<void> {
     try {
@@ -142,22 +142,44 @@ export class CandidateController {
       const requestData = req.body;
 
       this.logger.log(`[CandidateController] Updating profile for candidate: ${candidateId}`);
+      this.logger.log(`[CandidateController] Update request data:`, requestData);
 
       // Validate request body
       const validationResult = CandidateProfileUpdateRequestSchema.safeParse(requestData);
       if (!validationResult.success) {
+        this.logger.error(
+          `[CandidateController] Validation failed for candidate ${candidateId}:`,
+          validationResult.error.errors
+        );
         res.status(400).json({
           success: false,
           error: 'Invalid profile data',
-          details: validationResult.error.errors,
+          details: validationResult.error.errors.map((err) => ({
+            field: err.path.join('.'),
+            message: err.message,
+            code: err.code,
+          })),
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      // Check if any data was provided
+      const updateData = validationResult.data;
+      if (Object.keys(updateData).length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'No fields provided for update',
+          message: 'Please provide at least one field to update',
+          timestamp: new Date(),
         });
         return;
       }
 
       // Convert string dates to Date objects if present
       const profileData = {
-        ...validationResult.data,
-        dob: validationResult.data.dob ? new Date(validationResult.data.dob) : undefined,
+        ...updateData,
+        dob: updateData.dob ? new Date(updateData.dob) : undefined,
       };
 
       const updatedProfile = await this.candidateService.updateCandidate(candidateId, profileData);
@@ -170,12 +192,41 @@ export class CandidateController {
         timestamp: new Date(),
       });
 
+      this.logger.log(
+        `[CandidateController] Profile updated successfully for candidate: ${candidateId}`
+      );
       res.json(response);
     } catch (error) {
       this.logger.error('[CandidateController] Error updating candidate profile:', error);
+
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.message.includes('JAMB registration number cannot be updated')) {
+          res.status(400).json({
+            success: false,
+            error: 'JAMB registration number cannot be updated',
+            message: 'The JAMB registration number is immutable and cannot be changed',
+            timestamp: new Date(),
+          });
+          return;
+        }
+
+        if (error.message.includes('Candidate not found')) {
+          res.status(404).json({
+            success: false,
+            error: 'Candidate not found',
+            message: 'The specified candidate does not exist',
+            timestamp: new Date(),
+          });
+          return;
+        }
+      }
+
       res.status(500).json({
         success: false,
         error: 'Failed to update candidate profile',
+        message: 'An unexpected error occurred while updating the profile',
+        timestamp: new Date(),
       });
     }
   }

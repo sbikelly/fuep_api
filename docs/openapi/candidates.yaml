@@ -414,19 +414,50 @@ paths:
 
   /api/candidates/profile/{candidateId}:
     put:
-      summary: Update candidate profile
+      summary: Update candidate profile (Enhanced)
+      description: |
+        Update any candidate profile information except the JAMB registration number.
+        This endpoint allows updating personal information, contact details, academic information,
+        and administrative fields. All fields are optional - only provide the fields you want to update.
+
+        **Note**: JAMB registration number cannot be updated for security reasons.
       tags: [Candidates]
       parameters:
         - in: path
           name: candidateId
           required: true
           schema: { type: string, format: uuid }
+          description: The unique identifier of the candidate
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CandidateProfileUpdateRequest'
+            examples:
+              personal_info:
+                summary: Update personal information
+                value:
+                  firstname: 'John'
+                  surname: 'Doe'
+                  othernames: 'Michael'
+                  gender: 'male'
+                  dob: '2005-03-15'
+                  nationality: 'Nigerian'
+                  state: 'Lagos'
+                  lga: 'Ikeja'
+                  address: '123 Victoria Island, Lagos'
+              contact_info:
+                summary: Update contact information
+                value:
+                  email: 'john.doe@email.com'
+                  phone: '+2348012345678'
+              academic_info:
+                summary: Update academic information
+                value:
+                  departmentId: '18aa0187-ef14-43c1-a896-590542e20c2c'
+                  modeOfEntry: 'UTME'
+                  maritalStatus: 'single'
       responses:
         '200':
           description: Profile updated successfully
@@ -434,6 +465,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CandidateProfileUpdateResponse'
+        '400':
+          description: Bad request - Invalid data or JAMB number update attempt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string }
+                  message: { type: string }
+                  details:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field: { type: string }
+                        message: { type: string }
+                        code: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '404':
+          description: Candidate not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: 'Candidate not found' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
 
   # Profile completion and dashboard
   /api/candidates/{candidateId}/completion-status:
@@ -733,14 +805,133 @@ components:
 
     CandidateProfileUpdateRequest:
       type: object
+      description: |
+        Enhanced candidate profile update request schema. All fields are optional.
+        Only provide the fields you want to update. JAMB registration number cannot be updated.
       properties:
-        firstname: { type: string, maxLength: 100 }
-        surname: { type: string, maxLength: 100 }
-        othernames: { type: string, maxLength: 100 }
-        email: { type: string, format: email }
-        phone: { type: string, maxLength: 32 }
-        address: { type: string }
-        department: { type: string, maxLength: 100 }
+        # Personal Information
+        firstname:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Candidate's first name
+        surname:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Candidate's surname
+        othernames:
+          type: string
+          maxLength: 100
+          description: Candidate's other names (optional)
+        gender:
+          type: string
+          enum: ['male', 'female', 'other']
+          description: Candidate's gender
+        dob:
+          type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Date of birth in YYYY-MM-DD format
+
+        # Contact Information
+        email:
+          type: string
+          format: email
+          maxLength: 160
+          description: Candidate's email address
+        phone:
+          type: string
+          maxLength: 32
+          description: Candidate's phone number
+
+        # Location Information
+        nationality:
+          type: string
+          maxLength: 64
+          description: Candidate's nationality
+        state:
+          type: string
+          maxLength: 64
+          description: Candidate's state of origin
+        lga:
+          type: string
+          maxLength: 64
+          description: Candidate's local government area
+        address:
+          type: string
+          maxLength: 500
+          description: Candidate's address
+
+        # Academic Information
+        department:
+          type: string
+          maxLength: 100
+          description: Department name (DEPRECATED - use departmentId)
+        departmentId:
+          type: string
+          format: uuid
+          description: Department ID (preferred)
+        modeOfEntry:
+          type: string
+          enum: ['UTME', 'DE']
+          description: Mode of entry (UTME or Direct Entry)
+
+        # Personal Status
+        maritalStatus:
+          type: string
+          enum: ['single', 'married', 'divorced', 'widowed']
+          description: Marital status
+
+        # Document URLs
+        passportPhotoUrl:
+          type: string
+          maxLength: 255
+          description: URL to passport photo
+        signatureUrl:
+          type: string
+          maxLength: 255
+          description: URL to signature image
+
+        # Registration Progress Flags (for admin use)
+        registrationCompleted:
+          type: boolean
+          description: Whether registration is completed
+        biodataCompleted:
+          type: boolean
+          description: Whether biodata is completed
+        educationCompleted:
+          type: boolean
+          description: Whether education information is completed
+        nextOfKinCompleted:
+          type: boolean
+          description: Whether next of kin information is completed
+        sponsorCompleted:
+          type: boolean
+          description: Whether sponsor information is completed
+
+        # Status Fields (for admin use)
+        admissionStatus:
+          type: string
+          enum: ['pending', 'admitted', 'rejected']
+          description: Admission status
+        paymentStatus:
+          type: string
+          enum: ['pending', 'paid', 'failed', 'refunded']
+          description: Payment status
+        rrr:
+          type: string
+          maxLength: 100
+          description: Remita Retrieval Reference
+
+        # Authentication (for admin use)
+        isFirstLogin:
+          type: boolean
+          description: Whether this is the candidate's first login
+        isActive:
+          type: boolean
+          description: Whether the candidate account is active
+      additionalProperties: false
 
     CandidateProfileUpdateResponse:
       type: object
