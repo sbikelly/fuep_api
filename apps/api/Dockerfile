@@ -68,6 +68,9 @@ COPY --from=build /app/tsconfig.base.json /app/tsconfig.base.json
 # Copy OpenAPI documentation to the correct location
 COPY docs /app/apps/api/docs
 
+# Copy database migration files for initialization
+COPY infra/db /app/infra/db
+
 # Create a non-root user for security
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001

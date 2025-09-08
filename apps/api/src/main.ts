@@ -23,6 +23,7 @@ import yaml from 'js-yaml';
 import { join } from 'path';
 import swaggerUi from 'swagger-ui-express';
 
+import { initializeDatabase, isDatabaseInitialized } from './db/init-database.js';
 // Import database connection
 import { db, waitForDatabase } from './db/knex.js';
 // Import routes module
@@ -417,6 +418,22 @@ const startServer = async () => {
     }
 
     console.log('Database connection established successfully');
+
+    // Initialize database schema if needed
+    console.log('Checking database initialization...');
+    const isInitialized = await isDatabaseInitialized();
+
+    if (!isInitialized) {
+      console.log('Database schema not found, initializing...');
+      const initSuccess = await initializeDatabase();
+
+      if (!initSuccess) {
+        console.error('Failed to initialize database schema. Exiting...');
+        process.exit(1);
+      }
+    } else {
+      console.log('Database schema already initialized');
+    }
 
     // Start the server
     const server = app.listen(PORT, '0.0.0.0', () => {
