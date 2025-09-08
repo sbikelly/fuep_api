@@ -410,29 +410,33 @@ const startServer = async () => {
   try {
     // Wait for database connection before starting server
     console.log('Waiting for database connection...');
-    const dbReady = await waitForDatabase(30); // Wait up to 60 seconds
+    const dbReady = await waitForDatabase(10); // Reduced to 10 attempts (20 seconds)
 
     if (!dbReady) {
-      console.error('Failed to connect to database after 60 seconds. Exiting...');
-      process.exit(1);
-    }
-
-    console.log('Database connection established successfully');
-
-    // Initialize database schema if needed
-    console.log('Checking database initialization...');
-    const isInitialized = await isDatabaseInitialized();
-
-    if (!isInitialized) {
-      console.log('Database schema not found, initializing...');
-      const initSuccess = await initializeDatabase();
-
-      if (!initSuccess) {
-        console.error('Failed to initialize database schema. Exiting...');
-        process.exit(1);
-      }
+      console.error('Failed to connect to database after 20 seconds. Starting server anyway...');
+      // Don't exit, start server without database initialization
     } else {
-      console.log('Database schema already initialized');
+      console.log('Database connection established successfully');
+
+      // Initialize database schema if needed
+      console.log('Checking database initialization...');
+      try {
+        const isInitialized = await isDatabaseInitialized();
+
+        if (!isInitialized) {
+          console.log('Database schema not found, initializing...');
+          const initSuccess = await initializeDatabase();
+
+          if (!initSuccess) {
+            console.error('Failed to initialize database schema, but continuing...');
+          }
+        } else {
+          console.log('Database schema already initialized');
+        }
+      } catch (dbError) {
+        console.error('Database initialization error:', dbError);
+        console.log('Continuing without database initialization...');
+      }
     }
 
     // Start the server
@@ -441,7 +445,7 @@ const startServer = async () => {
       console.log(`Server running on port ${PORT}`);
       console.log('Environment:', process.env.NODE_ENV);
       console.log('Port:', PORT);
-      console.log('Database:', 'Connected');
+      console.log('Database:', dbReady ? 'Connected' : 'Not Connected');
     });
 
     return server;
