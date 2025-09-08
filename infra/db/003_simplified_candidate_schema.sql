@@ -323,4 +323,49 @@ CREATE TRIGGER payment_disputes_set_updated_at
     BEFORE UPDATE ON payment_disputes
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- Insert sample candidates for testing (only required fields)
+INSERT INTO candidates (
+    jamb_reg_no, firstname, surname, othernames, gender, dob, 
+    nationality, state, lga, address, email, phone, department, 
+    department_id, mode_of_entry, marital_status, registration_completed,
+    biodata_completed, education_completed, next_of_kin_completed, 
+    sponsor_completed, password_hash, is_first_login, is_active
+) VALUES
+    (
+        '202511595352DA', 'John', 'Doe', 'Michael', 'male', '2005-03-15',
+        'Nigerian', 'Lagos', 'Ikeja', '123 Victoria Island, Lagos', 
+        'john.doe@email.com', '+2348012345678', 'Computer Science',
+        (SELECT id FROM departments WHERE code = 'CSC'), 'UTME', 'single',
+        true, true, true, true, true, '$2b$10$example_hash', false, true
+    ),
+    (
+        '202511595352DB', 'Jane', 'Smith', 'Elizabeth', 'female', '2005-07-22',
+        'Nigerian', 'Abuja', 'Garki', '456 Wuse 2, Abuja', 
+        'jane.smith@email.com', '+2348023456789', 'Business Administration',
+        (SELECT id FROM departments WHERE code = 'BAD'), 'UTME', 'single',
+        true, true, true, true, true, '$2b$10$example_hash', false, true
+    ),
+    (
+        '202511595352DC', 'Ahmed', 'Hassan', 'Ibrahim', 'male', '2005-01-10',
+        'Nigerian', 'Kano', 'Nassarawa', '789 Sabon Gari, Kano', 
+        'ahmed.hassan@email.com', '+2348034567890', 'Computer Engineering',
+        (SELECT id FROM departments WHERE code = 'CEN'), 'UTME', 'single',
+        true, true, true, true, true, '$2b$10$example_hash', false, true
+    ),
+    (
+        '202511595352DD', 'Fatima', 'Ali', 'Aisha', 'female', '2005-11-05',
+        'Nigerian', 'Kaduna', 'Kaduna North', '321 Independence Way, Kaduna', 
+        'fatima.ali@email.com', '+2348045678901', 'Accounting',
+        (SELECT id FROM departments WHERE code = 'ACC'), 'UTME', 'single',
+        true, true, true, true, true, '$2b$10$example_hash', false, true
+    ),
+    (
+        '202511595352DE', 'Emmanuel', 'Okafor', 'Chukwu', 'male', '2005-09-18',
+        'Nigerian', 'Enugu', 'Enugu North', '654 Independence Layout, Enugu', 
+        'emmanuel.okafor@email.com', '+2348056789012', 'Electrical Engineering',
+        (SELECT id FROM departments WHERE code = 'EEN'), 'UTME', 'single',
+        true, true, true, true, true, '$2b$10$example_hash', false, true
+    )
+ON CONFLICT (jamb_reg_no) DO NOTHING;
+
 COMMIT;
