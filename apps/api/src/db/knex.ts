@@ -32,8 +32,10 @@ const dbConfig = getDatabaseConfig();
 
 export const db: Knex = knex({
   client: 'pg',
-  connection: dbConfig.connection,
-  ssl: dbConfig.ssl,
+  connection: {
+    connectionString: dbConfig.connection,
+    ssl: dbConfig.ssl,
+  },
   pool: {
     min: 0,
     max: 10,
