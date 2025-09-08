@@ -102,11 +102,11 @@ export class AdminAcademicService {
       }
 
       // Get total count with same filters
-      const totalQuery = db('faculties').select('*');
+      let totalQuery = db('faculties');
 
       // Apply same filters for count
       if (query.search) {
-        totalQuery.where(function () {
+        totalQuery = totalQuery.where(function () {
           this.whereILike('name', `%${query.search}%`)
             .orWhereILike('code', `%${query.search}%`)
             .orWhereILike('description', `%${query.search}%`);
@@ -114,7 +114,7 @@ export class AdminAcademicService {
       }
 
       if (query.isActive !== undefined) {
-        totalQuery.where({ is_active: query.isActive });
+        totalQuery = totalQuery.where({ is_active: query.isActive });
       }
 
       const totalResult = await totalQuery.count('* as count').first();
@@ -390,11 +390,11 @@ export class AdminAcademicService {
       }
 
       // Get total count with same filters
-      const totalQuery = db('departments as d').leftJoin('faculties as f', 'd.faculty_id', 'f.id');
+      let totalQuery = db('departments as d').leftJoin('faculties as f', 'd.faculty_id', 'f.id');
 
       // Apply same filters for count
       if (query.search) {
-        totalQuery.where(function () {
+        totalQuery = totalQuery.where(function () {
           this.whereILike('d.name', `%${query.search}%`)
             .orWhereILike('d.code', `%${query.search}%`)
             .orWhereILike('d.description', `%${query.search}%`)
@@ -403,11 +403,11 @@ export class AdminAcademicService {
       }
 
       if (query.facultyId) {
-        totalQuery.where({ 'd.faculty_id': query.facultyId });
+        totalQuery = totalQuery.where({ 'd.faculty_id': query.facultyId });
       }
 
       if (query.isActive !== undefined) {
-        totalQuery.where({ 'd.is_active': query.isActive });
+        totalQuery = totalQuery.where({ 'd.is_active': query.isActive });
       }
 
       const totalResult = await totalQuery.count('* as count').first();
