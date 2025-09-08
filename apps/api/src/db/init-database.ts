@@ -34,7 +34,22 @@ export async function initializeDatabase(): Promise<boolean> {
     `);
 
     if (existingTables.rows.length >= 4) {
-      console.log('[DB-INIT] Database schema already initialized, skipping...');
+      console.log('[DB-INIT] Database schema already initialized, checking for sample data...');
+
+      // Check if sample candidates exist
+      const sampleCandidates = await db.raw(`
+        SELECT COUNT(*) as count 
+        FROM candidates 
+        WHERE jamb_reg_no LIKE '202511595352%'
+      `);
+
+      if (sampleCandidates.rows[0].count > 0) {
+        console.log('[DB-INIT] Sample candidates already exist, skipping data insertion...');
+        return true;
+      }
+
+      console.log('[DB-INIT] Sample candidates not found, inserting sample data...');
+      await insertSampleCandidates();
       return true;
     }
 
@@ -80,10 +95,177 @@ export async function initializeDatabase(): Promise<boolean> {
       finalTables.rows.map((row: any) => row.table_name).join(', ')
     );
 
+    // Insert sample candidates after schema creation
+    console.log('[DB-INIT] Inserting sample candidates...');
+    await insertSampleCandidates();
+
     return true;
   } catch (error: any) {
     console.error('[DB-INIT] ❌ Database initialization failed:', error.message);
     return false;
+  }
+}
+
+/**
+ * Insert sample candidates for testing
+ */
+async function insertSampleCandidates(): Promise<void> {
+  try {
+    console.log('[DB-INIT] Inserting sample candidates...');
+
+    // Get department IDs
+    const departments = await db.raw(`
+      SELECT id, code FROM departments WHERE code IN ('CSC', 'BAD', 'CEN', 'ACC', 'EEN')
+    `);
+
+    const deptMap = departments.rows.reduce((acc: any, row: any) => {
+      acc[row.code] = row.id;
+      return acc;
+    }, {});
+
+    // Insert sample candidates with only required fields
+    const sampleCandidates = [
+      {
+        jamb_reg_no: '202511595352DA',
+        firstname: 'John',
+        surname: 'Doe',
+        othernames: 'Michael',
+        gender: 'male',
+        dob: '2005-03-15',
+        nationality: 'Nigerian',
+        state: 'Lagos',
+        lga: 'Ikeja',
+        address: '123 Victoria Island, Lagos',
+        email: 'john.doe@email.com',
+        phone: '+2348012345678',
+        department: 'Computer Science',
+        department_id: deptMap['CSC'],
+        mode_of_entry: 'UTME',
+        marital_status: 'single',
+        registration_completed: true,
+        biodata_completed: true,
+        education_completed: true,
+        next_of_kin_completed: true,
+        sponsor_completed: true,
+        password_hash: '$2b$10$example_hash',
+        is_first_login: false,
+        is_active: true,
+      },
+      {
+        jamb_reg_no: '202511595352DB',
+        firstname: 'Jane',
+        surname: 'Smith',
+        othernames: 'Elizabeth',
+        gender: 'female',
+        dob: '2005-07-22',
+        nationality: 'Nigerian',
+        state: 'Abuja',
+        lga: 'Garki',
+        address: '456 Wuse 2, Abuja',
+        email: 'jane.smith@email.com',
+        phone: '+2348023456789',
+        department: 'Business Administration',
+        department_id: deptMap['BAD'],
+        mode_of_entry: 'UTME',
+        marital_status: 'single',
+        registration_completed: true,
+        biodata_completed: true,
+        education_completed: true,
+        next_of_kin_completed: true,
+        sponsor_completed: true,
+        password_hash: '$2b$10$example_hash',
+        is_first_login: false,
+        is_active: true,
+      },
+      {
+        jamb_reg_no: '202511595352DC',
+        firstname: 'Ahmed',
+        surname: 'Hassan',
+        othernames: 'Ibrahim',
+        gender: 'male',
+        dob: '2005-01-10',
+        nationality: 'Nigerian',
+        state: 'Kano',
+        lga: 'Nassarawa',
+        address: '789 Sabon Gari, Kano',
+        email: 'ahmed.hassan@email.com',
+        phone: '+2348034567890',
+        department: 'Computer Engineering',
+        department_id: deptMap['CEN'],
+        mode_of_entry: 'UTME',
+        marital_status: 'single',
+        registration_completed: true,
+        biodata_completed: true,
+        education_completed: true,
+        next_of_kin_completed: true,
+        sponsor_completed: true,
+        password_hash: '$2b$10$example_hash',
+        is_first_login: false,
+        is_active: true,
+      },
+      {
+        jamb_reg_no: '202511595352DD',
+        firstname: 'Fatima',
+        surname: 'Ali',
+        othernames: 'Aisha',
+        gender: 'female',
+        dob: '2005-11-05',
+        nationality: 'Nigerian',
+        state: 'Kaduna',
+        lga: 'Kaduna North',
+        address: '321 Independence Way, Kaduna',
+        email: 'fatima.ali@email.com',
+        phone: '+2348045678901',
+        department: 'Accounting',
+        department_id: deptMap['ACC'],
+        mode_of_entry: 'UTME',
+        marital_status: 'single',
+        registration_completed: true,
+        biodata_completed: true,
+        education_completed: true,
+        next_of_kin_completed: true,
+        sponsor_completed: true,
+        password_hash: '$2b$10$example_hash',
+        is_first_login: false,
+        is_active: true,
+      },
+      {
+        jamb_reg_no: '202511595352DE',
+        firstname: 'Emmanuel',
+        surname: 'Okafor',
+        othernames: 'Chukwu',
+        gender: 'male',
+        dob: '2005-09-18',
+        nationality: 'Nigerian',
+        state: 'Enugu',
+        lga: 'Enugu North',
+        address: '654 Independence Layout, Enugu',
+        email: 'emmanuel.okafor@email.com',
+        phone: '+2348056789012',
+        department: 'Electrical Engineering',
+        department_id: deptMap['EEN'],
+        mode_of_entry: 'UTME',
+        marital_status: 'single',
+        registration_completed: true,
+        biodata_completed: true,
+        education_completed: true,
+        next_of_kin_completed: true,
+        sponsor_completed: true,
+        password_hash: '$2b$10$example_hash',
+        is_first_login: false,
+        is_active: true,
+      },
+    ];
+
+    // Insert candidates with conflict resolution
+    for (const candidate of sampleCandidates) {
+      await db('candidates').insert(candidate).onConflict('jamb_reg_no').ignore();
+    }
+
+    console.log('[DB-INIT] ✅ Sample candidates inserted successfully');
+  } catch (error: any) {
+    console.error('[DB-INIT] ❌ Error inserting sample candidates:', error.message);
+    throw error;
   }
 }
 
