@@ -101,7 +101,10 @@ function createAcademicRoutes(academicService: AdminAcademicService): Router {
       const result = await academicService.getFaculties(query);
       res.json({
         success: true,
-        data: result,
+        data: result.data,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
         timestamp: new Date(),
       });
     } catch (error: any) {
@@ -203,7 +206,10 @@ function createAcademicRoutes(academicService: AdminAcademicService): Router {
       const result = await academicService.getDepartments(query);
       res.json({
         success: true,
-        data: result,
+        data: result.data,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
         timestamp: new Date(),
       });
     } catch (error: any) {
