@@ -6,11 +6,39 @@ export class AdminCandidateController {
   constructor(private adminService: AdminService) {}
 
   /**
-   * Create a new candidate
+   * Create a new candidate (Simplified)
    */
   async createCandidate(req: Request, res: Response): Promise<void> {
     try {
       const candidateData = req.body;
+
+      console.log('[AdminCandidateController] Creating candidate with data:', candidateData);
+
+      // Validate required fields
+      const requiredFields = ['jambRegNo', 'firstname', 'surname', 'departmentId', 'modeOfEntry'];
+      const missingFields = requiredFields.filter((field) => !candidateData[field]);
+
+      if (missingFields.length > 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required fields',
+          message: `The following fields are required: ${missingFields.join(', ')}`,
+          missingFields,
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      // Validate modeOfEntry
+      if (!['UTME', 'DE'].includes(candidateData.modeOfEntry)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid mode of entry',
+          message: 'modeOfEntry must be either "UTME" or "DE"',
+          timestamp: new Date(),
+        });
+        return;
+      }
 
       // Get admin user ID from authentication middleware or request body
       let adminUserId = (req as any).adminUser?.id || (req as any).user?.sub;
@@ -30,16 +58,45 @@ export class AdminCandidateController {
 
       const candidate = await this.adminService.createCandidate(candidateData, adminUserId);
 
+      console.log('[AdminCandidateController] Candidate created successfully:', candidate.id);
+
       res.status(201).json({
         success: true,
         data: candidate,
         message: 'Candidate created successfully',
+        timestamp: new Date(),
       });
     } catch (error) {
       console.error('[AdminCandidateController] Create candidate error:', error);
-      res.status(400).json({
+
+      // Handle specific error types
+      if (error instanceof Error) {
+        if (error.message.includes('already exists')) {
+          res.status(409).json({
+            success: false,
+            error: 'Candidate already exists',
+            message: error.message,
+            timestamp: new Date(),
+          });
+          return;
+        }
+
+        if (error.message.includes('is required')) {
+          res.status(400).json({
+            success: false,
+            error: 'Validation error',
+            message: error.message,
+            timestamp: new Date(),
+          });
+          return;
+        }
+      }
+
+      res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to create candidate',
+        error: 'Failed to create candidate',
+        message: 'An unexpected error occurred while creating the candidate',
+        timestamp: new Date(),
       });
     }
   }

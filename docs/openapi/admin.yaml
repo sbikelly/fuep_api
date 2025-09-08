@@ -175,10 +175,11 @@ paths:
   # Admin candidate management
   /api/admin/candidates:
     post:
-      summary: Create a new candidate
+      summary: Create a new candidate (Simplified)
       tags: [Admin]
       description: |
-        Create a new candidate in the system. This endpoint is used by administrators to manually add candidates.
+        Create a new candidate in the system with only essential information.
+        This simplified endpoint requires only the core fields needed to create a candidate.
 
         **Authentication Required:**
         - Admin user must be authenticated via Bearer token in Authorization header
@@ -187,7 +188,7 @@ paths:
         **For Testing (when auth middleware is disabled):**
         - You can include `adminUserId` in the request body as a fallback
 
-        **Required fields:**
+        **Required fields only:**
         - jambRegNo: JAMB registration number (must be unique)
         - firstname: Candidate's first name
         - surname: Candidate's surname
@@ -195,12 +196,11 @@ paths:
         - modeOfEntry: Either 'UTME' or 'DE'
 
         **Optional fields:**
-        - othernames: Middle name or other names
-        - email: Email address
-        - phone: Phone number
-        - gender: 'male', 'female', or 'other'
-        - department: Department name (for backward compatibility)
+        - othernames: Middle name or other names (optional)
         - adminUserId: Admin user ID (for testing when auth is disabled)
+
+        **Note:** All other candidate information (email, phone, address, etc.) can be added later
+        using the candidate profile update endpoint. This keeps the creation process simple and focused.
       security:
         - bearerAuth: []
       requestBody:
@@ -209,6 +209,24 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CandidateCreateRequest'
+            examples:
+              utme_candidate:
+                summary: Create UTME candidate
+                value:
+                  jambRegNo: '202511595352FA'
+                  firstname: 'John'
+                  surname: 'Doe'
+                  othernames: 'Michael'
+                  departmentId: '18aa0187-ef14-43c1-a896-590542e20c2c'
+                  modeOfEntry: 'UTME'
+              de_candidate:
+                summary: Create Direct Entry candidate
+                value:
+                  jambRegNo: '202511595352FB'
+                  firstname: 'Jane'
+                  surname: 'Smith'
+                  departmentId: '18aa0187-ef14-43c1-a896-590542e20c2c'
+                  modeOfEntry: 'DE'
       responses:
         '201':
           description: Candidate created successfully
@@ -222,18 +240,53 @@ paths:
                   message: { type: string }
                   timestamp: { type: string, format: date-time }
         '400':
-          description: Bad request - validation error or duplicate JAMB number
+          description: Bad request - validation error or missing required fields
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
-                  error: { type: string }
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: 'Missing required fields' }
+                  message: { type: string }
+                  missingFields:
+                    type: array
+                    items: { type: string }
+                    description: List of missing required fields
+                  timestamp: { type: string, format: date-time }
         '401':
           description: Unauthorized - admin user not authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: 'Unauthorized' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
         '409':
           description: Conflict - JAMB registration number already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: 'Candidate already exists' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: 'Failed to create candidate' }
+                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
 
     get:
       summary: Get all candidates with pagination and filters
@@ -1426,40 +1479,53 @@ paths:
 
     CandidateCreateRequest:
       type: object
+      description: |
+        Simplified candidate creation request schema. Only essential fields are required.
+        All other candidate information can be added later using the profile update endpoint.
       required: [jambRegNo, firstname, surname, departmentId, modeOfEntry]
       properties:
-        jambRegNo: { type: string, maxLength: 20 }
-        firstname: { type: string, maxLength: 100 }
-        surname: { type: string, maxLength: 100 }
-        othernames: { type: string, maxLength: 100 }
-        gender: { type: string, enum: ['male', 'female', 'other'], default: 'other' }
-        dob: { type: string, format: date }
-        nationality: { type: string, maxLength: 64 }
-        state: { type: string, maxLength: 64 }
-        lga: { type: string, maxLength: 64 }
-        address: { type: string }
-        email: { type: string, format: email }
-        phone: { type: string, maxLength: 32 }
-        department: { type: string, maxLength: 100 }
-        departmentId: { type: string, format: uuid }
-        modeOfEntry: { type: string, enum: ['UTME', 'DE'] }
-        maritalStatus: { type: string, enum: ['single', 'married', 'divorced', 'widowed'] }
-        passportPhotoUrl: { type: string }
-        signatureUrl: { type: string }
-        registrationCompleted: { type: boolean, default: false }
-        biodataCompleted: { type: boolean, default: false }
-        educationCompleted: { type: boolean, default: false }
-        nextOfKinCompleted: { type: boolean, default: false }
-        sponsorCompleted: { type: boolean, default: false }
-        passwordHash: { type: string }
-        isFirstLogin: { type: boolean, default: true }
-        isActive: { type: boolean, default: true }
+        # Required fields
+        jambRegNo:
+          type: string
+          minLength: 10
+          maxLength: 20
+          description: JAMB registration number (must be unique)
+          example: '202511595352FA'
+        firstname:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Candidate's first name
+          example: 'John'
+        surname:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Candidate's surname
+          example: 'Doe'
+        departmentId:
+          type: string
+          format: uuid
+          description: UUID of the department the candidate belongs to
+          example: '18aa0187-ef14-43c1-a896-590542e20c2c'
+        modeOfEntry:
+          type: string
+          enum: ['UTME', 'DE']
+          description: Mode of entry (UTME or Direct Entry)
+          example: 'UTME'
+
+        # Optional fields
+        othernames:
+          type: string
+          maxLength: 100
+          description: Candidate's middle name or other names (optional)
+          example: 'Michael'
         adminUserId:
-          {
-            type: string,
-            format: uuid,
-            description: 'Admin user ID (for testing when auth is disabled)',
-          }
+          type: string
+          format: uuid
+          description: Admin user ID (for testing when auth middleware is disabled)
+          example: '18aa0187-ef14-43c1-a896-590542e20c2c'
+      additionalProperties: false
 
     Program:
       type: object
