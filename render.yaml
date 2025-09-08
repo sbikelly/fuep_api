@@ -15,6 +15,26 @@ services:
         fromDatabase:
           name: fuep-postgres
           property: connectionString
+      - key: DB_HOST
+        fromDatabase:
+          name: fuep-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: fuep-postgres
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: fuep-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: fuep-postgres
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: fuep-postgres
+          property: database
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET

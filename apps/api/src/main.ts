@@ -24,7 +24,7 @@ import { join } from 'path';
 import swaggerUi from 'swagger-ui-express';
 
 // Import database connection
-import { db } from './db/knex.js';
+import { db, waitForDatabase } from './db/knex.js';
 // Import routes module
 import { createRoutesModule } from './modules/routes/index.js';
 
@@ -404,13 +404,37 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   res.status(err.status || 500).json(errorResponse);
 });
 
-// Start server with error handling
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Express API listening on http://0.0.0.0:${PORT}`);
-  console.log(`Server running on port ${PORT}`);
-  console.log('Environment:', process.env.NODE_ENV);
-  console.log('Port:', PORT);
-});
+// Start server with database connection waiting
+const startServer = async () => {
+  try {
+    // Wait for database connection before starting server
+    console.log('Waiting for database connection...');
+    const dbReady = await waitForDatabase(30); // Wait up to 60 seconds
+
+    if (!dbReady) {
+      console.error('Failed to connect to database after 60 seconds. Exiting...');
+      process.exit(1);
+    }
+
+    console.log('Database connection established successfully');
+
+    // Start the server
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Express API listening on http://0.0.0.0:${PORT}`);
+      console.log(`Server running on port ${PORT}`);
+      console.log('Environment:', process.env.NODE_ENV);
+      console.log('Port:', PORT);
+      console.log('Database:', 'Connected');
+    });
+
+    return server;
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+const server = await startServer();
 
 // Handle server errors
 server.on('error', (error: any) => {
