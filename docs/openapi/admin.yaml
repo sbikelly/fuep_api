@@ -217,7 +217,7 @@ paths:
                   firstname: 'John'
                   surname: 'Doe'
                   othernames: 'Michael'
-                  departmentId: '18aa0187-ef14-43c1-a896-590542e20c2c'
+                  departmentId: '5b339c52-fcde-4693-95f5-e86d3648b559'
                   modeOfEntry: 'UTME'
               de_candidate:
                 summary: Create Direct Entry candidate
@@ -225,7 +225,7 @@ paths:
                   jambRegNo: '202511595352FB'
                   firstname: 'Jane'
                   surname: 'Smith'
-                  departmentId: '18aa0187-ef14-43c1-a896-590542e20c2c'
+                  departmentId: '5b339c52-fcde-4693-95f5-e86d3648b559'
                   modeOfEntry: 'DE'
       responses:
         '201':
@@ -1507,7 +1507,7 @@ paths:
           type: string
           format: uuid
           description: UUID of the department the candidate belongs to
-          example: '18aa0187-ef14-43c1-a896-590542e20c2c'
+          example: '5b339c52-fcde-4693-95f5-e86d3648b559'
         modeOfEntry:
           type: string
           enum: ['UTME', 'DE']
@@ -1524,7 +1524,7 @@ paths:
           type: string
           format: uuid
           description: Admin user ID (for testing when auth middleware is disabled)
-          example: '18aa0187-ef14-43c1-a896-590542e20c2c'
+          example: '5b339c52-fcde-4693-95f5-e86d3648b559'
       additionalProperties: false
 
     Program:
