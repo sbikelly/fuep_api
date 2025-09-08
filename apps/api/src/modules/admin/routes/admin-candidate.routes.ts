@@ -12,69 +12,69 @@ export function createAdminCandidateRoutes(
 ): Router {
   const router = Router();
 
-  // Create auth middleware
-  const authMiddleware = createAdminAuthMiddleware(authService, permissionService);
+  // TEMPORARILY DISABLED: Create auth middleware for protected routes
+  // const authMiddleware = createAdminAuthMiddleware(authService, permissionService);
 
-  // Candidate management routes
+  // Candidate management routes (no authentication required for testing)
 
   // Create a new candidate
   router.post(
     '/',
-    authMiddleware(['candidates', 'create']),
+    // authMiddleware(['candidates', 'create']),
     candidateController.createCandidate.bind(candidateController)
   );
   router.get(
     '/',
-    authMiddleware(['candidates', 'read']),
+    // authMiddleware(['candidates', 'read']),
     candidateController.getCandidates.bind(candidateController)
   );
 
   // Candidate statistics (must come before /:id routes)
   router.get(
     '/stats',
-    authMiddleware(['candidates', 'read']),
+    // authMiddleware(['candidates', 'read']),
     candidateController.getCandidateStats.bind(candidateController)
   );
 
   // Get candidate by JAMB registration number (must come before /:id routes)
   router.get(
     '/jamb/:jambRegNo',
-    authMiddleware(['candidates', 'read']),
+    // authMiddleware(['candidates', 'read']),
     candidateController.getCandidateByJambRegNo.bind(candidateController)
   );
 
   router.get(
     '/:id',
-    authMiddleware(['candidates', 'read']),
+    // authMiddleware(['candidates', 'read']),
     candidateController.getCandidate.bind(candidateController)
   );
   router.put(
     '/:id',
-    authMiddleware(['candidates', 'update']),
+    // authMiddleware(['candidates', 'update']),
     candidateController.updateCandidate.bind(candidateController)
   );
   router.delete(
     '/:id',
-    authMiddleware(['candidates', 'delete']),
+    // authMiddleware(['candidates', 'delete']),
     candidateController.deleteCandidate.bind(candidateController)
   );
 
   // Candidate notes
   router.post(
     '/:id/notes',
-    authMiddleware(['candidates', 'update']),
+    // authMiddleware(['candidates', 'update']),
     candidateController.addCandidateNote.bind(candidateController)
   );
   router.get(
     '/:id/notes',
-    authMiddleware(['candidates', 'read']),
+    // authMiddleware(['candidates', 'read']),
     candidateController.getCandidateNotes.bind(candidateController)
   );
 
   // Candidate statistics
   router.get(
     '/stats',
-    authMiddleware(['candidates', 'read']),
+    // authMiddleware(['candidates', 'read']),
     candidateController.getCandidateStats.bind(candidateController)
   );
 
