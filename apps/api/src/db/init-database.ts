@@ -113,10 +113,25 @@ async function insertSampleCandidates(): Promise<void> {
   try {
     console.log('[DB-INIT] Inserting sample candidates...');
 
+    // Check if departments table exists and has data
+    const departmentsCheck = await db.raw(`
+      SELECT COUNT(*) as count FROM departments
+    `);
+
+    if (departmentsCheck.rows[0].count === 0) {
+      console.log('[DB-INIT] ⚠️  No departments found, skipping sample candidates...');
+      return;
+    }
+
     // Get department IDs
     const departments = await db.raw(`
       SELECT id, code FROM departments WHERE code IN ('CSC', 'BAD', 'CEN', 'ACC', 'EEN')
     `);
+
+    console.log(
+      '[DB-INIT] Found departments:',
+      departments.rows.map((row: any) => `${row.code}:${row.id}`).join(', ')
+    );
 
     const deptMap = departments.rows.reduce((acc: any, row: any) => {
       acc[row.code] = row.id;
@@ -139,7 +154,7 @@ async function insertSampleCandidates(): Promise<void> {
         email: 'john.doe@email.com',
         phone: '+2348012345678',
         department: 'Computer Science',
-        department_id: deptMap['CSC'],
+        department_id: deptMap['CSC'] || null,
         mode_of_entry: 'UTME',
         marital_status: 'single',
         registration_completed: true,
@@ -165,7 +180,7 @@ async function insertSampleCandidates(): Promise<void> {
         email: 'jane.smith@email.com',
         phone: '+2348023456789',
         department: 'Business Administration',
-        department_id: deptMap['BAD'],
+        department_id: deptMap['BAD'] || null,
         mode_of_entry: 'UTME',
         marital_status: 'single',
         registration_completed: true,
@@ -191,7 +206,7 @@ async function insertSampleCandidates(): Promise<void> {
         email: 'ahmed.hassan@email.com',
         phone: '+2348034567890',
         department: 'Computer Engineering',
-        department_id: deptMap['CEN'],
+        department_id: deptMap['CEN'] || null,
         mode_of_entry: 'UTME',
         marital_status: 'single',
         registration_completed: true,
@@ -217,7 +232,7 @@ async function insertSampleCandidates(): Promise<void> {
         email: 'fatima.ali@email.com',
         phone: '+2348045678901',
         department: 'Accounting',
-        department_id: deptMap['ACC'],
+        department_id: deptMap['ACC'] || null,
         mode_of_entry: 'UTME',
         marital_status: 'single',
         registration_completed: true,
@@ -243,7 +258,7 @@ async function insertSampleCandidates(): Promise<void> {
         email: 'emmanuel.okafor@email.com',
         phone: '+2348056789012',
         department: 'Electrical Engineering',
-        department_id: deptMap['EEN'],
+        department_id: deptMap['EEN'] || null,
         mode_of_entry: 'UTME',
         marital_status: 'single',
         registration_completed: true,
@@ -258,13 +273,32 @@ async function insertSampleCandidates(): Promise<void> {
     ];
 
     // Insert candidates with conflict resolution
+    let insertedCount = 0;
     for (const candidate of sampleCandidates) {
-      await db('candidates').insert(candidate).onConflict('jamb_reg_no').ignore();
+      try {
+        const result = await db('candidates').insert(candidate).onConflict('jamb_reg_no').ignore();
+        if (result && result.length > 0) {
+          insertedCount++;
+          console.log(
+            `[DB-INIT] ✅ Inserted candidate: ${candidate.jamb_reg_no} - ${candidate.firstname} ${candidate.surname}`
+          );
+        } else {
+          console.log(`[DB-INIT] ⚠️  Candidate already exists: ${candidate.jamb_reg_no}`);
+        }
+      } catch (error: any) {
+        console.error(
+          `[DB-INIT] ❌ Error inserting candidate ${candidate.jamb_reg_no}:`,
+          error.message
+        );
+      }
     }
 
-    console.log('[DB-INIT] ✅ Sample candidates inserted successfully');
+    console.log(
+      `[DB-INIT] ✅ Sample candidates insertion completed. Inserted: ${insertedCount}/${sampleCandidates.length}`
+    );
   } catch (error: any) {
     console.error('[DB-INIT] ❌ Error inserting sample candidates:', error.message);
+    console.error('[DB-INIT] Full error:', error);
     throw error;
   }
 }
