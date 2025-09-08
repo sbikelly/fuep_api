@@ -109,7 +109,7 @@ export async function initializeDatabase(): Promise<boolean> {
 /**
  * Insert sample candidates for testing
  */
-async function insertSampleCandidates(): Promise<void> {
+export async function insertSampleCandidates(): Promise<void> {
   try {
     console.log('[DB-INIT] Inserting sample candidates...');
 

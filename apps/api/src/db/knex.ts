@@ -50,35 +50,45 @@ export const db: Knex = knex({
 });
 
 export async function pingDb(): Promise<boolean> {
-  try {
-    // Simple connection test with timeout
-    await Promise.race([
-      db.raw('select 1'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 5000)),
-    ]);
-    console.log('[DB] Connection successful');
-    return true;
-  } catch (err: any) {
-    console.error('[DB] Connection failed:', err?.message || err);
-    return false;
+  const maxRetries = 5;
+  const retryDelay = 2000; // 2 seconds
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await db.raw('select 1');
+      console.log('[DB] Connection successful');
+      return true;
+    } catch (err: any) {
+      console.error(
+        `[DB] Connection attempt ${attempt}/${maxRetries} failed:`,
+        err?.message || err
+      );
+
+      if (attempt === maxRetries) {
+        console.error('[DB] All connection attempts failed');
+        return false;
+      }
+
+      console.log(`[DB] Retrying in ${retryDelay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    }
   }
+
+  return false;
 }
 
-export async function waitForDatabase(maxAttempts: number = 10): Promise<boolean> {
+export async function waitForDatabase(maxAttempts: number = 30): Promise<boolean> {
   console.log('[DB] Waiting for database connection...');
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(`[DB] Attempt ${attempt}/${maxAttempts}...`);
     const isConnected = await pingDb();
     if (isConnected) {
       console.log('[DB] Database is ready!');
       return true;
     }
 
-    if (attempt < maxAttempts) {
-      console.log(`[DB] Waiting 2 seconds before retry...`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
+    console.log(`[DB] Attempt ${attempt}/${maxAttempts} - waiting 2 seconds...`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
   console.error('[DB] Database connection timeout after', maxAttempts, 'attempts');
