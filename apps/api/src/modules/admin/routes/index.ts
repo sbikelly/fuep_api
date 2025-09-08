@@ -93,7 +93,8 @@ function createAcademicRoutes(academicService: AdminAcademicService): Router {
     try {
       const query = {
         search: req.query.search as string,
-        isActive: req.query.isActive === 'true',
+        isActive:
+          req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 10,
       };
@@ -198,7 +199,8 @@ function createAcademicRoutes(academicService: AdminAcademicService): Router {
       const query = {
         search: req.query.search as string,
         facultyId: req.query.facultyId as string,
-        isActive: req.query.isActive === 'true',
+        isActive:
+          req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 10,
       };
