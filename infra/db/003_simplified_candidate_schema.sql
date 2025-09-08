@@ -325,7 +325,7 @@ CREATE TRIGGER payment_disputes_set_updated_at
 
 -- Insert sample candidates for testing
 INSERT INTO candidates (
-    jamb_reg_no, first_name, last_name, middle_name, gender, dob, 
+    jamb_reg_no, firstname, surname, othernames, gender, dob, 
     nationality, state, lga, address, email, phone, department, 
     department_id, mode_of_entry, marital_status, registration_completed,
     biodata_completed, education_completed, next_of_kin_completed, 
