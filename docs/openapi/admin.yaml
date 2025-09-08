@@ -208,55 +208,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [jambRegNo, firstname, surname, departmentId, modeOfEntry]
-              properties:
-                jambRegNo:
-                  type: string
-                  maxLength: 20
-                  description: JAMB registration number (must be unique)
-                firstname:
-                  type: string
-                  maxLength: 100
-                  description: Candidate's first name
-                surname:
-                  type: string
-                  maxLength: 100
-                  description: Candidate's surname
-                othernames:
-                  type: string
-                  maxLength: 100
-                  description: Middle name or other names
-                email:
-                  type: string
-                  format: email
-                  maxLength: 160
-                  description: Email address
-                phone:
-                  type: string
-                  maxLength: 32
-                  description: Phone number
-                gender:
-                  type: string
-                  enum: [male, female, other]
-                  default: other
-                  description: Gender
-                departmentId:
-                  type: string
-                  format: uuid
-                  description: UUID of the department
-                department:
-                  type: string
-                  maxLength: 100
-                  description: Department name (for backward compatibility)
-                modeOfEntry:
-                  type: string
-                  enum: [UTME, DE]
-                  description: Mode of entry
-                adminUserId:
-                  type: string
-                  format: uuid
-                  description: Admin user ID (for testing when authentication middleware is disabled)
+              $ref: '#/components/schemas/CandidateCreateRequest'
       responses:
         '201':
           description: Candidate created successfully
@@ -641,13 +593,15 @@ paths:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Faculty' }
-                  pagination:
-                    $ref: '#/components/schemas/PaginationInfo'
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
                   timestamp: { type: string, format: date-time }
 
     post:
-      summary: Create faculty
+      summary: Create a new faculty
       tags: [Admin]
+      description: Create a new faculty in the system
       requestBody:
         required: true
         content:
@@ -664,7 +618,16 @@ paths:
                 properties:
                   success: { type: boolean }
                   data: { $ref: '#/components/schemas/Faculty' }
-                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Bad request - validation error or duplicate code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  error: { type: string }
                   timestamp: { type: string, format: date-time }
 
   /api/admin/faculties/{id}:
@@ -768,13 +731,15 @@ paths:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Department' }
-                  pagination:
-                    $ref: '#/components/schemas/PaginationInfo'
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
                   timestamp: { type: string, format: date-time }
 
     post:
-      summary: Create department
+      summary: Create a new department
       tags: [Admin]
+      description: Create a new department in the system
       requestBody:
         required: true
         content:
@@ -791,7 +756,16 @@ paths:
                 properties:
                   success: { type: boolean }
                   data: { $ref: '#/components/schemas/Department' }
-                  message: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Bad request - validation error or duplicate code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  error: { type: string }
                   timestamp: { type: string, format: date-time }
 
   /api/admin/departments/{id}:
@@ -1412,6 +1386,80 @@ paths:
         description: { type: string }
         facultyId: { type: string, format: uuid }
         isActive: { type: boolean }
+
+    # ============================================
+    # Candidate Schemas
+    # ============================================
+
+    Candidate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        jambRegNo: { type: string, maxLength: 20 }
+        firstname: { type: string, maxLength: 100 }
+        surname: { type: string, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        gender: { type: string, enum: ['male', 'female', 'other'] }
+        dob: { type: string, format: date }
+        nationality: { type: string, maxLength: 64 }
+        state: { type: string, maxLength: 64 }
+        lga: { type: string, maxLength: 64 }
+        address: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 32 }
+        department: { type: string, maxLength: 100 }
+        departmentId: { type: string, format: uuid }
+        modeOfEntry: { type: string, enum: ['UTME', 'DE'] }
+        maritalStatus: { type: string, enum: ['single', 'married', 'divorced', 'widowed'] }
+        passportPhotoUrl: { type: string }
+        signatureUrl: { type: string }
+        registrationCompleted: { type: boolean }
+        biodataCompleted: { type: boolean }
+        educationCompleted: { type: boolean }
+        nextOfKinCompleted: { type: boolean }
+        sponsorCompleted: { type: boolean }
+        passwordHash: { type: string }
+        isFirstLogin: { type: boolean }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CandidateCreateRequest:
+      type: object
+      required: [jambRegNo, firstname, surname, departmentId, modeOfEntry]
+      properties:
+        jambRegNo: { type: string, maxLength: 20 }
+        firstname: { type: string, maxLength: 100 }
+        surname: { type: string, maxLength: 100 }
+        othernames: { type: string, maxLength: 100 }
+        gender: { type: string, enum: ['male', 'female', 'other'], default: 'other' }
+        dob: { type: string, format: date }
+        nationality: { type: string, maxLength: 64 }
+        state: { type: string, maxLength: 64 }
+        lga: { type: string, maxLength: 64 }
+        address: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 32 }
+        department: { type: string, maxLength: 100 }
+        departmentId: { type: string, format: uuid }
+        modeOfEntry: { type: string, enum: ['UTME', 'DE'] }
+        maritalStatus: { type: string, enum: ['single', 'married', 'divorced', 'widowed'] }
+        passportPhotoUrl: { type: string }
+        signatureUrl: { type: string }
+        registrationCompleted: { type: boolean, default: false }
+        biodataCompleted: { type: boolean, default: false }
+        educationCompleted: { type: boolean, default: false }
+        nextOfKinCompleted: { type: boolean, default: false }
+        sponsorCompleted: { type: boolean, default: false }
+        passwordHash: { type: string }
+        isFirstLogin: { type: boolean, default: true }
+        isActive: { type: boolean, default: true }
+        adminUserId:
+          {
+            type: string,
+            format: uuid,
+            description: 'Admin user ID (for testing when auth is disabled)',
+          }
 
     Program:
       type: object
