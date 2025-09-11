@@ -1099,7 +1099,7 @@ export class CandidateController {
   /**
    * Check JAMB registration number and return candidate information
    */
-  async checkJamb(req: Request, res: Response): Promise<void> {
+  async checkJamb(req: Request, res: Response) {
     try {
       const { jambRegNo } = req.body;
 
@@ -1136,7 +1136,7 @@ export class CandidateController {
   /**
    * Initiate registration for a candidate
    */
-  async initiateRegistration(req: Request, res: Response): Promise<void> {
+  async initiateRegistration(req: Request, res: Response) {
     try {
       const { candidateId } = req.params;
       const { email, phone } = req.body;
