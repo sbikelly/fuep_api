@@ -32,11 +32,111 @@ paths:
                   timestamp: { type: string, format: date-time }
 
   # JAMB verification and registration initiation
-  /api/candidates/check-jamb:
+  /api/candidates/check-jamb-info:
     post:
-      summary: Check JAMB registration and initiate candidate registration
+      summary: Check JAMB registration and return candidate information
       tags: [Candidates]
       description: |
+        Checks if JAMB registration number exists in the candidates database and returns
+        the candidate's initial information uploaded by the admin. This endpoint only
+        retrieves information and does not initiate the registration process.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jambRegNo]
+              properties:
+                jambRegNo: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: JAMB verification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      candidateId: { type: string, format: uuid }
+                      candidateInfo:
+                        type: object
+                        properties:
+                          firstname: { type: string }
+                          surname: { type: string }
+                          othernames: { type: string }
+                          modeOfEntry: { type: string, enum: [UTME, DE] }
+                          email: { type: string, format: email }
+                          phone: { type: string }
+                          hasPassword: { type: boolean }
+                          requiresContactUpdate: { type: boolean }
+                  timestamp: { type: string, format: date-time }
+        '404': { description: JAMB registration not found in candidates database }
+        '400': { description: Invalid JAMB registration number }
+
+  /api/candidates/{candidateId}/initiate-registration:
+    post:
+      summary: Initiate registration for a candidate
+      tags: [Candidates]
+      description: |
+        Initiates the registration process for a candidate. If the candidate doesn't have
+        contact information, it can be provided in the request body. The system will
+        generate a temporary password and send it via email/SMS. Login details are also
+        displayed in the response for redundancy.
+      parameters:
+        - in: path
+          name: candidateId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                phone: { type: string }
+      responses:
+        '200':
+          description: Registration initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      nextStep: { type: string }
+                      candidateType: { type: string, enum: [UTME, DE] }
+                      loginDetails:
+                        type: object
+                        properties:
+                          username: { type: string }
+                          password: { type: string }
+                        description: 'Login credentials displayed for redundancy (also sent via email/SMS)'
+                  timestamp: { type: string, format: date-time }
+        '400':
+          { description: Bad request - Missing contact information or candidate already registered }
+        '404': { description: Candidate not found }
+
+  /api/candidates/check-jamb:
+    post:
+      summary: Check JAMB registration and initiate candidate registration (Legacy)
+      tags: [Candidates]
+      description: |
+        **LEGACY ENDPOINT** - This endpoint combines both JAMB checking and registration initiation.
+        For new implementations, use the separate endpoints:
+        - `/api/candidates/check-jamb-info` - Check JAMB and return candidate information
+        - `/api/candidates/{candidateId}/initiate-registration` - Initiate registration process
+
         Checks if JAMB registration number exists in the candidates database.
         If found and candidate has no password (not yet initiated registration):
           - Creates password and sends email/SMS

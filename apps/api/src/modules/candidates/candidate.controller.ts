@@ -1095,4 +1095,81 @@ export class CandidateController {
       });
     }
   }
+
+  /**
+   * Check JAMB registration number and return candidate information
+   */
+  async checkJamb(req: Request, res: Response): Promise<void> {
+    try {
+      const { jambRegNo } = req.body;
+
+      if (!jambRegNo) {
+        return res.status(400).json({
+          success: false,
+          error: 'JAMB registration number is required',
+        });
+      }
+
+      const result = await this.candidateService.checkJamb(jambRegNo);
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: result.success
+          ? {
+              candidateId: result.candidateId,
+              candidateInfo: result.candidateInfo,
+            }
+          : undefined,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error checking JAMB:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to check JAMB registration',
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Initiate registration for a candidate
+   */
+  async initiateRegistration(req: Request, res: Response): Promise<void> {
+    try {
+      const { candidateId } = req.params;
+      const { email, phone } = req.body;
+
+      if (!candidateId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Candidate ID is required',
+        });
+      }
+
+      const contactInfo = email || phone ? { email, phone } : undefined;
+      const result = await this.candidateService.initiateRegistration(candidateId, contactInfo);
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        data: result.success
+          ? {
+              nextStep: result.nextStep,
+              candidateType: result.candidateType,
+              loginDetails: result.loginDetails,
+            }
+          : undefined,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.error('[CandidateController] Error initiating registration:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to initiate registration',
+        timestamp: new Date(),
+      });
+    }
+  }
 }

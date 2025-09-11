@@ -185,6 +185,200 @@ export class CandidateService {
   }
 
   /**
+   * Check JAMB registration number and return candidate information
+   */
+  async checkJamb(jambRegNo: string): Promise<{
+    success: boolean;
+    message: string;
+    candidateId?: string;
+    candidateInfo?: {
+      firstname: string;
+      surname: string;
+      othernames?: string;
+      modeOfEntry: 'UTME' | 'DE';
+      email?: string;
+      phone?: string;
+      hasPassword: boolean;
+      requiresContactUpdate: boolean;
+    };
+  }> {
+    return await withDatabaseLogging('checkJamb', 'candidates', async () => {
+      try {
+        // Check if JAMB number exists in candidates table
+        const candidateRecord = await db('candidates').where('jamb_reg_no', jambRegNo).first();
+
+        if (!candidateRecord) {
+          return {
+            success: false,
+            message:
+              'JAMB registration number not found in candidates database. Please contact admin for assistance.',
+          };
+        }
+
+        // Return candidate information
+        return {
+          success: true,
+          message: 'JAMB registration number found',
+          candidateId: candidateRecord.id,
+          candidateInfo: {
+            firstname: candidateRecord.firstname,
+            surname: candidateRecord.surname,
+            othernames: candidateRecord.othernames,
+            modeOfEntry: candidateRecord.mode_of_entry,
+            email: candidateRecord.email,
+            phone: candidateRecord.phone,
+            hasPassword: !!candidateRecord.password_hash,
+            requiresContactUpdate: !candidateRecord.email || !candidateRecord.phone,
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to check JAMB registration', {
+          module: 'candidate',
+          operation: 'checkJamb',
+          metadata: { jambRegNo },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Initiate registration for a candidate
+   */
+  async initiateRegistration(
+    candidateId: string,
+    contactInfo?: {
+      email?: string;
+      phone?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    nextStep?: string;
+    candidateType?: 'UTME' | 'DE';
+    loginDetails?: {
+      username: string;
+      password: string;
+    };
+  }> {
+    return await withDatabaseLogging('initiateRegistration', 'candidates', async () => {
+      try {
+        // Get candidate information
+        const candidateRecord = await db('candidates').where('id', candidateId).first();
+
+        if (!candidateRecord) {
+          return {
+            success: false,
+            message: 'Candidate not found',
+          };
+        }
+
+        // Check if candidate already has password_hash (has initiated registration)
+        if (candidateRecord.password_hash) {
+          return {
+            success: true,
+            message: 'Candidate has already initiated registration. Please login to continue.',
+            nextStep: 'login',
+            candidateType: candidateRecord.mode_of_entry,
+          };
+        }
+
+        // Update contact info if provided
+        if (contactInfo) {
+          const updateData: any = { updated_at: new Date() };
+
+          if (contactInfo.email) {
+            updateData.email = contactInfo.email;
+          }
+          if (contactInfo.phone) {
+            updateData.phone = contactInfo.phone;
+          }
+
+          await db('candidates').where('id', candidateId).update(updateData);
+
+          // Refresh candidate record with updated contact info
+          const updatedRecord = await db('candidates').where('id', candidateId).first();
+          Object.assign(candidateRecord, updatedRecord);
+        }
+
+        // Check if contact info is available after potential update
+        if (!candidateRecord.email || !candidateRecord.phone) {
+          return {
+            success: false,
+            message: 'Contact information required to complete registration',
+            nextStep: 'complete_contact',
+          };
+        }
+
+        // Contact info exists - create password and send email
+        const tempPassword = PasswordUtils.generateTemporaryPassword();
+        const hashedPassword = await PasswordUtils.hashPassword(tempPassword);
+
+        // Update candidate with password and set isFirstLogin to true
+        await db('candidates').where('id', candidateId).update({
+          password_hash: hashedPassword,
+          is_first_login: true,
+          updated_at: new Date(),
+        });
+
+        // Send temporary password email
+        try {
+          await this.emailService.sendTemporaryPassword(
+            candidateRecord.email,
+            candidateRecord.jamb_reg_no,
+            tempPassword,
+            `${candidateRecord.firstname} ${candidateRecord.surname}`
+          );
+        } catch (emailError) {
+          logger.warn('Failed to send temporary password email', {
+            module: 'candidate',
+            operation: 'initiateRegistration',
+            metadata: { candidateId, email: candidateRecord.email },
+            error: emailError instanceof Error ? emailError.message : String(emailError),
+          });
+        }
+
+        // Send SMS notification
+        try {
+          await this.smsService.sendTemporaryPasswordSMS(
+            candidateRecord.phone,
+            candidateRecord.jamb_reg_no,
+            tempPassword,
+            `${candidateRecord.firstname} ${candidateRecord.surname}`
+          );
+        } catch (smsError) {
+          logger.warn('Failed to send SMS notification', {
+            module: 'candidate',
+            operation: 'initiateRegistration',
+            metadata: { candidateId, phone: candidateRecord.phone },
+            error: smsError instanceof Error ? smsError.message : String(smsError),
+          });
+        }
+
+        return {
+          success: true,
+          message: 'Temporary password sent to your email. Please login to continue.',
+          nextStep: 'login',
+          candidateType: candidateRecord.mode_of_entry,
+          loginDetails: {
+            username: candidateRecord.jamb_reg_no,
+            password: tempPassword,
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to initiate registration', {
+          module: 'candidate',
+          operation: 'initiateRegistration',
+          metadata: { candidateId, contactInfo },
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+    });
+  }
+
+  /**
    * Phase 1: Complete contact information for existing candidate
    */
   async completeContactInfo(

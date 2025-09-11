@@ -10,6 +10,17 @@ export function createCandidateRoutes(controller: CandidateController): Router {
   router.use(candidateRateLimit);
 
   // JAMB verification and registration initiation (specific routes first)
+  // Check JAMB registration number and return candidate information
+  router.post('/check-jamb-info', candidateRateLimit, controller.checkJamb.bind(controller));
+
+  // Initiate registration for a candidate
+  router.post(
+    '/:candidateId/initiate-registration',
+    candidateRateLimit,
+    controller.initiateRegistration.bind(controller)
+  );
+
+  // Legacy combined endpoint (keeping for backward compatibility)
   router.post(
     '/check-jamb',
     candidateRateLimit,
